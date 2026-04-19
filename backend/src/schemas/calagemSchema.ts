@@ -101,3 +101,5 @@ export const CalagemSchema = z.object({
     }
   }
 });
+
+export type EntradaCalagem = z.infer<typeof CalagemSchema>;

@@ -1,28 +1,31 @@
 import express from 'express';
-import { CalagemSchema } from './schemas/calagemSchema'; // Ajuste o caminho se necessário
+import { CalagemSchema } from './schemas/calagemSchema';
+import { executarMotorCalagem } from './services/motorCalagem';
+import cors from 'cors'; // O CORS importado
 
 const app = express();
+app.use(express.json());
+
+app.use(cors());
 app.use(express.json());
 
 app.get('/', (req, res) => {
   res.send({ message: 'Ibiferti Backend - Motor Agronômico rodando!' });
 });
 
-// Nossa rota de cálculo que usa o Guardião de Dados
 app.post('/api/calcular', (req, res) => {
   try {
-    // Tenta validar o JSON recebido contra o nosso Schema estrito
+    // 1. O Guardião valida os dados
     const dadosValidados = CalagemSchema.parse(req.body);
     
-    // Se passou, por enquanto só devolvemos sucesso (Fase 3 faremos o motor de verdade)
-    res.status(200).json({
-      sucesso: true,
-      mensagem: 'Validação passou! Dados prontos para o motor de cálculo.',
-      dados_recebidos: dadosValidados
-    });
+    // 2. O Motor faz a matemática e orquestra as regras agronômicas
+    const resultado = executarMotorCalagem(dadosValidados);
+    
+    // 3. Retornamos o Contrato de Saída em Sucesso
+    res.status(200).json(resultado);
 
   } catch (error: any) {
-    // Se o Zod barrar, formatamos a saída de erro padronizada
+    // Retornamos o Contrato de Saída em Erro
     res.status(400).json({
       sucesso: false,
       versao_regra: req.body?.versao_regra || 'desconhecida',
