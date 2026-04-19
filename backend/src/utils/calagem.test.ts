@@ -9,7 +9,21 @@
  */
 
 import { executarMotorCalagem } from '../services/motorCalagem';
+import { RespostaMotor, RespostaSucesso } from '../services/motorCalagem';
 import { EntradaCalagem } from '../schemas/calagemSchema';
+
+// ---------------------------------------------------------------------------
+// Helper de narrowing — falha o teste com mensagem útil se vier RespostaErro
+// ---------------------------------------------------------------------------
+function assertSucesso(r: RespostaMotor): RespostaSucesso {
+  if (!r.sucesso) {
+    throw new Error(
+      `Motor retornou erro inesperado: [${r.codigo_erro}] ${r.mensagem}\n` +
+      `Detalhes: ${JSON.stringify(r.detalhes, null, 2)}`
+    );
+  }
+  return r;
+}
 
 // ---------------------------------------------------------------------------
 // Tipo auxiliar para documentar cada caso
@@ -247,8 +261,7 @@ const casos: CasoTesteCalagem[] = [
 
   // ======================================================================
   // GRUPO 4 — PD_IMPLANTACAO CAMPO_NATURAL_SUPERFICIAL
-  // Regra: ½ da dose SMP para pH 6,0 em superfície, conforme o manual (p.73):
-  // "dose sugerida corresponde a ½ (metade) do que o índice SMP indicar para pH 6,0".
+  // Regra: ½ da dose SMP para pH 6,0 em superfície, conforme o manual (p.73).
   // O motor adota fracionamento 0,25 para esta rota (conservador).
   // Limite superficial: máx 5,0 t/ha PRNT 100% (nota 5, Tabela 5.3, p.75).
   // ======================================================================
@@ -270,21 +283,21 @@ const casos: CasoTesteCalagem[] = [
     referencia: 'Tabela 5.2, p.70 — SMP 5.8, pH 6,0 = 4,2; p.73 — aplicação superficial campo natural; limite 5 t/ha (Tabela 5.3 nota 5, p.75)',
   },
   {
-    descricao: 'PDI-CN-02 | SMP 4.4 | clamping ativo | dose superficial limitada a 5,0 t/ha',
+    descricao: 'PDI-CN-02 | SMP 5.6 | PRNT 100% | NC_base=5.4 x 0.25 = 1.35 t/ha superficial',
     entrada: {
       versao_regra: 'ibiferti-calagem-graos-v1.6',
       sistema_manejo: 'PD_IMPLANTACAO',
       modo_implantacao_pd: 'CAMPO_NATURAL_SUPERFICIAL',
       prnt_pct: 100,
       amostras: [
-        { profundidade: '0-20', ph_agua: 4.2, indice_smp: 4.4 },
+        { profundidade: '0-20', ph_agua: 5.0, indice_smp: 5.6 },
       ],
     },
-    // NC_tabela = 21,0 → ×0,25 = 5,25 → clamped a 5,0 → PRNT 100% → 5,0
-    resultadoEsperado: 5,
+    // NC_tabela(5.6) = 5,4 → ×0,25 = 1,35 → clamping: 1,35 <= 5 → 1,35
+    resultadoEsperado: 1.35,
     unidade: 't/ha',
     metodo: 'TABELA_SMP_5_2',
-    referencia: 'Tabela 5.2, p.70 — SMP ≤4.4 = 21,0; ×0,25 = 5,25; clamped a 5,0 (Tabela 5.3 nota 5, p.75)',
+    referencia: 'Tabela 5.2, p.70 — SMP 5.6, pH 6,0 = 5,4; ×0,25 = 1,35; CAMPO_NATURAL exige SMP > 5,5',
   },
   {
     descricao: 'PDI-CN-03 | SMP 6.2 | PRNT 100% | NC_base=2.2 × 0.25 = 0.55 t/ha',
@@ -475,7 +488,7 @@ describe('Motor de Calagem — Validação contra Manual RS/SC 2016', () => {
   test.each(casos)(
     '$descricao',
     ({ entrada, resultadoEsperado }) => {
-      const resultado = executarMotorCalagem(entrada);
+      const resultado = assertSucesso(executarMotorCalagem(entrada));
       expect(resultado.dose_final_t_ha).toBeCloseTo(resultadoEsperado, 2);
     },
   );
@@ -491,7 +504,7 @@ describe('Motor de Calagem — Validação contra Manual RS/SC 2016', () => {
         prnt_pct: 100,
         amostras: [{ profundidade: '0-20', ph_agua: 4.9, indice_smp: 5.0 }],
       };
-      const r = executarMotorCalagem(entrada);
+      const r = assertSucesso(executarMotorCalagem(entrada));
       expect(r.necessita_calagem).toBe(true);
       expect(r.modo_aplicacao).toBe('INCORPORADO');
       expect(r.estado_motor).toBe('CONV_CALAGEM_INCORPORADA');
@@ -504,7 +517,7 @@ describe('Motor de Calagem — Validação contra Manual RS/SC 2016', () => {
         prnt_pct: 100,
         amostras: [{ profundidade: '0-20', ph_agua: 6.5, indice_smp: 7.1 }],
       };
-      const r = executarMotorCalagem(entrada);
+      const r = assertSucesso(executarMotorCalagem(entrada));
       expect(r.necessita_calagem).toBe(false);
       expect(r.estado_motor).toBe('CONV_SEM_CALAGEM');
     });
@@ -517,7 +530,7 @@ describe('Motor de Calagem — Validação contra Manual RS/SC 2016', () => {
         prnt_pct: 100,
         amostras: [{ profundidade: '0-20', ph_agua: 5.1, indice_smp: 5.8 }],
       };
-      const r = executarMotorCalagem(entrada);
+      const r = assertSucesso(executarMotorCalagem(entrada));
       expect(r.modo_aplicacao).toBe('SUPERFICIAL');
       expect(r.estado_motor).toBe('PDI_CALAGEM_SUPERFICIAL_CAMPO_NATURAL');
     });
@@ -532,7 +545,7 @@ describe('Motor de Calagem — Validação contra Manual RS/SC 2016', () => {
           { profundidade: '10-20', ph_agua: 5.2, indice_smp: 5.8, m_pct: 8 },
         ],
       };
-      const r = executarMotorCalagem(entrada);
+      const r = assertSucesso(executarMotorCalagem(entrada));
       expect(r.estado_motor).toBe('PDC_SEM_CALAGEM_TRAVA_V_M');
       expect(r.necessita_calagem).toBe(false);
     });
@@ -547,7 +560,7 @@ describe('Motor de Calagem — Validação contra Manual RS/SC 2016', () => {
           { profundidade: '10-20', ph_agua: 4.8, indice_smp: 5.0, m_pct: 15 },
         ],
       };
-      const r = executarMotorCalagem(entrada);
+      const r = assertSucesso(executarMotorCalagem(entrada));
       expect(r.estado_motor).toBe('PDC_CENARIO_REINICIO_PD');
       expect(r.modo_aplicacao).toBe('INCORPORADO');
     });
@@ -561,7 +574,7 @@ describe('Motor de Calagem — Validação contra Manual RS/SC 2016', () => {
           { profundidade: '0-20', ph_agua: 5.6, indice_smp: 6.4, mo_pct: 2.5, al_cmolc_dm3: 0.3 },
         ],
       };
-      const r = executarMotorCalagem(entrada);
+      const r = assertSucesso(executarMotorCalagem(entrada));
       expect(r.metodo_nc_utilizado).toBe('POLINOMIAL_BAIXO_TAMPAO');
     });
 
@@ -575,9 +588,110 @@ describe('Motor de Calagem — Validação contra Manual RS/SC 2016', () => {
           { profundidade: '10-20', ph_agua: 4.8, indice_smp: 5.0, m_pct: 15 },
         ],
       };
-      const r = executarMotorCalagem(entrada);
+      const r = assertSucesso(executarMotorCalagem(entrada));
       // (5,4 + 5,0) / 2 = 5,2
       expect(r.auditoria.smp_medio).toBeCloseTo(5.2, 1);
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // Testes do novo estado PDC_SEM_CALAGEM_PH
+  // -----------------------------------------------------------------------
+  describe('Estado PDC_SEM_CALAGEM_PH', () => {
+    test('PDC com ph_agua >= 6.0 na camada 0-10 deve dispensar calagem por pH adequado', () => {
+      const entrada: EntradaCalagem = {
+        versao_regra: 'ibiferti-calagem-graos-v1.6',
+        sistema_manejo: 'PD_CONSOLIDADO',
+        prnt_pct: 100,
+        amostras: [
+          { profundidade: '0-10', ph_agua: 6.0, indice_smp: 6.2, v_pct: 50, m_pct: 15 },
+          { profundidade: '10-20', ph_agua: 5.5, indice_smp: 5.8, m_pct: 8 },
+        ],
+      };
+      const r = assertSucesso(executarMotorCalagem(entrada));
+      expect(r.estado_motor).toBe('PDC_SEM_CALAGEM_PH');
+      expect(r.necessita_calagem).toBe(false);
+      expect(r.dose_final_t_ha).toBe(0);
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // Testes de erro estruturado (RespostaErro)
+  // -----------------------------------------------------------------------
+  describe('Validação de schema — respostas de erro estruturadas', () => {
+    test('PD_CONSOLIDADO sem amostras separadas deve retornar RespostaErro', () => {
+      const payload = {
+        versao_regra: 'ibiferti-calagem-graos-v1.6',
+        sistema_manejo: 'PD_CONSOLIDADO',
+        prnt_pct: 100,
+        amostras: [
+          { profundidade: '0-20', ph_agua: 5.0, indice_smp: 5.5, v_pct: 55, m_pct: 15 },
+        ],
+      };
+      const r = executarMotorCalagem(payload);
+      expect(r.sucesso).toBe(false);
+      if (!r.sucesso) {
+        expect(r.codigo_erro).toBe('E002_PD_CONSOLIDADO_AMOSTRAS_INVALIDAS');
+      }
+    });
+
+    test('modo_implantacao_pd fora de PD_IMPLANTACAO deve retornar RespostaErro', () => {
+      const payload = {
+        versao_regra: 'ibiferti-calagem-graos-v1.6',
+        sistema_manejo: 'CONVENCIONAL',
+        modo_implantacao_pd: 'INCORPORADO',
+        prnt_pct: 100,
+        amostras: [{ profundidade: '0-20', ph_agua: 5.0, indice_smp: 5.5 }],
+      };
+      const r = executarMotorCalagem(payload);
+      expect(r.sucesso).toBe(false);
+      if (!r.sucesso) {
+        expect(r.codigo_erro).toBe('E003_MODO_IMPLANTACAO_PD_INVALIDO');
+      }
+    });
+
+    test('prnt_pct <= 0 deve retornar RespostaErro', () => {
+      const payload = {
+        versao_regra: 'ibiferti-calagem-graos-v1.6',
+        sistema_manejo: 'CONVENCIONAL',
+        prnt_pct: 0,
+        amostras: [{ profundidade: '0-20', ph_agua: 5.0, indice_smp: 5.5 }],
+      };
+      const r = executarMotorCalagem(payload);
+      expect(r.sucesso).toBe(false);
+      if (!r.sucesso) {
+        expect(r.codigo_erro).toBe('E005_PRNT_INVALIDO');
+      }
+    });
+
+    test('CAMPO_NATURAL_SUPERFICIAL com SMP <= 5.5 deve retornar hard block', () => {
+      const payload = {
+        versao_regra: 'ibiferti-calagem-graos-v1.6',
+        sistema_manejo: 'PD_IMPLANTACAO',
+        modo_implantacao_pd: 'CAMPO_NATURAL_SUPERFICIAL',
+        prnt_pct: 100,
+        amostras: [{ profundidade: '0-20', ph_agua: 4.2, indice_smp: 4.4 }],
+      };
+      const r = executarMotorCalagem(payload);
+      expect(r.sucesso).toBe(false);
+      if (!r.sucesso) {
+        // SMP 4.4 <= 5.5: hard block do schema (Regra 5 do calagemSchema)
+        expect(r.detalhes[0].campo).toBe('amostras');
+      }
+    });
+
+        test('versao_regra incorreta deve retornar RespostaErro', () => {
+      const payload = {
+        versao_regra: 'versao-errada',
+        sistema_manejo: 'CONVENCIONAL',
+        prnt_pct: 100,
+        amostras: [{ profundidade: '0-20', ph_agua: 5.0, indice_smp: 5.5 }],
+      };
+      const r = executarMotorCalagem(payload);
+      expect(r.sucesso).toBe(false);
+      if (!r.sucesso) {
+        expect(r.codigo_erro).toBe('E004_VERSAO_REGRA_INVALIDA');
+      }
     });
   });
 });

@@ -42,9 +42,7 @@ export function calcularNcViaTabelaSmp(indiceSmp: number, phAlvo: PhAlvo = 6.0):
   if (indiceSmp <= 4.4) return DICIONARIO_SMP["4.4"][phAlvo];
   if (indiceSmp >= 7.1) return DICIONARIO_SMP["7.1"][phAlvo];
 
-  // Garante que o índice tem apenas 1 casa decimal para bater com a chave do dicionário
   const chaveSmp = indiceSmp.toFixed(1);
-  
   const necessidadeCalagem = DICIONARIO_SMP[chaveSmp][phAlvo];
   return necessidadeCalagem !== undefined ? necessidadeCalagem : 0;
 }
@@ -52,6 +50,7 @@ export function calcularNcViaTabelaSmp(indiceSmp: number, phAlvo: PhAlvo = 6.0):
 /**
  * Cálculo via polinômio para solos de Baixo Poder Tampão (geralmente SMP > 6.3).
  * Utiliza as equações exatas do manual baseadas em MO e Al.
+ * Sem arredondamento — valor segue no pipeline até dose_final_t_ha.
  */
 export function calcularNcViaPolinomio(mo_pct: number, al_cmolc_dm3: number, phAlvo: PhAlvo = 6.0): number {
   let nc = 0;
@@ -64,6 +63,5 @@ export function calcularNcViaPolinomio(mo_pct: number, al_cmolc_dm3: number, phA
     nc = -0.122 + (1.193 * mo_pct) + (2.713 * al_cmolc_dm3);
   }
 
-  // A necessidade de calagem não pode ser negativa
-  return nc > 0 ? Number(nc.toFixed(2)) : 0;
+  return nc > 0 ? nc : 0;
 }
