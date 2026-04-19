@@ -40,3 +40,4 @@ export function soloSuperficialAtingiuMeta(v_pct?: number, m_pct?: number): bool
   if (v_pct === undefined || m_pct === undefined) return false;
   return v_pct >= 65 && m_pct < 10;
 }
+
