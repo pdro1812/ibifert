@@ -53,7 +53,7 @@ const casos: CasoTesteCalagem[] = [
       sistema_manejo: 'CONVENCIONAL',
       prnt_pct: 100,
       amostras: [
-        { profundidade: '0-20', ph_agua: 4.9, indice_smp: 5.0 },
+        { profundidade: '0-20', ph: 4.9, indice_smp: 5.0 },
       ],
     },
     resultadoEsperado: 9.9,
@@ -68,7 +68,7 @@ const casos: CasoTesteCalagem[] = [
       sistema_manejo: 'CONVENCIONAL',
       prnt_pct: 100,
       amostras: [
-        { profundidade: '0-20', ph_agua: 4.2, indice_smp: 4.4 },
+        { profundidade: '0-20', ph: 4.2, indice_smp: 4.4 },
       ],
     },
     resultadoEsperado: 21,
@@ -83,7 +83,7 @@ const casos: CasoTesteCalagem[] = [
       sistema_manejo: 'CONVENCIONAL',
       prnt_pct: 100,
       amostras: [
-        { profundidade: '0-20', ph_agua: 3.8, indice_smp: 3.0 },
+        { profundidade: '0-20', ph: 3.8, indice_smp: 3.0 },
       ],
     },
     resultadoEsperado: 21,
@@ -98,7 +98,7 @@ const casos: CasoTesteCalagem[] = [
       sistema_manejo: 'CONVENCIONAL',
       prnt_pct: 100,
       amostras: [
-        { profundidade: '0-20', ph_agua: 6.5, indice_smp: 7.1 },
+        { profundidade: '0-20', ph: 6.5, indice_smp: 7.1 },
       ],
     },
     resultadoEsperado: 0,
@@ -113,7 +113,7 @@ const casos: CasoTesteCalagem[] = [
       sistema_manejo: 'CONVENCIONAL',
       prnt_pct: 80,
       amostras: [
-        { profundidade: '0-20', ph_agua: 5.4, indice_smp: 6.0 },
+        { profundidade: '0-20', ph: 5.4, indice_smp: 6.0 },
       ],
     },
     // NC_base = 3,2 t/ha (Tabela 5.2). Comercial = (3,2 × 100) / 80 = 4,0
@@ -129,7 +129,7 @@ const casos: CasoTesteCalagem[] = [
       sistema_manejo: 'CONVENCIONAL',
       prnt_pct: 75,
       amostras: [
-        { profundidade: '0-20', ph_agua: 5.0, indice_smp: 5.5 },
+        { profundidade: '0-20', ph: 5.0, indice_smp: 5.5 },
       ],
     },
     // NC_base = 6,1 t/ha. Comercial = (6,1 × 100) / 75 = 8,13
@@ -145,7 +145,7 @@ const casos: CasoTesteCalagem[] = [
       sistema_manejo: 'CONVENCIONAL',
       prnt_pct: 90,
       amostras: [
-        { profundidade: '0-20', ph_agua: 4.3, indice_smp: 4.5 },
+        { profundidade: '0-20', ph: 4.3, indice_smp: 4.5 },
       ],
     },
     // NC_base = 17,3 t/ha. Comercial = (17,3 × 100) / 90 = 19,22
@@ -161,7 +161,7 @@ const casos: CasoTesteCalagem[] = [
       sistema_manejo: 'CONVENCIONAL',
       prnt_pct: 100,
       amostras: [
-        { profundidade: '0-20', ph_agua: 6.3, indice_smp: 7.0 },
+        { profundidade: '0-20', ph: 6.3, indice_smp: 7.0 },
       ],
     },
     // NC = 0,0 (Tabela 5.2, SMP 7.0, pH 6,0)
@@ -185,7 +185,7 @@ const casos: CasoTesteCalagem[] = [
       amostras: [
         {
           profundidade: '0-20',
-          ph_agua: 5.6,
+          ph: 5.6,
           indice_smp: 6.4,
           mo_pct: 2.5,
           al_cmolc_dm3: 0.3,
@@ -207,7 +207,7 @@ const casos: CasoTesteCalagem[] = [
       amostras: [
         {
           profundidade: '0-20',
-          ph_agua: 5.8,
+          ph: 5.8,
           indice_smp: 6.5,
           mo_pct: 0.1,
           al_cmolc_dm3: 0.0,
@@ -233,7 +233,7 @@ const casos: CasoTesteCalagem[] = [
       modo_implantacao_pd: 'INCORPORADO',
       prnt_pct: 100,
       amostras: [
-        { profundidade: '0-20', ph_agua: 4.8, indice_smp: 5.2 },
+        { profundidade: '0-20', ph: 4.8, indice_smp: 5.2 },
       ],
     },
     resultadoEsperado: 8.3,
@@ -249,7 +249,7 @@ const casos: CasoTesteCalagem[] = [
       modo_implantacao_pd: 'INCORPORADO',
       prnt_pct: 70,
       amostras: [
-        { profundidade: '0-20', ph_agua: 4.8, indice_smp: 5.0 },
+        { profundidade: '0-20', ph: 4.8, indice_smp: 5.0 },
       ],
     },
     // NC_base = 9,9. Comercial = (9,9 × 100) / 70 = 14,14
@@ -273,7 +273,7 @@ const casos: CasoTesteCalagem[] = [
       modo_implantacao_pd: 'CAMPO_NATURAL_SUPERFICIAL',
       prnt_pct: 100,
       amostras: [
-        { profundidade: '0-20', ph_agua: 5.1, indice_smp: 5.8 },
+        { profundidade: '0-20', ph: 5.1, indice_smp: 5.8 },
       ],
     },
     // NC_tabela = 4,2 → ×0,25 = 1,05 → clamping: 1,05 ≤ 5 → 1,05
@@ -290,7 +290,7 @@ const casos: CasoTesteCalagem[] = [
       modo_implantacao_pd: 'CAMPO_NATURAL_SUPERFICIAL',
       prnt_pct: 100,
       amostras: [
-        { profundidade: '0-20', ph_agua: 5.0, indice_smp: 5.6 },
+        { profundidade: '0-20', ph: 5.0, indice_smp: 5.6 },
       ],
     },
     // NC_tabela(5.6) = 5,4 → ×0,25 = 1,35 → clamping: 1,35 <= 5 → 1,35
@@ -307,7 +307,7 @@ const casos: CasoTesteCalagem[] = [
       modo_implantacao_pd: 'CAMPO_NATURAL_SUPERFICIAL',
       prnt_pct: 100,
       amostras: [
-        { profundidade: '0-20', ph_agua: 5.5, indice_smp: 6.2 },
+        { profundidade: '0-20', ph: 5.5, indice_smp: 6.2 },
       ],
     },
     // NC_tabela = 2,2 → ×0,25 = 0,55 → clamping: ok → 0,55
@@ -329,8 +329,8 @@ const casos: CasoTesteCalagem[] = [
       sistema_manejo: 'PD_CONSOLIDADO',
       prnt_pct: 100,
       amostras: [
-        { profundidade: '0-10', ph_agua: 5.0, indice_smp: 5.5, v_pct: 55, m_pct: 15 },
-        { profundidade: '10-20', ph_agua: 5.2, indice_smp: 5.8, m_pct: 8 },
+        { profundidade: '0-10', ph: 5.0, indice_smp: 5.5, v_pct: 55, m_pct: 15 },
+        { profundidade: '10-20', ph: 5.2, indice_smp: 5.8, m_pct: 8 },
       ],
       contexto_pd: { corrigido_0_20_na_implantacao: true },
     },
@@ -347,8 +347,8 @@ const casos: CasoTesteCalagem[] = [
       sistema_manejo: 'PD_CONSOLIDADO',
       prnt_pct: 100,
       amostras: [
-        { profundidade: '0-10', ph_agua: 5.3, indice_smp: 5.5, v_pct: 70, m_pct: 5 },
-        { profundidade: '10-20', ph_agua: 5.5, indice_smp: 5.8, m_pct: 8 },
+        { profundidade: '0-10', ph: 5.3, indice_smp: 5.5, v_pct: 70, m_pct: 5 },
+        { profundidade: '10-20', ph: 5.5, indice_smp: 5.8, m_pct: 8 },
       ],
     },
     // V=70 ≥ 65 e m=5 < 10 → trava ativa → sem calagem
@@ -364,8 +364,8 @@ const casos: CasoTesteCalagem[] = [
       sistema_manejo: 'PD_CONSOLIDADO',
       prnt_pct: 100,
       amostras: [
-        { profundidade: '0-10', ph_agua: 4.9, indice_smp: 5.5, v_pct: 65, m_pct: 9 },
-        { profundidade: '10-20', ph_agua: 5.0, indice_smp: 5.8, m_pct: 8 },
+        { profundidade: '0-10', ph: 4.9, indice_smp: 5.5, v_pct: 65, m_pct: 9 },
+        { profundidade: '10-20', ph: 5.0, indice_smp: 5.8, m_pct: 8 },
       ],
     },
     // V=65 ≥ 65 e m=9 < 10 → trava ativa
@@ -381,8 +381,8 @@ const casos: CasoTesteCalagem[] = [
       sistema_manejo: 'PD_CONSOLIDADO',
       prnt_pct: 100,
       amostras: [
-        { profundidade: '0-10', ph_agua: 5.0, indice_smp: 5.5, v_pct: 65, m_pct: 10 },
-        { profundidade: '10-20', ph_agua: 5.2, indice_smp: 5.8, m_pct: 8 },
+        { profundidade: '0-10', ph: 5.0, indice_smp: 5.5, v_pct: 65, m_pct: 10 },
+        { profundidade: '10-20', ph: 5.2, indice_smp: 5.8, m_pct: 8 },
       ],
     },
     // m=10 não é < 10 → trava NÃO ativa → calagem superficial
@@ -399,8 +399,8 @@ const casos: CasoTesteCalagem[] = [
       sistema_manejo: 'PD_CONSOLIDADO',
       prnt_pct: 100,
       amostras: [
-        { profundidade: '0-10', ph_agua: 4.8, indice_smp: 5.0, v_pct: 64, m_pct: 9 },
-        { profundidade: '10-20', ph_agua: 5.0, indice_smp: 5.3, m_pct: 8 },
+        { profundidade: '0-10', ph: 4.8, indice_smp: 5.0, v_pct: 64, m_pct: 9 },
+        { profundidade: '10-20', ph: 5.0, indice_smp: 5.3, m_pct: 8 },
       ],
     },
     // V=64 < 65 → trava NÃO ativa
@@ -417,8 +417,8 @@ const casos: CasoTesteCalagem[] = [
       sistema_manejo: 'PD_CONSOLIDADO',
       prnt_pct: 100,
       amostras: [
-        { profundidade: '0-10', ph_agua: 4.2, indice_smp: 4.4, v_pct: 40, m_pct: 30 },
-        { profundidade: '10-20', ph_agua: 4.5, indice_smp: 4.8, m_pct: 8 },
+        { profundidade: '0-10', ph: 4.2, indice_smp: 4.4, v_pct: 40, m_pct: 30 },
+        { profundidade: '10-20', ph: 4.5, indice_smp: 4.8, m_pct: 8 },
       ],
     },
     // NC_010 = 21,0 → ×0,5 = 10,5 → clamped a 5,0 → PRNT 100% → 5,0
@@ -440,8 +440,8 @@ const casos: CasoTesteCalagem[] = [
       sistema_manejo: 'PD_CONSOLIDADO',
       prnt_pct: 100,
       amostras: [
-        { profundidade: '0-10', ph_agua: 5.0, indice_smp: 5.4, v_pct: 55, m_pct: 15 },
-        { profundidade: '10-20', ph_agua: 4.8, indice_smp: 5.0, m_pct: 15 },
+        { profundidade: '0-10', ph: 5.0, indice_smp: 5.4, v_pct: 55, m_pct: 15 },
+        { profundidade: '10-20', ph: 4.8, indice_smp: 5.0, m_pct: 15 },
       ],
       contexto_pd: {
         produtividade_abaixo_media_local: true,
@@ -463,8 +463,8 @@ const casos: CasoTesteCalagem[] = [
       sistema_manejo: 'PD_CONSOLIDADO',
       prnt_pct: 90,
       amostras: [
-        { profundidade: '0-10', ph_agua: 4.7, indice_smp: 5.0, v_pct: 55, m_pct: 20 },
-        { profundidade: '10-20', ph_agua: 4.5, indice_smp: 4.8, m_pct: 12 },
+        { profundidade: '0-10', ph: 4.7, indice_smp: 5.0, v_pct: 55, m_pct: 20 },
+        { profundidade: '10-20', ph: 4.5, indice_smp: 4.8, m_pct: 12 },
       ],
       contexto_pd: {
         produtividade_abaixo_media_local: true,
@@ -502,7 +502,7 @@ describe('Motor de Calagem — Validação contra Manual RS/SC 2016', () => {
         versao_regra: 'ibiferti-calagem-graos-v1.6',
         sistema_manejo: 'CONVENCIONAL',
         prnt_pct: 100,
-        amostras: [{ profundidade: '0-20', ph_agua: 4.9, indice_smp: 5.0 }],
+        amostras: [{ profundidade: '0-20', ph: 4.9, indice_smp: 5.0 }],
       };
       const r = assertSucesso(executarMotorCalagem(entrada));
       expect(r.necessita_calagem).toBe(true);
@@ -515,7 +515,7 @@ describe('Motor de Calagem — Validação contra Manual RS/SC 2016', () => {
         versao_regra: 'ibiferti-calagem-graos-v1.6',
         sistema_manejo: 'CONVENCIONAL',
         prnt_pct: 100,
-        amostras: [{ profundidade: '0-20', ph_agua: 6.5, indice_smp: 7.1 }],
+        amostras: [{ profundidade: '0-20', ph: 6.5, indice_smp: 7.1 }],
       };
       const r = assertSucesso(executarMotorCalagem(entrada));
       expect(r.necessita_calagem).toBe(false);
@@ -528,7 +528,7 @@ describe('Motor de Calagem — Validação contra Manual RS/SC 2016', () => {
         sistema_manejo: 'PD_IMPLANTACAO',
         modo_implantacao_pd: 'CAMPO_NATURAL_SUPERFICIAL',
         prnt_pct: 100,
-        amostras: [{ profundidade: '0-20', ph_agua: 5.1, indice_smp: 5.8 }],
+        amostras: [{ profundidade: '0-20', ph: 5.1, indice_smp: 5.8 }],
       };
       const r = assertSucesso(executarMotorCalagem(entrada));
       expect(r.modo_aplicacao).toBe('SUPERFICIAL');
@@ -541,8 +541,8 @@ describe('Motor de Calagem — Validação contra Manual RS/SC 2016', () => {
         sistema_manejo: 'PD_CONSOLIDADO',
         prnt_pct: 100,
         amostras: [
-          { profundidade: '0-10', ph_agua: 5.0, indice_smp: 5.5, v_pct: 70, m_pct: 5 },
-          { profundidade: '10-20', ph_agua: 5.2, indice_smp: 5.8, m_pct: 8 },
+          { profundidade: '0-10', ph: 5.0, indice_smp: 5.5, v_pct: 70, m_pct: 5 },
+          { profundidade: '10-20', ph: 5.2, indice_smp: 5.8, m_pct: 8 },
         ],
       };
       const r = assertSucesso(executarMotorCalagem(entrada));
@@ -556,8 +556,8 @@ describe('Motor de Calagem — Validação contra Manual RS/SC 2016', () => {
         sistema_manejo: 'PD_CONSOLIDADO',
         prnt_pct: 100,
         amostras: [
-          { profundidade: '0-10', ph_agua: 5.0, indice_smp: 5.4, v_pct: 55, m_pct: 15 },
-          { profundidade: '10-20', ph_agua: 4.8, indice_smp: 5.0, m_pct: 15 },
+          { profundidade: '0-10', ph: 5.0, indice_smp: 5.4, v_pct: 55, m_pct: 15 },
+          { profundidade: '10-20', ph: 4.8, indice_smp: 5.0, m_pct: 15 },
         ],
       };
       const r = assertSucesso(executarMotorCalagem(entrada));
@@ -571,7 +571,7 @@ describe('Motor de Calagem — Validação contra Manual RS/SC 2016', () => {
         sistema_manejo: 'CONVENCIONAL',
         prnt_pct: 100,
         amostras: [
-          { profundidade: '0-20', ph_agua: 5.6, indice_smp: 6.4, mo_pct: 2.5, al_cmolc_dm3: 0.3 },
+          { profundidade: '0-20', ph: 5.6, indice_smp: 6.4, mo_pct: 2.5, al_cmolc_dm3: 0.3 },
         ],
       };
       const r = assertSucesso(executarMotorCalagem(entrada));
@@ -584,8 +584,8 @@ describe('Motor de Calagem — Validação contra Manual RS/SC 2016', () => {
         sistema_manejo: 'PD_CONSOLIDADO',
         prnt_pct: 100,
         amostras: [
-          { profundidade: '0-10', ph_agua: 5.0, indice_smp: 5.4, v_pct: 55, m_pct: 15 },
-          { profundidade: '10-20', ph_agua: 4.8, indice_smp: 5.0, m_pct: 15 },
+          { profundidade: '0-10', ph: 5.0, indice_smp: 5.4, v_pct: 55, m_pct: 15 },
+          { profundidade: '10-20', ph: 4.8, indice_smp: 5.0, m_pct: 15 },
         ],
       };
       const r = assertSucesso(executarMotorCalagem(entrada));
@@ -598,14 +598,14 @@ describe('Motor de Calagem — Validação contra Manual RS/SC 2016', () => {
   // Testes do novo estado PDC_SEM_CALAGEM_PH
   // -----------------------------------------------------------------------
   describe('Estado PDC_SEM_CALAGEM_PH', () => {
-    test('PDC com ph_agua >= 6.0 na camada 0-10 deve dispensar calagem por pH adequado', () => {
+    test('PDC com ph >= 6.0 na camada 0-10 deve dispensar calagem por pH adequado', () => {
       const entrada: EntradaCalagem = {
         versao_regra: 'ibiferti-calagem-graos-v1.6',
         sistema_manejo: 'PD_CONSOLIDADO',
         prnt_pct: 100,
         amostras: [
-          { profundidade: '0-10', ph_agua: 6.0, indice_smp: 6.2, v_pct: 50, m_pct: 15 },
-          { profundidade: '10-20', ph_agua: 5.5, indice_smp: 5.8, m_pct: 8 },
+          { profundidade: '0-10', ph: 6.0, indice_smp: 6.2, v_pct: 50, m_pct: 15 },
+          { profundidade: '10-20', ph: 5.5, indice_smp: 5.8, m_pct: 8 },
         ],
       };
       const r = assertSucesso(executarMotorCalagem(entrada));
@@ -625,7 +625,7 @@ describe('Motor de Calagem — Validação contra Manual RS/SC 2016', () => {
         sistema_manejo: 'PD_CONSOLIDADO',
         prnt_pct: 100,
         amostras: [
-          { profundidade: '0-20', ph_agua: 5.0, indice_smp: 5.5, v_pct: 55, m_pct: 15 },
+          { profundidade: '0-20', ph: 5.0, indice_smp: 5.5, v_pct: 55, m_pct: 15 },
         ],
       };
       const r = executarMotorCalagem(payload);
@@ -641,7 +641,7 @@ describe('Motor de Calagem — Validação contra Manual RS/SC 2016', () => {
         sistema_manejo: 'CONVENCIONAL',
         modo_implantacao_pd: 'INCORPORADO',
         prnt_pct: 100,
-        amostras: [{ profundidade: '0-20', ph_agua: 5.0, indice_smp: 5.5 }],
+        amostras: [{ profundidade: '0-20', ph: 5.0, indice_smp: 5.5 }],
       };
       const r = executarMotorCalagem(payload);
       expect(r.sucesso).toBe(false);
@@ -655,7 +655,7 @@ describe('Motor de Calagem — Validação contra Manual RS/SC 2016', () => {
         versao_regra: 'ibiferti-calagem-graos-v1.6',
         sistema_manejo: 'CONVENCIONAL',
         prnt_pct: 0,
-        amostras: [{ profundidade: '0-20', ph_agua: 5.0, indice_smp: 5.5 }],
+        amostras: [{ profundidade: '0-20', ph: 5.0, indice_smp: 5.5 }],
       };
       const r = executarMotorCalagem(payload);
       expect(r.sucesso).toBe(false);
@@ -670,7 +670,7 @@ describe('Motor de Calagem — Validação contra Manual RS/SC 2016', () => {
         sistema_manejo: 'PD_IMPLANTACAO',
         modo_implantacao_pd: 'CAMPO_NATURAL_SUPERFICIAL',
         prnt_pct: 100,
-        amostras: [{ profundidade: '0-20', ph_agua: 4.2, indice_smp: 4.4 }],
+        amostras: [{ profundidade: '0-20', ph: 4.2, indice_smp: 4.4 }],
       };
       const r = executarMotorCalagem(payload);
       expect(r.sucesso).toBe(false);
@@ -685,7 +685,7 @@ describe('Motor de Calagem — Validação contra Manual RS/SC 2016', () => {
         versao_regra: 'versao-errada',
         sistema_manejo: 'CONVENCIONAL',
         prnt_pct: 100,
-        amostras: [{ profundidade: '0-20', ph_agua: 5.0, indice_smp: 5.5 }],
+        amostras: [{ profundidade: '0-20', ph: 5.0, indice_smp: 5.5 }],
       };
       const r = executarMotorCalagem(payload);
       expect(r.sucesso).toBe(false);

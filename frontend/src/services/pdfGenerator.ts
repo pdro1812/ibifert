@@ -54,7 +54,7 @@ export const gerarPDFRelatorio = (dadosEntrada: any, resultado: any) => {
 
   const tableData = dadosEntrada.amostras.map((a: any) => [
     `${a.profundidade} cm`, 
-    a.ph_agua || '-', 
+    a.ph || '-', 
     a.indice_smp || '-', 
     a.mo_pct || '-', 
     a.v_pct || '-', 

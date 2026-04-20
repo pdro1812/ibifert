@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 const AmostraSchema = z.object({
   profundidade: z.enum(['0-20', '0-10', '10-20']),
-  ph_agua: z.coerce.number().positive().max(14, 'Máx 14'),
+  ph: z.coerce.number().positive().max(14, 'Máx 14'),
   indice_smp: z.coerce.number().positive().max(14, 'Máx 14'),
   v_pct: z.coerce.number().min(0).max(100).optional(),
   m_pct: z.coerce.number().min(0).max(100).optional(),

@@ -158,7 +158,7 @@ function resolverEstadoConvencional(
   const amostra = dados.amostras[0];
   auditoria.amostra_decisoria = amostra.profundidade;
   auditoria.smp_usado_calculo = amostra.indice_smp;
-  auditoria.ph_usado_decisao = amostra.ph_agua;
+  auditoria.ph_usado_decisao = amostra.ph;
 
   const { dose, metodo } = selecionarMetodoNc020(amostra, auditoria);
 
@@ -186,7 +186,7 @@ function resolverEstadoPDImplantacao(
   const amostra = dados.amostras[0];
   auditoria.amostra_decisoria = amostra.profundidade;
   auditoria.smp_usado_calculo = amostra.indice_smp;
-  auditoria.ph_usado_decisao = amostra.ph_agua;
+  auditoria.ph_usado_decisao = amostra.ph;
 
   const { dose: doseInicial, metodo } = selecionarMetodoNc020(amostra, auditoria);
 
@@ -240,11 +240,11 @@ function resolverEstadoPDConsolidado(
   const amostra010 = amostras['0-10']!;
   const amostra1020 = amostras['10-20']!;
 
-  auditoria.ph_usado_decisao = amostra010.ph_agua;
+  auditoria.ph_usado_decisao = amostra010.ph;
   auditoria.smp_usado_calculo = amostra010.indice_smp;
 
   // ── Estado PDC_SEM_CALAGEM_PH ────────────────────────────────────────────
-  // Critério: ph_agua >= 6.0 na camada 0-10 indica que o solo já está
+  // Critério: ph >= 6.0 na camada 0-10 indica que o solo já está
   // adequadamente corrigido em termos de reação, dispensando calagem
   // independentemente de V% e m%. Verificado ANTES da trava V/m por ser
   // uma condição mais objetiva e menos sujeita a variação amostral.
@@ -252,7 +252,7 @@ function resolverEstadoPDConsolidado(
   // REVISÃO AGRONÔMICA RECOMENDADA: confirmar limiar 6.0 com especialista
   // para culturas específicas (soja pode exigir 6.2, por exemplo).
   // ────────────────────────────────────────────────────────────────────────
-  if (amostra010.ph_agua >= 6.0) {
+  if (amostra010.ph >= 6.0) {
     (auditoria.regras_disparadas as string[]).push('PDC_PH_ADEQUADO');
     return montarRespostaSucesso(dados, {
       estado_motor: 'PDC_SEM_CALAGEM_PH',

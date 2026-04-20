@@ -18,12 +18,12 @@ export function coletarWarningsLaboratoriais(dados: EntradaCalagem): Alerta[] {
   for (const amostra of dados.amostras) {
     const prof = amostra.profundidade;
 
-    // W-LAB-01: ph_agua fora da faixa laboratorial comum
-    if (amostra.ph_agua < 4.0 || amostra.ph_agua > 7.0) {
+    // W-LAB-01: ph fora da faixa laboratorial comum
+    if (amostra.ph < 4.0 || amostra.ph > 7.0) {
       alertas.push({
         codigo: 'W-LAB-01',
         nivel: 'warning',
-        mensagem: `Amostra ${prof}: ph_agua ${amostra.ph_agua} está fora da faixa laboratorial comum (4,0 – 7,0).`,
+        mensagem: `Amostra ${prof}: ph ${amostra.ph} está fora da faixa laboratorial comum (4,0 – 7,0).`,
       });
     }
 
@@ -36,13 +36,13 @@ export function coletarWarningsLaboratoriais(dados: EntradaCalagem): Alerta[] {
       });
     }
 
-    // W-LAB-03: Possível inconsistência entre ph_agua e indice_smp
+    // W-LAB-03: Possível inconsistência entre ph e indice_smp
     // pH baixo (<5.0) com SMP alto (>6.5) é fisicamente improvável
-    if (amostra.ph_agua < 5.0 && amostra.indice_smp > 6.5) {
+    if (amostra.ph < 5.0 && amostra.indice_smp > 6.5) {
       alertas.push({
         codigo: 'W-LAB-03',
         nivel: 'warning',
-        mensagem: `Amostra ${prof}: combinação ph_agua ${amostra.ph_agua} < 5,0 com indice_smp ${amostra.indice_smp} > 6,5 é possivelmente inconsistente. Verificar laudo laboratorial.`,
+        mensagem: `Amostra ${prof}: combinação ph ${amostra.ph} < 5,0 com indice_smp ${amostra.indice_smp} > 6,5 é possivelmente inconsistente. Verificar laudo laboratorial.`,
       });
     }
   }

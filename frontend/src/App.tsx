@@ -29,7 +29,7 @@ export default function App() {
       prnt_pct: 90,
       amostras: [{ 
         profundidade: '0-20', 
-        ph_agua: 5.8, 
+        ph: 5.8, 
         indice_smp: 6.5,
         mo_pct: 2.0,
         al_cmolc_dm3: 1.2
@@ -56,13 +56,13 @@ export default function App() {
 
     if (novoSistema === 'PD_CONSOLIDADO') {
       replace([
-        { profundidade: '0-10', ph_agua: 0, indice_smp: 0 },
-        { profundidade: '10-20', ph_agua: 0, indice_smp: 0 }
+        { profundidade: '0-10', ph: 0, indice_smp: 0 },
+        { profundidade: '10-20', ph: 0, indice_smp: 0 }
       ]);
     } else {
       replace([{ 
         profundidade: '0-20', 
-        ph_agua: 5.8, 
+        ph: 5.8, 
         indice_smp: 6.5,
         mo_pct: 2.0,
         al_cmolc_dm3: 1.2 
@@ -173,7 +173,7 @@ export default function App() {
                     
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-2">
                       {[
-                        { label: 'pH em Água', name: 'ph_agua' },
+                        { label: 'pH', name: 'ph' },
                         { label: 'Índice SMP', name: 'indice_smp' },
                         { label: 'Mat. Orgânica (%)', name: 'mo_pct' },
                         { label: 'V (%)', name: 'v_pct' },
