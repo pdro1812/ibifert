@@ -1,0 +1,39 @@
+# ==========================================
+# Fase 1: Build (Compilar o TypeScript)
+# ==========================================
+FROM node:20-alpine AS builder
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY . .
+# Supondo que você tem um script "build" no package.json (ex: "tsc")
+RUN npm run build 
+
+# ==========================================
+# Fase 2: Produção (Imagem limpa e segura)
+# ==========================================
+FROM node:20-alpine
+WORKDIR /app
+
+# Define a variável de ambiente para produção
+ENV NODE_ENV=production
+
+# Copia apenas os arquivos de configuração do pacote
+COPY package*.json ./
+
+# Instala SOMENTE as dependências necessárias para rodar, ignorando devDependencies
+RUN npm ci --only=production
+
+# Copia o código compilado da Fase 1 (Supondo que seu TS compila para uma pasta /dist)
+# Se o seu tsc compila para /build, mude abaixo
+COPY --from=builder /app/dist ./dist
+
+# ==========================================
+# SEGURANÇA: Muda para um usuário sem privilégios de root
+# ==========================================
+USER node
+
+EXPOSE 3000
+
+# Executa o código JavaScript compilado, NÃO o ts-node
+CMD ["node", "dist/server.js"]

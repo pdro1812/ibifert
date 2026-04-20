@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  backend:
+    image: pdros1812/ibiferti-backend:latest
+    container_name: ibiferti-api
+    restart: unless-stopped
+    ports:
+      - "3000:3000" # Confirme se o seu Node expõe a porta 3000
+    environment:
+      - NODE_ENV=production
+      # - DB_HOST=db # Já deixando o espaço mental para quando colocar o Postgres
+    
+  frontend:
+    image: pdros1812/ibiferti-frontend:latest
+    container_name: ibiferti-web
+    restart: unless-stopped
+    ports:
+      - "80:80" # Assumindo que seu Dockerfile do React usa Nginx na porta 80
+    depends_on:
+      - backend
