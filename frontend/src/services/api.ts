@@ -1,7 +1,8 @@
 import axios from 'axios';
 
 export const api = axios.create({
-  baseURL: 'http://localhost:3000/api',
+  // O Nginx vai interceptar tudo que tiver '/api' e encaminhar em segredo pro backend
+  baseURL: '/api', 
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
