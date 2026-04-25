@@ -4,7 +4,7 @@ import { useForm, useFieldArray } from 'react-hook-form';
 import type { SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { 
-  Sprout, AlertCircle, CheckCircle2, Leaf, FlaskConical, 
+  Sprout, CheckCircle2, Leaf, FlaskConical, 
   FileDown, Save, Check, User, LogOut, LayoutDashboard, Map,
   Plus, TableProperties, ArrowRight, X, MapPin, Tractor
 } from 'lucide-react';
