@@ -1,17 +1,25 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import tailwindcss from '@tailwindcss/vite' // <-- 1. Importamos o Tailwind aqui
+import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
   plugins: [
     react(),
-    tailwindcss(), // <-- 2. Adicionamos ele na lista de plugins
+    tailwindcss(),
   ],
   server: {
-    host: true, // Expõe para a rede Docker
+    host: true, 
     port: 5173,
     watch: {
-      usePolling: true, // Garante que alterações de arquivos host ativem o hot-reload
+      usePolling: true,
+    },
+    // O SEU NGINX LOCAL (PROXY REVERSO)
+    proxy: {
+      '/api': {
+        target: 'http://backend:3000', // Aponta para o seu backend local
+        changeOrigin: true,
+        // Como o backend já espera '/api', não precisamos do 'rewrite' aqui
+      }
     }
   }
 })
