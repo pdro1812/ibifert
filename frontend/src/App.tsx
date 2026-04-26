@@ -56,7 +56,6 @@ const Header = ({ isLoggedIn, onLogout }: { isLoggedIn: boolean, onLogout: () =>
           </div>
           <div>
             <h1 className="text-xl font-bold text-stone-800 tracking-tight">Ibiferti</h1>
-            <p className="text-[10px] text-stone-500 font-medium uppercase tracking-wider">Agronomia</p>
           </div>
         </Link>
 
