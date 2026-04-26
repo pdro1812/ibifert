@@ -417,10 +417,26 @@ const LoginScreen = ({ onLogin }: { onLogin: () => void }) => {
       <div className="text-center mb-8">
         <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4"><User className="text-green-600" size={32} /></div>
         <h2 className="text-2xl font-bold text-stone-800">Acesso ao Produtor</h2>
-      </div>
-      <form onSubmit={handleMockLogin} className="space-y-4">
-        <div><label className="text-sm font-semibold text-stone-700">E-mail</label><input type="email" required className="w-full mt-1 bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 outline-none" /></div>
-        <div><label className="text-sm font-semibold text-stone-700">Senha</label><input type="password" required className="w-full mt-1 bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 outline-none" /></div>
+          </div>
+          <form onSubmit={handleMockLogin} className="space-y-4">
+            <div>
+              <label className="text-sm font-semibold text-stone-700">E-mail</label>
+              <input
+                type="email"
+                required
+                defaultValue="teste@email.com"
+                className="w-full mt-1 bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 outline-none"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-semibold text-stone-700">Senha</label>
+              <input
+                type="password"
+                required
+                defaultValue="123456"
+                className="w-full mt-1 bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 outline-none"
+              />
+            </div>
         <button type="submit" className="w-full bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl py-4 mt-4 shadow-lg transition-all">Entrar na Plataforma</button>
       </form>
     </div>

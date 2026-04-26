@@ -16,6 +16,21 @@ services:
     container_name: ibiferti-web
     restart: unless-stopped
     ports:
-      - "80:80" # Assumindo que seu Dockerfile do React usa Nginx na porta 80
+      - "80:80"
+      - "443:443" # Nova porta exposta para o tráfego HTTPS
+    volumes:
+      # Mapeia o nginx.conf local para dentro do container (facilita a edição para o Certbot)
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      # Volumes do Certbot para o desafio e para os certificados gerados
+      - ./certbot/www:/var/www/certbot
+      - ./certbot/conf:/etc/letsencrypt
     depends_on:
       - backend
+
+  certbot:
+    image: certbot/certbot
+    container_name: certbot
+    # O Certbot não precisa ficar rodando o tempo todo, ele será chamado pontualmente
+    volumes:
+      - ./certbot/www:/var/www/certbot
+      - ./certbot/conf:/etc/letsencrypt
