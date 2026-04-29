@@ -6,7 +6,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { 
   Sprout, CheckCircle2, Leaf, FlaskConical, 
   FileDown, Save, Check, User, LogOut, LayoutDashboard, Map,
-  Plus, TableProperties, ArrowRight, X, MapPin, Tractor
+  Plus, TableProperties, ArrowRight, X, MapPin, Tractor,
+  Lightbulb, AlertCircle, ShieldCheck
 } from 'lucide-react';
 
 import { CalagemSchema, type EntradaCalagem } from './schemas/calagemSchema';
@@ -34,7 +35,7 @@ const Modal = ({ isOpen, onClose, titulo, children }: { isOpen: boolean, onClose
             <X size={20} />
           </button>
         </div>
-        <div className="p-6">
+        <div className="p-6 max-h-[70vh] overflow-y-auto">
           {children}
         </div>
       </div>
@@ -122,11 +123,9 @@ const DashboardScreen = () => {
     const target = e.target as any;
     const municipioDigitado = target.municipio.value;
 
-    // VALIDAÇÃO ESTRITA DA CIDADE
     const municipioValido = municipios.some(m => m.nome === municipioDigitado);
     if (!municipioValido) {
       alert("Por favor, selecione uma cidade válida da lista apresentada.");
-      // Limpa o campo para o usuário tentar novamente
       target.municipio.value = '';
       target.municipio.focus();
       return;
@@ -257,7 +256,6 @@ const DashboardScreen = () => {
               </datalist>
             </div>
           </div>
-
           <button type="submit" className="w-full bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl py-3 mt-4 transition-all">Salvar Fazenda</button>
         </form>
       </Modal>
@@ -400,12 +398,11 @@ const LoginScreen = ({ onLogin }: { onLogin: () => void }) => {
     e.preventDefault();
     onLogin();
     
-    // VERIFICAÇÃO DE MEMÓRIA APÓS LOGIN
     const pendente = sessionStorage.getItem('analisePendente');
     if (pendente) {
       sessionStorage.removeItem('analisePendente');
       alert("Sua análise que estava em andamento foi recuperada! Você será redirecionado para vinculá-la a um talhão.");
-      navigate('/dashboard/nova-analise'); // Direciona pro lugar certo no futuro
+      navigate('/dashboard/nova-analise'); 
     } else {
       navigate('/dashboard');
     }
@@ -452,9 +449,34 @@ const CalculadoraScreen = ({ isLoggedIn }: { isLoggedIn: boolean }) => {
   const [resultado, setResultado] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [salvo, setSalvo] = useState(false);
-  const navigate = useNavigate(); // <-- HOOK ADICIONADO PARA NAVEGAÇÃO
+  const navigate = useNavigate();
 
-  const { register, handleSubmit, watch, control, setValue, getValues } = useForm<FormValores>({
+  // Estados padrão: RS e Ibirubá
+  const [modalTermosOpen, setModalTermosOpen] = useState(false);
+  const [estados, setEstados] = useState<Estado[]>([]);
+  const [municipios, setMunicipios] = useState<Municipio[]>([]);
+  const [ufSelecionada, setUfSelecionada] = useState('RS'); 
+  const [cidadeSelecionada, setCidadeSelecionada] = useState('Ibirubá');
+  const [termosAceitos, setTermosAceitos] = useState(false);
+  
+  // Erros customizados
+  const [erroCidade, setErroCidade] = useState(false);
+  const [erroTermos, setErroTermos] = useState(false);
+
+  useEffect(() => {
+    ibgeService.getEstados().then(setEstados);
+  }, []);
+
+  useEffect(() => {
+    if (ufSelecionada) {
+      ibgeService.getMunicipios(ufSelecionada).then(setMunicipios);
+    } else {
+      setMunicipios([]);
+      setCidadeSelecionada('');
+    }
+  }, [ufSelecionada]);
+
+  const { register, handleSubmit, watch, control, setValue, getValues, formState: { errors } } = useForm<FormValores>({
     resolver: zodResolver(CalagemSchema) as any,
     defaultValues: {
       versao_regra: 'ibiferti-calagem-graos-v1.6', sistema_manejo: 'CONVENCIONAL', prnt_pct: 90,
@@ -473,25 +495,45 @@ const CalculadoraScreen = ({ isLoggedIn }: { isLoggedIn: boolean }) => {
     else replace([{ profundidade: '0-20', ph: 5.8, indice_smp: 6.5, mo_pct: 2.0, al_cmolc_dm3: 1.2 }]);
   };
 
-  const onSubmit: SubmitHandler<FormValores> = async (data) => {
+  // Função que roda SE o Zod aprovar os dados
+  const onSubmitValidado: SubmitHandler<FormValores> = async (data) => {
+    let possuiErrosCustomizados = false;
+
+    if (!cidadeSelecionada || !municipios.some(m => m.nome === cidadeSelecionada)) {
+      setErroCidade(true);
+      possuiErrosCustomizados = true;
+    }
+    if (!termosAceitos) {
+      setErroTermos(true);
+      possuiErrosCustomizados = true;
+    }
+
+    if (possuiErrosCustomizados) return;
+
     setLoading(true); setResultado(null); setSalvo(false);
-    try { setResultado((await api.post('/calcular', JSON.parse(JSON.stringify(data)))).data); } 
+    try { 
+      // Enviando EXATAMENTE os dados processados pelo Zod, sem cidade/uf para não quebrar a API
+      setResultado((await api.post('/calcular', JSON.parse(JSON.stringify(data)))).data); 
+    } 
     catch (e: any) { alert("Erro: " + (e.response?.data?.mensagem || "Falha")); } 
     finally { setLoading(false); }
   };
 
-  // --- NOVA FUNÇÃO DE SALVAMENTO COM MEMÓRIA ---
+  // Callback de erro do handleSubmit: Roda se o Zod barrar algo.
+  // Aproveitamos para exibir os erros customizados também, para o usuário ver tudo de uma vez.
+  const onErrorNoForm = () => {
+    if (!cidadeSelecionada || !municipios.some(m => m.nome === cidadeSelecionada)) setErroCidade(true);
+    if (!termosAceitos) setErroTermos(true);
+  };
+
   const handleTentarSalvar = () => {
     if (!isLoggedIn) {
-      // Guarda os dados na memória temporária do navegador
       sessionStorage.setItem('analisePendente', JSON.stringify({ 
         dados: getValues(), 
         resultado 
       }));
-      // Redireciona para o login
       navigate('/login');
     } else {
-      // Futuramente, aqui será feita a requisição POST para salvar na API
       setSalvo(true);
       setTimeout(() => setSalvo(false), 3000);
     }
@@ -499,23 +541,138 @@ const CalculadoraScreen = ({ isLoggedIn }: { isLoggedIn: boolean }) => {
 
   return (
     <div className="max-w-6xl w-full bg-white rounded-[2rem] shadow-2xl overflow-hidden flex flex-col lg:flex-row border border-white/60">
+      
+      {/* MODAL DE TERMOS DE USO */}
+      <Modal isOpen={modalTermosOpen} onClose={() => setModalTermosOpen(false)} titulo="Termos de Uso do Ibiferti">
+        <div className="space-y-4 text-sm text-stone-600 leading-relaxed">
+          <p>
+            O <strong>Ibiferti</strong> é uma ferramenta de apoio à tomada de decisão baseada nos manuais regionais oficiais para culturas de grãos. Ao utilizar este software, você concorda com os seguintes termos:
+          </p>
+          <ul className="list-disc pl-5 space-y-2">
+            <li>As recomendações geradas são puramente matemáticas baseadas nos dados informados.</li>
+            <li>O sistema não substitui a avaliação presencial de um Engenheiro Agrônomo qualificado.</li>
+            <li>Os desenvolvedores não se responsabilizam por eventuais prejuízos decorrentes da aplicação incorreta de insumos.</li>
+            <li>A precisão do resultado depende integralmente da qualidade da coleta de solo e da análise laboratorial.</li>
+          </ul>
+          <p className="font-semibold text-stone-800 pt-2">
+            Ao marcar a caixa de seleção e prosseguir com o cálculo, você confirma estar ciente destas condições.
+          </p>
+          <button 
+            onClick={() => setModalTermosOpen(false)}
+            className="w-full mt-4 bg-stone-900 hover:bg-stone-800 text-white font-bold py-3 rounded-xl transition-colors"
+          >
+            Entendido
+          </button>
+        </div>
+      </Modal>
+
       <div className="w-full lg:w-3/5 p-8 lg:p-12 bg-white">
         <div className="flex items-center gap-4 mb-8">
           <div className="w-12 h-12 bg-gradient-to-br from-green-400 to-green-600 rounded-2xl flex items-center justify-center shadow-lg"><Leaf className="text-white" size={24} /></div>
           <div><h1 className="text-2xl font-bold text-stone-800 tracking-tight">Ibiferti Calagem</h1><p className="text-sm text-stone-500 font-medium">Motor de Recomendação</p></div>
         </div>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+        
+        {/* noValidate evita o HTML5 padrão e permite que usemos nosso tratamento de bordas vermelhas */}
+        <form onSubmit={handleSubmit(onSubmitValidado, onErrorNoForm)} noValidate className="space-y-8">
+          
           <div className="bg-stone-50 p-6 rounded-2xl border border-stone-100 space-y-6">
+            
+            {/* ESTADO E CIDADE */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="col-span-1 space-y-2">
+                <label className="text-sm font-semibold text-stone-700">Estado *</label>
+                <select 
+                  value={ufSelecionada} 
+                  onChange={(e) => setUfSelecionada(e.target.value)}
+                  className="w-full bg-white border border-stone-200 rounded-xl px-4 py-3 outline-none focus:border-green-500 shadow-sm"
+                >
+                  <option value="">UF</option>
+                  {estados.map(est => <option key={est.id} value={est.sigla}>{est.sigla}</option>)}
+                </select>
+              </div>
+              <div className="col-span-2 space-y-2">
+                <label className="text-sm font-semibold text-stone-700">Cidade *</label>
+                <input 
+                  list="lista-municipios-calc"
+                  value={cidadeSelecionada}
+                  onChange={(e) => { setCidadeSelecionada(e.target.value); setErroCidade(false); }}
+                  disabled={!ufSelecionada || municipios.length === 0}
+                  placeholder={ufSelecionada ? "Digite para buscar..." : "Selecione o Estado primeiro"}
+                  autoComplete="off"
+                  className={`w-full bg-white border rounded-xl px-4 py-3 outline-none transition-all shadow-sm disabled:opacity-50 ${
+                    erroCidade ? 'border-red-500 focus:border-red-500 bg-red-50' : 'border-stone-200 focus:border-green-500'
+                  }`}
+                />
+                <datalist id="lista-municipios-calc">
+                  {municipios.map(mun => <option key={mun.id} value={mun.nome} />)}
+                </datalist>
+                {erroCidade && <span className="text-red-500 text-xs mt-1 flex items-center gap-1"><AlertCircle size={12} /> Preencha uma cidade válida!</span>}
+              </div>
+            </div>
+
+            <div className="w-full h-px bg-stone-200/60 my-2"></div>
+
             <div className="space-y-2">
               <label className="text-sm font-semibold text-stone-700 flex justify-between">Identificação da Análise <span className="text-stone-400 font-normal">Opcional</span></label>
               <input type="text" placeholder="Ex: Talhão da Caixa D'água" {...register('identificacao')} className="w-full bg-white border border-stone-200 rounded-xl px-4 py-3 outline-none focus:border-green-500 shadow-sm" />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2 border-t border-stone-200/60">
-              <div className="space-y-2"><label className="text-sm font-semibold">Sistema</label><select {...register('sistema_manejo')} onChange={handleSistemaChange} className="w-full bg-white border border-stone-200 rounded-xl px-4 py-3 outline-none focus:border-green-500 shadow-sm"><option value="CONVENCIONAL">Convencional</option><option value="PD_IMPLANTACAO">Plantio Direto - Imp.</option><option value="PD_CONSOLIDADO">Plantio Direto - Cons.</option></select></div>
-              <div className="space-y-2"><label className="text-sm font-semibold">PRNT (%)</label><input type="number" step="0.1" {...register('prnt_pct')} className="w-full bg-white border border-stone-200 rounded-xl px-4 py-3 outline-none focus:border-green-500 shadow-sm" /></div>
+              <div className="space-y-2">
+                
+                {/* TOOLTIP DO SISTEMA (HOVER PURO CSS) */}
+                <div className="relative flex items-center gap-2 group w-max">
+                  <label className="text-sm font-semibold">Sistema *</label>
+                  <div className="text-yellow-500 cursor-help p-1 rounded-full hover:bg-yellow-50 transition-colors">
+                    <Lightbulb size={16} />
+                  </div>
+                  
+                  {/* Caixa de Tooltip Absoluta */}
+                  <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block w-72 md:w-80 bg-stone-800 text-stone-200 p-4 rounded-xl shadow-xl z-50 text-xs pointer-events-none animate-fade-in">
+                    <div className="space-y-3">
+                      <div><strong className="text-white block">Convencional</strong>Preparo com revolvimento anual (aração, gradagem).</div>
+                      <div className="h-px bg-stone-700"></div>
+                      <div><strong className="text-white block">Plantio Direto - Implantado</strong>Áreas em fase inicial, onde o solo ainda não atingiu o equilíbrio.</div>
+                      <div className="h-px bg-stone-700"></div>
+                      <div><strong className="text-white block">Plantio Direto - Consolidado</strong>Sistema maduro sem revolvimento e com boa palhada.</div>
+                    </div>
+                    {/* Triângulo do tooltip */}
+                    <div className="absolute top-full left-6 -mt-1 border-4 border-transparent border-t-stone-800"></div>
+                  </div>
+                </div>
+
+                <select 
+                  {...register('sistema_manejo')} 
+                  onChange={handleSistemaChange} 
+                  className={`w-full bg-white border rounded-xl px-4 py-3 outline-none shadow-sm transition-all ${errors.sistema_manejo ? 'border-red-500 focus:border-red-500 bg-red-50' : 'border-stone-200 focus:border-green-500'}`}
+                >
+                  <option value="CONVENCIONAL">Convencional</option>
+                  <option value="PD_IMPLANTACAO">Plantio Direto - Implantado</option>
+                  <option value="PD_CONSOLIDADO">Plantio Direto - Consolidado</option>
+                </select>
+                {errors.sistema_manejo && <span className="text-red-500 text-xs mt-1 flex items-center gap-1"><AlertCircle size={12} /> Preencha este campo!</span>}
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-semibold">PRNT (%) *</label>
+                <input 
+                  type="number" step="0.1" 
+                  {...register('prnt_pct')} 
+                  className={`w-full bg-white border rounded-xl px-4 py-3 outline-none shadow-sm transition-all ${errors.prnt_pct ? 'border-red-500 focus:border-red-500 bg-red-50' : 'border-stone-200 focus:border-green-500'}`}
+                />
+                {errors.prnt_pct && <span className="text-red-500 text-xs mt-1 flex items-center gap-1"><AlertCircle size={12} /> Preencha este campo!</span>}
+              </div>
             </div>
             {sistemaSelecionado === 'PD_IMPLANTACAO' && (
-              <div className="space-y-2 animate-fade-in"><label className="text-sm font-semibold">Modo de Implantação</label><select {...register('modo_implantacao_pd')} className="w-full bg-white border border-stone-200 rounded-xl px-4 py-3 outline-none focus:border-green-500 shadow-sm"><option value="INCORPORADO">Incorporado</option><option value="CAMPO_NATURAL_SUPERFICIAL">Superficial</option></select></div>
+              <div className="space-y-2 animate-fade-in">
+                <label className="text-sm font-semibold">Modo de Implantação *</label>
+                <select 
+                  {...register('modo_implantacao_pd')} 
+                  className={`w-full bg-white border rounded-xl px-4 py-3 outline-none shadow-sm transition-all ${errors.modo_implantacao_pd ? 'border-red-500 focus:border-red-500 bg-red-50' : 'border-stone-200 focus:border-green-500'}`}
+                >
+                  <option value="INCORPORADO">Incorporado</option>
+                  <option value="CAMPO_NATURAL_SUPERFICIAL">Superficial</option>
+                </select>
+                {errors.modo_implantacao_pd && <span className="text-red-500 text-xs mt-1 flex items-center gap-1"><AlertCircle size={12} /> Preencha este campo!</span>}
+              </div>
             )}
           </div>
           <div>
@@ -525,14 +682,51 @@ const CalculadoraScreen = ({ isLoggedIn }: { isLoggedIn: boolean }) => {
                 <div key={field.id} className="relative bg-white border border-stone-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow">
                   <span className="absolute -top-3 left-6 bg-green-100 text-green-800 text-xs font-bold px-3 py-1 rounded-full border border-green-200">Camada {field.profundidade} cm</span>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-2">
-                    {[{ label: 'pH', name: 'ph' }, { label: 'SMP', name: 'indice_smp' }, { label: 'MO (%)', name: 'mo_pct' }, { label: 'V (%)', name: 'v_pct' }, { label: 'm (%)', name: 'm_pct' }, { label: 'Al', name: 'al_cmolc_dm3' }].map((item) => (
-                      <div key={item.name} className="space-y-1"><label className="text-xs font-medium text-stone-500">{item.label}</label><input type="number" step="0.1" {...register(`amostras.${index}.${item.name}` as any)} className="w-full bg-stone-50 border border-stone-200 rounded-lg px-3 py-2 text-sm outline-none focus:bg-white focus:border-green-500 transition-all" /></div>
-                    ))}
+                    {[{ label: 'pH *', name: 'ph' }, { label: 'SMP *', name: 'indice_smp' }, { label: 'MO (%) *', name: 'mo_pct' }, { label: 'V (%) *', name: 'v_pct' }, { label: 'm (%) *', name: 'm_pct' }, { label: 'Al *', name: 'al_cmolc_dm3' }].map((item) => {
+                      const erroAmostra = errors?.amostras?.[index]?.[item.name as keyof EntradaCalagem['amostras'][0]];
+                      return (
+                        <div key={item.name} className="space-y-1">
+                          <label className="text-xs font-medium text-stone-500">{item.label}</label>
+                          <input 
+                            type="number" step="0.1" 
+                            {...register(`amostras.${index}.${item.name}` as any)} 
+                            className={`w-full bg-stone-50 border rounded-lg px-3 py-2 text-sm outline-none transition-all ${
+                              erroAmostra ? 'border-red-500 focus:border-red-500 bg-red-50' : 'border-stone-200 focus:bg-white focus:border-green-500'
+                            }`} 
+                          />
+                        </div>
+                      )
+                    })}
                   </div>
                 </div>
               ))}
             </div>
           </div>
+
+          {/* SESSÃO TERMOS DE USO COM ESTILO APRIMORADO */}
+          <div className={`p-5 rounded-2xl border transition-colors ${erroTermos ? 'bg-red-50 border-red-200' : 'bg-stone-50 border-stone-200'}`}>
+            <label className="flex items-start gap-3 cursor-pointer group">
+              <div className="flex items-center justify-center pt-1">
+                <input 
+                  type="checkbox" 
+                  checked={termosAceitos}
+                  onChange={(e) => { setTermosAceitos(e.target.checked); setErroTermos(false); }}
+                  className="w-5 h-5 accent-green-600 rounded cursor-pointer"
+                />
+              </div>
+              <div className="flex-1">
+                <span className="text-sm text-stone-700 leading-relaxed font-medium">
+                  Declaro que li e concordo com os <button type="button" onClick={(e) => { e.preventDefault(); setModalTermosOpen(true); }} className="text-green-600 font-bold hover:text-green-700 hover:underline">Termos de Uso</button> da plataforma.
+                </span>
+                {erroTermos && (
+                  <span className="text-red-500 text-xs font-semibold mt-2 flex items-center gap-1">
+                    <ShieldCheck size={14} /> O aceite dos termos é obrigatório para realizar o cálculo.
+                  </span>
+                )}
+              </div>
+            </label>
+          </div>
+
           <button type="submit" disabled={loading} className="w-full bg-stone-900 hover:bg-stone-800 disabled:bg-stone-300 text-white font-semibold rounded-xl py-4 shadow-lg flex items-center justify-center">{loading ? 'Processando...' : 'Calcular Recomendação'}</button>
         </form>
       </div>
