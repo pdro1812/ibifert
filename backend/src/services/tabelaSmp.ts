@@ -1,67 +1,70 @@
 // backend/src/services/tabelaSmp.ts
 
-type PhAlvo = 5.5 | 6.0 | 6.5;
+/**
+ * Tabela 5.2 — Manual de Calagem e Adubação RS/SC (2016), Capítulo 5
+ * Colunas: smp, pH_5_5, pH_6_0, pH_6_5
+ * Regra de uso: floor do SMP para busca (sem interpolação, conforme especificação)
+ * SE SMP < 4.4 → usar linha 4.4 (máximo da tabela)
+ * SE SMP > 7.1 → NC_base = 0.0
+ */
+const TABELA_SMP: ReadonlyArray<{ smp: number; pH_5_5: number; pH_6_0: number; pH_6_5: number }> = [
+  { smp: 4.4, pH_5_5: 15.0, pH_6_0: 21.0, pH_6_5: 29.0 },
+  { smp: 4.5, pH_5_5: 12.5, pH_6_0: 17.3, pH_6_5: 24.0 },
+  { smp: 4.6, pH_5_5: 10.9, pH_6_0: 15.1, pH_6_5: 20.0 },
+  { smp: 4.7, pH_5_5:  9.6, pH_6_0: 13.3, pH_6_5: 17.5 },
+  { smp: 4.8, pH_5_5:  8.5, pH_6_0: 11.9, pH_6_5: 15.7 },
+  { smp: 4.9, pH_5_5:  7.7, pH_6_0: 10.7, pH_6_5: 14.2 },
+  { smp: 5.0, pH_5_5:  6.6, pH_6_0:  9.9, pH_6_5: 13.3 },
+  { smp: 5.1, pH_5_5:  6.0, pH_6_0:  9.1, pH_6_5: 12.3 },
+  { smp: 5.2, pH_5_5:  5.3, pH_6_0:  8.3, pH_6_5: 11.3 },
+  { smp: 5.3, pH_5_5:  4.8, pH_6_0:  7.5, pH_6_5: 10.4 },
+  { smp: 5.4, pH_5_5:  4.2, pH_6_0:  6.8, pH_6_5:  9.5 },
+  { smp: 5.5, pH_5_5:  3.7, pH_6_0:  6.1, pH_6_5:  8.6 },
+  { smp: 5.6, pH_5_5:  3.2, pH_6_0:  5.4, pH_6_5:  7.8 },
+  { smp: 5.7, pH_5_5:  2.8, pH_6_0:  4.8, pH_6_5:  7.0 },
+  { smp: 5.8, pH_5_5:  2.3, pH_6_0:  4.2, pH_6_5:  6.3 },
+  { smp: 5.9, pH_5_5:  2.0, pH_6_0:  3.7, pH_6_5:  5.6 },
+  { smp: 6.0, pH_5_5:  1.6, pH_6_0:  3.2, pH_6_5:  4.9 },
+  { smp: 6.1, pH_5_5:  1.3, pH_6_0:  2.7, pH_6_5:  4.3 },
+  { smp: 6.2, pH_5_5:  1.0, pH_6_0:  2.2, pH_6_5:  3.7 },
+  { smp: 6.3, pH_5_5:  0.8, pH_6_0:  1.8, pH_6_5:  3.1 },
+  { smp: 6.4, pH_5_5:  0.6, pH_6_0:  1.4, pH_6_5:  2.6 },
+  { smp: 6.5, pH_5_5:  0.4, pH_6_0:  1.1, pH_6_5:  2.1 },
+  { smp: 6.6, pH_5_5:  0.2, pH_6_0:  0.8, pH_6_5:  1.6 },
+  { smp: 6.7, pH_5_5:  0.0, pH_6_0:  0.5, pH_6_5:  1.2 },
+  { smp: 6.8, pH_5_5:  0.0, pH_6_0:  0.3, pH_6_5:  0.8 },
+  { smp: 6.9, pH_5_5:  0.0, pH_6_0:  0.2, pH_6_5:  0.5 },
+  { smp: 7.0, pH_5_5:  0.0, pH_6_0:  0.0, pH_6_5:  0.2 },
+  { smp: 7.1, pH_5_5:  0.0, pH_6_0:  0.0, pH_6_5:  0.0 },
+] as const;
 
-// Transcrição exata da Tabela 5.2 do Manual RS/SC
-const DICIONARIO_SMP: Record<string, Record<PhAlvo, number>> = {
-  "4.4": { 5.5: 15.0, 6.0: 21.0, 6.5: 29.0 },
-  "4.5": { 5.5: 12.5, 6.0: 17.3, 6.5: 24.0 },
-  "4.6": { 5.5: 10.9, 6.0: 15.1, 6.5: 20.0 },
-  "4.7": { 5.5: 9.6,  6.0: 13.3, 6.5: 17.5 },
-  "4.8": { 5.5: 8.5,  6.0: 11.9, 6.5: 15.7 },
-  "4.9": { 5.5: 7.7,  6.0: 10.7, 6.5: 14.2 },
-  "5.0": { 5.5: 6.6,  6.0: 9.9,  6.5: 13.3 },
-  "5.1": { 5.5: 6.0,  6.0: 9.1,  6.5: 12.3 },
-  "5.2": { 5.5: 5.3,  6.0: 8.3,  6.5: 11.3 },
-  "5.3": { 5.5: 4.8,  6.0: 7.5,  6.5: 10.4 },
-  "5.4": { 5.5: 4.2,  6.0: 6.8,  6.5: 9.5  },
-  "5.5": { 5.5: 3.7,  6.0: 6.1,  6.5: 8.6  },
-  "5.6": { 5.5: 3.2,  6.0: 5.4,  6.5: 7.8  },
-  "5.7": { 5.5: 2.8,  6.0: 4.8,  6.5: 7.0  },
-  "5.8": { 5.5: 2.3,  6.0: 4.2,  6.5: 6.3  },
-  "5.9": { 5.5: 2.0,  6.0: 3.7,  6.5: 5.6  },
-  "6.0": { 5.5: 1.6,  6.0: 3.2,  6.5: 4.9  },
-  "6.1": { 5.5: 1.3,  6.0: 2.7,  6.5: 4.3  },
-  "6.2": { 5.5: 1.0,  6.0: 2.2,  6.5: 3.7  },
-  "6.3": { 5.5: 0.8,  6.0: 1.8,  6.5: 3.1  },
-  "6.4": { 5.5: 0.6,  6.0: 1.4,  6.5: 2.6  },
-  "6.5": { 5.5: 0.4,  6.0: 1.1,  6.5: 2.1  },
-  "6.6": { 5.5: 0.2,  6.0: 0.8,  6.5: 1.6  },
-  "6.7": { 5.5: 0.0,  6.0: 0.5,  6.5: 1.2  },
-  "6.8": { 5.5: 0.0,  6.0: 0.3,  6.5: 0.8  },
-  "6.9": { 5.5: 0.0,  6.0: 0.2,  6.5: 0.5  },
-  "7.0": { 5.5: 0.0,  6.0: 0.0,  6.5: 0.2  },
-  "7.1": { 5.5: 0.0,  6.0: 0.0,  6.5: 0.0  }
-};
+export type PHAlvo = 5.5 | 6.0 | 6.5;
 
 /**
- * Retorna a Necessidade de Calagem (t/ha) baseada na Tabela 5.2 do Índice SMP.
- * Clampa valores menores ou iguais a 4.4 e maiores ou iguais a 7.1.
+ * Consulta a Tabela 5.2 para o SMP e pH-alvo fornecidos.
+ *
+ * - SMP < 4.4 → usa linha 4.4 (máximo)
+ * - SMP > 7.1 → retorna 0.0
+ * - Sem interpolação: usa floor para 1 casa decimal
  */
-export function calcularNcViaTabelaSmp(indiceSmp: number, phAlvo: PhAlvo = 6.0): number {
-  if (indiceSmp <= 4.4) return DICIONARIO_SMP["4.4"][phAlvo];
-  if (indiceSmp >= 7.1) return DICIONARIO_SMP["7.1"][phAlvo];
+export function tabelaSmpLookup(smp: number, pHAlvo: PHAlvo): number {
+  // Acima do limite superior → sem necessidade
+  if (smp > 7.1) return 0.0;
 
-  const chaveSmp = indiceSmp.toFixed(1);
-  const necessidadeCalagem = DICIONARIO_SMP[chaveSmp][phAlvo];
-  return necessidadeCalagem !== undefined ? necessidadeCalagem : 0;
-}
+  // Arredonda para 1 casa decimal via floor (ex: 5.85 → 5.8)
+  const smpFloor = Math.floor(smp * 10) / 10;
 
-/**
- * Cálculo via polinômio para solos de Baixo Poder Tampão (geralmente SMP > 6.3).
- * Utiliza as equações exatas do manual baseadas em MO e Al.
- * Sem arredondamento — valor segue no pipeline até dose_final_t_ha.
- */
-export function calcularNcViaPolinomio(mo_pct: number, al_cmolc_dm3: number, phAlvo: PhAlvo = 6.0): number {
-  let nc = 0;
+  // Clamp no mínimo da tabela
+  const smpBusca = Math.max(smpFloor, 4.4);
 
-  if (phAlvo === 5.5) {
-    nc = -0.653 + (0.480 * mo_pct) + (1.937 * al_cmolc_dm3);
-  } else if (phAlvo === 6.0) {
-    nc = -0.516 + (0.805 * mo_pct) + (2.435 * al_cmolc_dm3);
-  } else if (phAlvo === 6.5) {
-    nc = -0.122 + (1.193 * mo_pct) + (2.713 * al_cmolc_dm3);
+  const linha = TABELA_SMP.find((row) => row.smp === smpBusca);
+
+  // Fallback seguro: se por algum motivo não encontrar, usa 4.4
+  const row = linha ?? TABELA_SMP[0];
+
+  switch (pHAlvo) {
+    case 5.5: return row.pH_5_5;
+    case 6.0: return row.pH_6_0;
+    case 6.5: return row.pH_6_5;
   }
-
-  return nc > 0 ? nc : 0;
 }

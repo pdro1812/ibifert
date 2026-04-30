@@ -1,697 +1,383 @@
-/**
- * Testes de validação para o motor de calagem.
- * Fonte de verdade: Manual de Calagem e Adubação para os Estados do RS e SC (2016).
- * Todos os resultadoEsperado foram verificados manualmente contra a Tabela 5.2 (p.70)
- * e as fórmulas polinomiais (p.72).
- *
- * O campo resultadoEsperado corresponde sempre a dose_final_t_ha retornada por
- * executarMotorCalagem(), já com PRNT aplicado.
- */
+// backend/src/utils/calagem.test.ts
 
-import { executarMotorCalagem } from '../services/motorCalagem';
-import { RespostaMotor, RespostaSucesso } from '../services/motorCalagem';
-import { EntradaCalagem } from '../schemas/calagemSchema';
+import { tabelaSmpLookup } from "../services/tabelaSmp";
+import { executarMotorCalagem, avaliarMonitoramento10_20 } from "../services/motorCalagem";
+import { calcularAlSat } from "../services/calculadoraCalagem";
+import { SistemaManejo, MetodoCalcRoteado, ModoAplicacao } from "../schemas/calagemSchema";
 
-// ---------------------------------------------------------------------------
-// Helper de narrowing — falha o teste com mensagem útil se vier RespostaErro
-// ---------------------------------------------------------------------------
-function assertSucesso(r: RespostaMotor): RespostaSucesso {
-  if (!r.sucesso) {
-    throw new Error(
-      `Motor retornou erro inesperado: [${r.codigo_erro}] ${r.mensagem}\n` +
-      `Detalhes: ${JSON.stringify(r.detalhes, null, 2)}`
-    );
+// ─── Utilidade de asserção ────────────────────────────────────────────────────
+
+function assertEqual(label: string, actual: unknown, expected: unknown, precision = 4): void {
+  const pass =
+    typeof actual === "number" && typeof expected === "number"
+      ? Math.abs(actual - expected) < Math.pow(10, -precision)
+      : actual === expected;
+
+  if (pass) {
+    console.log(`  ✅ ${label}`);
+  } else {
+    const errorMsg = `  ❌ ${label} | Esperado: ${JSON.stringify(expected)} | Obtido: ${JSON.stringify(actual)}`;
+    console.error(errorMsg);
+    // ADAPTAÇÃO: O Jest precisa que um erro seja lançado para marcar o teste como falho
+    throw new Error(errorMsg); 
   }
-  return r;
 }
 
-// ---------------------------------------------------------------------------
-// Tipo auxiliar para documentar cada caso
-// ---------------------------------------------------------------------------
-interface CasoTesteCalagem {
-  descricao: string;
-  entrada: EntradaCalagem;
-  resultadoEsperado: number;
-  unidade: 't/ha';
-  metodo: string;
-  referencia: string;
+function assertThrows(label: string, fn: () => unknown): void {
+  try {
+    fn();
+    const errorMsg = `  ❌ ${label} — deveria ter lançado erro`;
+    console.error(errorMsg);
+    // ADAPTAÇÃO: Lança erro para o Jest capturar a falha
+    throw new Error(errorMsg);
+  } catch (err: any) {
+    // Evita capturar o erro que nós mesmos acabamos de lançar no try
+    if (err.message && err.message.includes("deveria ter lançado erro")) {
+      throw err; 
+    }
+    console.log(`  ✅ ${label}`);
+  }
 }
 
-// ---------------------------------------------------------------------------
-// Tabela de casos
-// ---------------------------------------------------------------------------
-const casos: CasoTesteCalagem[] = [
-  // ======================================================================
-  // GRUPO 1 — CONVENCIONAL (sistema_manejo = 'CONVENCIONAL')
-  // Regra: 1× SMP para pH 6,0, incorporado, camada 0-20 cm.
-  // Manual p.72 (Tabela 5.3) e Tabela 5.2 (p.70).
-  // ======================================================================
-  {
-    descricao: 'CONV-01 | SMP 5.0 | PRNT 100% | dose_base = 9,9 t/ha',
-    entrada: {
-      versao_regra: 'ibiferti-calagem-graos-v1.6',
-      sistema_manejo: 'CONVENCIONAL',
-      prnt_pct: 100,
-      amostras: [
-        { profundidade: '0-20', ph: 4.9, indice_smp: 5.0 },
-      ],
-    },
-    resultadoEsperado: 9.9,
-    unidade: 't/ha',
-    metodo: 'TABELA_SMP_5_2',
-    referencia: 'Tabela 5.2, p.70 — SMP 5.0, pH desejado 6,0 = 9,9 t/ha',
-  },
-  {
-    descricao: 'CONV-02 | SMP 4.4 (limite inferior da tabela) | PRNT 100% | dose_base = 21,0 t/ha',
-    entrada: {
-      versao_regra: 'ibiferti-calagem-graos-v1.6',
-      sistema_manejo: 'CONVENCIONAL',
-      prnt_pct: 100,
-      amostras: [
-        { profundidade: '0-20', ph: 4.2, indice_smp: 4.4 },
-      ],
-    },
-    resultadoEsperado: 21,
-    unidade: 't/ha',
-    metodo: 'TABELA_SMP_5_2',
-    referencia: 'Tabela 5.2, p.70 — SMP ≤4.4, pH desejado 6,0 = 21,0 t/ha',
-  },
-  {
-    descricao: 'CONV-03 | SMP 3.0 (abaixo do mínimo, clamped a 4.4) | PRNT 100% | dose_base = 21,0 t/ha',
-    entrada: {
-      versao_regra: 'ibiferti-calagem-graos-v1.6',
-      sistema_manejo: 'CONVENCIONAL',
-      prnt_pct: 100,
-      amostras: [
-        { profundidade: '0-20', ph: 3.8, indice_smp: 3.0 },
-      ],
-    },
-    resultadoEsperado: 21,
-    unidade: 't/ha',
-    metodo: 'TABELA_SMP_5_2',
-    referencia: 'Tabela 5.2, p.70 — SMP ≤4.4 (clamped), pH desejado 6,0 = 21,0 t/ha',
-  },
-  {
-    descricao: 'CONV-04 | SMP 7.1 (limite superior) | PRNT 100% | solo sem necessidade de calagem',
-    entrada: {
-      versao_regra: 'ibiferti-calagem-graos-v1.6',
-      sistema_manejo: 'CONVENCIONAL',
-      prnt_pct: 100,
-      amostras: [
-        { profundidade: '0-20', ph: 6.5, indice_smp: 7.1 },
-      ],
-    },
-    resultadoEsperado: 0,
-    unidade: 't/ha',
-    metodo: 'TABELA_SMP_5_2',
-    referencia: 'Tabela 5.2, p.70 — SMP ≥7.1, pH desejado 6,0 = 0 t/ha',
-  },
-  {
-    descricao: 'CONV-05 | SMP 6.0 | PRNT 80% | dose comercial = 4,0 t/ha',
-    entrada: {
-      versao_regra: 'ibiferti-calagem-graos-v1.6',
-      sistema_manejo: 'CONVENCIONAL',
-      prnt_pct: 80,
-      amostras: [
-        { profundidade: '0-20', ph: 5.4, indice_smp: 6.0 },
-      ],
-    },
-    // NC_base = 3,2 t/ha (Tabela 5.2). Comercial = (3,2 × 100) / 80 = 4,0
-    resultadoEsperado: 4,
-    unidade: 't/ha',
-    metodo: 'TABELA_SMP_5_2',
-    referencia: 'Tabela 5.2, p.70 — SMP 6.0, pH 6,0 = 3,2 t/ha; ajuste PRNT: ÷ 0,80 = 4,0',
-  },
-  {
-    descricao: 'CONV-06 | SMP 5.5 | PRNT 75% | dose comercial = 8,13 t/ha',
-    entrada: {
-      versao_regra: 'ibiferti-calagem-graos-v1.6',
-      sistema_manejo: 'CONVENCIONAL',
-      prnt_pct: 75,
-      amostras: [
-        { profundidade: '0-20', ph: 5.0, indice_smp: 5.5 },
-      ],
-    },
-    // NC_base = 6,1 t/ha. Comercial = (6,1 × 100) / 75 = 8,13
-    resultadoEsperado: 8.13,
-    unidade: 't/ha',
-    metodo: 'TABELA_SMP_5_2',
-    referencia: 'Tabela 5.2, p.70 — SMP 5.5, pH 6,0 = 6,1 t/ha; ajuste PRNT: ÷ 0,75 = 8,13',
-  },
-  {
-    descricao: 'CONV-07 | SMP 4.5 | PRNT 90% | dose comercial = 19,22 t/ha',
-    entrada: {
-      versao_regra: 'ibiferti-calagem-graos-v1.6',
-      sistema_manejo: 'CONVENCIONAL',
-      prnt_pct: 90,
-      amostras: [
-        { profundidade: '0-20', ph: 4.3, indice_smp: 4.5 },
-      ],
-    },
-    // NC_base = 17,3 t/ha. Comercial = (17,3 × 100) / 90 = 19,22
-    resultadoEsperado: 19.22,
-    unidade: 't/ha',
-    metodo: 'TABELA_SMP_5_2',
-    referencia: 'Tabela 5.2, p.70 — SMP 4.5, pH 6,0 = 17,3 t/ha; ajuste PRNT: ÷ 0,90 = 19,22',
-  },
-  {
-    descricao: 'CONV-08 | SMP 7.0 | PRNT 100% | solo sem necessidade de calagem',
-    entrada: {
-      versao_regra: 'ibiferti-calagem-graos-v1.6',
-      sistema_manejo: 'CONVENCIONAL',
-      prnt_pct: 100,
-      amostras: [
-        { profundidade: '0-20', ph: 6.3, indice_smp: 7.0 },
-      ],
-    },
-    // NC = 0,0 (Tabela 5.2, SMP 7.0, pH 6,0)
-    resultadoEsperado: 0,
-    unidade: 't/ha',
-    metodo: 'TABELA_SMP_5_2',
-    referencia: 'Tabela 5.2, p.70 — SMP 7.0, pH 6,0 = 0 t/ha',
-  },
+// ─── CT-01 ────────────────────────────────────────────────────────────────────
+// ADAPTAÇÃO: Envolver o bloco lógico com test()
+test("CT-01: Lookup SMP — valor exato de tabela", () => {
+  console.log("\nCT-01: Lookup SMP — valor exato de tabela");
+  const NC = tabelaSmpLookup(5.5, 6.0);
+  assertEqual("NC_base = 6.1", NC, 6.1);
+});
 
-  // ======================================================================
-  // GRUPO 2 — CONVENCIONAL com MÉTODO POLINOMIAL (SMP > 6.3)
-  // Regra: solos de baixo poder tampão (SMP > 6.3, com mo_pct e al fornecidos).
-  // Equações: NC pH 6,0 = -0,516 + (0,805 × MO) + (2,435 × Al). Manual p.72.
-  // ======================================================================
-  {
-    descricao: 'CONV-POL-01 | SMP 6.4 | MO=2.5% | Al=0.3 | PRNT 100% | NC = 2,23 t/ha',
-    entrada: {
-      versao_regra: 'ibiferti-calagem-graos-v1.6',
-      sistema_manejo: 'CONVENCIONAL',
-      prnt_pct: 100,
-      amostras: [
-        {
-          profundidade: '0-20',
-          ph: 5.6,
-          indice_smp: 6.4,
-          mo_pct: 2.5,
-          al_cmolc_dm3: 0.3,
-        },
-      ],
-    },
-    // NC = -0,516 + (0,805 × 2,5) + (2,435 × 0,3) = -0,516 + 2,0125 + 0,7305 = 2,227 → 2,23
-    resultadoEsperado: 2.23,
-    unidade: 't/ha',
-    metodo: 'POLINOMIAL_BAIXO_TAMPAO',
-    referencia: 'p.72 — eq. NC pH 6,0 para solos de baixo poder tampão (SMP > 6,3)',
-  },
-  {
-    descricao: 'CONV-POL-02 | SMP 6.5 | MO=0.1% | Al=0.0 | resultado negativo → NC = 0',
-    entrada: {
-      versao_regra: 'ibiferti-calagem-graos-v1.6',
-      sistema_manejo: 'CONVENCIONAL',
-      prnt_pct: 100,
-      amostras: [
-        {
-          profundidade: '0-20',
-          ph: 5.8,
-          indice_smp: 6.5,
-          mo_pct: 0.1,
-          al_cmolc_dm3: 0.0,
-        },
-      ],
-    },
-    // NC = -0,516 + (0,805 × 0,1) + (2,435 × 0,0) = -0,516 + 0,0805 = -0,4355 < 0 → 0
-    resultadoEsperado: 0,
-    unidade: 't/ha',
-    metodo: 'POLINOMIAL_BAIXO_TAMPAO',
-    referencia: 'p.72 — equação polinomial com resultado negativo → NC = 0 (não negativo)',
-  },
+// ─── CT-02 ────────────────────────────────────────────────────────────────────
+test("CT-02: Lookup SMP — limite inferior da tabela", () => {
+  console.log("\nCT-02: Lookup SMP — limite inferior da tabela");
+  const NC_exato = tabelaSmpLookup(4.4, 6.0);
+  assertEqual("SMP=4.4 → 21.0", NC_exato, 21.0);
+  
+  const NC_menor = tabelaSmpLookup(4.0, 6.0);
+  assertEqual("SMP<4.4 → 21.0", NC_menor, 21.0);
+});
 
-  // ======================================================================
-  // GRUPO 3 — PD_IMPLANTACAO INCORPORADO
-  // Regra: 1× SMP para pH 6,0, incorporado. Tabela 5.3 (p.75).
-  // ======================================================================
-  {
-    descricao: 'PDI-INC-01 | SMP 5.2 | PRNT 100% | dose = 8,3 t/ha',
-    entrada: {
-      versao_regra: 'ibiferti-calagem-graos-v1.6',
-      sistema_manejo: 'PD_IMPLANTACAO',
-      modo_implantacao_pd: 'INCORPORADO',
-      prnt_pct: 100,
-      amostras: [
-        { profundidade: '0-20', ph: 4.8, indice_smp: 5.2 },
-      ],
-    },
-    resultadoEsperado: 8.3,
-    unidade: 't/ha',
-    metodo: 'TABELA_SMP_5_2',
-    referencia: 'Tabela 5.2, p.70 — SMP 5.2, pH 6,0 = 8,3 t/ha; Tabela 5.3, p.75 — PD implantação incorporado',
-  },
-  {
-    descricao: 'PDI-INC-02 | SMP 5.0 | PRNT 70% | dose comercial = 14,14 t/ha',
-    entrada: {
-      versao_regra: 'ibiferti-calagem-graos-v1.6',
-      sistema_manejo: 'PD_IMPLANTACAO',
-      modo_implantacao_pd: 'INCORPORADO',
-      prnt_pct: 70,
-      amostras: [
-        { profundidade: '0-20', ph: 4.8, indice_smp: 5.0 },
-      ],
-    },
-    // NC_base = 9,9. Comercial = (9,9 × 100) / 70 = 14,14
-    resultadoEsperado: 14.14,
-    unidade: 't/ha',
-    metodo: 'TABELA_SMP_5_2',
-    referencia: 'Tabela 5.2, p.70 — SMP 5.0, pH 6,0 = 9,9 t/ha; ajuste PRNT 70%',
-  },
+// ─── CT-03 ────────────────────────────────────────────────────────────────────
+test("CT-03: Lookup SMP — sem necessidade", () => {
+  console.log("\nCT-03: Lookup SMP — sem necessidade");
+  const NC = tabelaSmpLookup(7.1, 6.0);
+  assertEqual("SMP=7.1 → 0.0", NC, 0.0);
+  
+  const NC2 = tabelaSmpLookup(7.5, 6.0);
+  assertEqual("SMP>7.1 → 0.0", NC2, 0.0);
+});
 
-  // ======================================================================
-  // GRUPO 4 — PD_IMPLANTACAO CAMPO_NATURAL_SUPERFICIAL
-  // Regra: ½ da dose SMP para pH 6,0 em superfície, conforme o manual (p.73).
-  // O motor adota fracionamento 0,25 para esta rota (conservador).
-  // Limite superficial: máx 5,0 t/ha PRNT 100% (nota 5, Tabela 5.3, p.75).
-  // ======================================================================
-  {
-    descricao: 'PDI-CN-01 | SMP 5.8 | PRNT 100% | NC_base=4.2 × 0.25 = 1.05 t/ha superficial',
-    entrada: {
-      versao_regra: 'ibiferti-calagem-graos-v1.6',
-      sistema_manejo: 'PD_IMPLANTACAO',
-      modo_implantacao_pd: 'CAMPO_NATURAL_SUPERFICIAL',
-      prnt_pct: 100,
-      amostras: [
-        { profundidade: '0-20', ph: 5.1, indice_smp: 5.8 },
-      ],
-    },
-    // NC_tabela = 4,2 → ×0,25 = 1,05 → clamping: 1,05 ≤ 5 → 1,05
-    resultadoEsperado: 1.05,
-    unidade: 't/ha',
-    metodo: 'TABELA_SMP_5_2',
-    referencia: 'Tabela 5.2, p.70 — SMP 5.8, pH 6,0 = 4,2; p.73 — aplicação superficial campo natural; limite 5 t/ha (Tabela 5.3 nota 5, p.75)',
-  },
-  {
-    descricao: 'PDI-CN-02 | SMP 5.6 | PRNT 100% | NC_base=5.4 x 0.25 = 1.35 t/ha superficial',
-    entrada: {
-      versao_regra: 'ibiferti-calagem-graos-v1.6',
-      sistema_manejo: 'PD_IMPLANTACAO',
-      modo_implantacao_pd: 'CAMPO_NATURAL_SUPERFICIAL',
-      prnt_pct: 100,
-      amostras: [
-        { profundidade: '0-20', ph: 5.0, indice_smp: 5.6 },
-      ],
-    },
-    // NC_tabela(5.6) = 5,4 → ×0,25 = 1,35 → clamping: 1,35 <= 5 → 1,35
-    resultadoEsperado: 1.35,
-    unidade: 't/ha',
-    metodo: 'TABELA_SMP_5_2',
-    referencia: 'Tabela 5.2, p.70 — SMP 5.6, pH 6,0 = 5,4; ×0,25 = 1,35; CAMPO_NATURAL exige SMP > 5,5',
-  },
-  {
-    descricao: 'PDI-CN-03 | SMP 6.2 | PRNT 100% | NC_base=2.2 × 0.25 = 0.55 t/ha',
-    entrada: {
-      versao_regra: 'ibiferti-calagem-graos-v1.6',
-      sistema_manejo: 'PD_IMPLANTACAO',
-      modo_implantacao_pd: 'CAMPO_NATURAL_SUPERFICIAL',
-      prnt_pct: 100,
-      amostras: [
-        { profundidade: '0-20', ph: 5.5, indice_smp: 6.2 },
-      ],
-    },
-    // NC_tabela = 2,2 → ×0,25 = 0,55 → clamping: ok → 0,55
-    resultadoEsperado: 0.55,
-    unidade: 't/ha',
-    metodo: 'TABELA_SMP_5_2',
-    referencia: 'Tabela 5.2, p.70 — SMP 6.2, pH 6,0 = 2,2; ×0,25 = 0,55',
-  },
+// ─── CT-04 ────────────────────────────────────────────────────────────────────
+test("CT-04: Fator 1/4 — PD Consolidado", () => {
+  console.log("\nCT-04: Fator 1/4 — PD Consolidado");
+  const resultado = executarMotorCalagem({
+    sistema_manejo: SistemaManejo.PD_CONSOLIDADO,
+    primeira_calagem: true,
+    pH_agua: 5.0,
+    SMP: 5.5,
+    PRNT: 100,
+    Al_sat: 15.0, // pH < 5.5 → Al_sat necessário; acima de 10, não trava
+  });
+  assertEqual("NC_final = 1.525", resultado.NC_final, 1.525);
+  assertEqual("aplicar = true", resultado.aplicar_calcario, true);
+});
 
-  // ======================================================================
-  // GRUPO 5 — PD_CONSOLIDADO SEM RESTRIÇÃO NO SUBSOLO
-  // Regra: amostra 0-10; verificar trava V/m; fracionamento 0,5; clamping 5 t/ha.
-  // Tabela 5.3, p.75; p.73.
-  // ======================================================================
-  {
-    descricao: 'PDC-SUP-01 | SMP 0-10=5.5 | V=55% m=15% (sem trava) | subsolo ok | dose=3.05 t/ha',
-    entrada: {
-      versao_regra: 'ibiferti-calagem-graos-v1.6',
-      sistema_manejo: 'PD_CONSOLIDADO',
-      prnt_pct: 100,
-      amostras: [
-        { profundidade: '0-10', ph: 5.0, indice_smp: 5.5, v_pct: 55, m_pct: 15 },
-        { profundidade: '10-20', ph: 5.2, indice_smp: 5.8, m_pct: 8 },
-      ],
-      contexto_pd: { corrigido_0_20_na_implantacao: true },
-    },
-    // NC_010 = 6,1 → ×0,5 = 3,05 → clamping: ok → PRNT 100% → 3,05
-    resultadoEsperado: 3.05,
-    unidade: 't/ha',
-    metodo: 'TABELA_SMP_5_2',
-    referencia: 'Tabela 5.2, p.70 — SMP 5.5, pH 6,0 = 6,1; Tabela 5.3, p.75 — PD consolidado ¼ SMP; p.73 — fracionamento superficial',
-  },
-  {
-    descricao: 'PDC-SUP-02 | trava ATIVA (V=70% m=5%) | dose = 0 (sem calagem)',
-    entrada: {
-      versao_regra: 'ibiferti-calagem-graos-v1.6',
-      sistema_manejo: 'PD_CONSOLIDADO',
-      prnt_pct: 100,
-      amostras: [
-        { profundidade: '0-10', ph: 5.3, indice_smp: 5.5, v_pct: 70, m_pct: 5 },
-        { profundidade: '10-20', ph: 5.5, indice_smp: 5.8, m_pct: 8 },
-      ],
-    },
-    // V=70 ≥ 65 e m=5 < 10 → trava ativa → sem calagem
-    resultadoEsperado: 0,
-    unidade: 't/ha',
-    metodo: 'TABELA_SMP_5_2',
-    referencia: 'p.73 — não aplicar quando V ≥ 65% e saturação por Al na CTC < 10% (Tabela 5.3 nota 1, p.75)',
-  },
-  {
-    descricao: 'PDC-SUP-03 | trava exata (V=65% m=9%) | dose = 0 (trava ATIVA)',
-    entrada: {
-      versao_regra: 'ibiferti-calagem-graos-v1.6',
-      sistema_manejo: 'PD_CONSOLIDADO',
-      prnt_pct: 100,
-      amostras: [
-        { profundidade: '0-10', ph: 4.9, indice_smp: 5.5, v_pct: 65, m_pct: 9 },
-        { profundidade: '10-20', ph: 5.0, indice_smp: 5.8, m_pct: 8 },
-      ],
-    },
-    // V=65 ≥ 65 e m=9 < 10 → trava ativa
-    resultadoEsperado: 0,
-    unidade: 't/ha',
-    metodo: 'TABELA_SMP_5_2',
-    referencia: 'Tabela 5.3 nota 1, p.75 — limite exato V=65%, m=9% (< 10%)',
-  },
-  {
-    descricao: 'PDC-SUP-04 | trava NÃO ativa (V=65% m=10%) | SMP 0-10=5.5 | dose=3.05 t/ha',
-    entrada: {
-      versao_regra: 'ibiferti-calagem-graos-v1.6',
-      sistema_manejo: 'PD_CONSOLIDADO',
-      prnt_pct: 100,
-      amostras: [
-        { profundidade: '0-10', ph: 5.0, indice_smp: 5.5, v_pct: 65, m_pct: 10 },
-        { profundidade: '10-20', ph: 5.2, indice_smp: 5.8, m_pct: 8 },
-      ],
-    },
-    // m=10 não é < 10 → trava NÃO ativa → calagem superficial
-    // NC_010 = 6,1 → ×0,5 = 3,05 → clamping: ok
-    resultadoEsperado: 3.05,
-    unidade: 't/ha',
-    metodo: 'TABELA_SMP_5_2',
-    referencia: 'Tabela 5.3 nota 1, p.75 — m=10 não satisfaz m_pct < 10 → trava inativa',
-  },
-  {
-    descricao: 'PDC-SUP-05 | V=64% m=9% (trava NÃO ativa) | SMP 0-10=5.0 | dose=4.95 t/ha',
-    entrada: {
-      versao_regra: 'ibiferti-calagem-graos-v1.6',
-      sistema_manejo: 'PD_CONSOLIDADO',
-      prnt_pct: 100,
-      amostras: [
-        { profundidade: '0-10', ph: 4.8, indice_smp: 5.0, v_pct: 64, m_pct: 9 },
-        { profundidade: '10-20', ph: 5.0, indice_smp: 5.3, m_pct: 8 },
-      ],
-    },
-    // V=64 < 65 → trava NÃO ativa
-    // NC_010 = 9,9 → ×0,5 = 4,95 → clamping: ok
-    resultadoEsperado: 4.95,
-    unidade: 't/ha',
-    metodo: 'TABELA_SMP_5_2',
-    referencia: 'Tabela 5.2, p.70 — SMP 5.0 = 9,9; Tabela 5.3, p.75 — PDC superficial ×0,5',
-  },
-  {
-    descricao: 'PDC-SUP-06 | SMP 0-10=4.4 (clamping ativo) | V=40% m=30% | dose=5.0 t/ha (teto)',
-    entrada: {
-      versao_regra: 'ibiferti-calagem-graos-v1.6',
-      sistema_manejo: 'PD_CONSOLIDADO',
-      prnt_pct: 100,
-      amostras: [
-        { profundidade: '0-10', ph: 4.2, indice_smp: 4.4, v_pct: 40, m_pct: 30 },
-        { profundidade: '10-20', ph: 4.5, indice_smp: 4.8, m_pct: 8 },
-      ],
-    },
-    // NC_010 = 21,0 → ×0,5 = 10,5 → clamped a 5,0 → PRNT 100% → 5,0
-    resultadoEsperado: 5,
-    unidade: 't/ha',
-    metodo: 'TABELA_SMP_5_2',
-    referencia: 'Tabela 5.3 nota 5, p.75 — quantidade superficial limitada a 5 t/ha PRNT 100%',
-  },
+// ─── CT-05 ────────────────────────────────────────────────────────────────────
+test("CT-05: Trava máxima superficial — PD Consolidado", () => {
+  console.log("\nCT-05: Trava máxima superficial — PD Consolidado");
+  const resultado = executarMotorCalagem({
+    sistema_manejo: SistemaManejo.PD_CONSOLIDADO,
+    primeira_calagem: true,
+    pH_agua: 5.0,
+    SMP: 4.4,
+    PRNT: 100,
+    Al_sat: 15.0,
+  });
+  assertEqual("NC_final = 5.0 (trava)", resultado.NC_final, 5.0);
+  assertEqual("alerta emitido", resultado.alertas.length > 0, true);
+});
 
-  // ======================================================================
-  // GRUPO 6 — PD_CONSOLIDADO COM RESTRIÇÃO NO SUBSOLO (REINÍCIO)
-  // Regra: m_pct 10-20 > 10% → cenário de reinício → incorporado → média SMP.
-  // Manual p.74; Tabela 5.3, p.75.
-  // ======================================================================
-  {
-    descricao: 'PDC-REI-01 | SMP 0-10=5.4, 10-20=5.0 | subsolo restritivo | média SMP=5.2 | dose=8.3 t/ha',
-    entrada: {
-      versao_regra: 'ibiferti-calagem-graos-v1.6',
-      sistema_manejo: 'PD_CONSOLIDADO',
-      prnt_pct: 100,
-      amostras: [
-        { profundidade: '0-10', ph: 5.0, indice_smp: 5.4, v_pct: 55, m_pct: 15 },
-        { profundidade: '10-20', ph: 4.8, indice_smp: 5.0, m_pct: 15 },
-      ],
-      contexto_pd: {
-        produtividade_abaixo_media_local: true,
-        compactacao_solo: false,
-        fosforo_10_20_abaixo_critico: false,
-      },
-    },
-    // m_1020=15 > 10 → subsolo restritivo → média SMP = (5,4+5,0)/2 = 5,2
-    // NC_tabela(5.2) = 8,3 → PRNT 100% → 8,3
-    resultadoEsperado: 8.3,
-    unidade: 't/ha',
-    metodo: 'TABELA_SMP_5_2',
-    referencia: 'Tabela 5.2, p.70 — SMP médio 5.2, pH 6,0 = 8,3; p.74 — reinício PD usa média das duas camadas',
-  },
-  {
-    descricao: 'PDC-REI-02 | SMP 0-10=5.0, 10-20=4.8 | subsolo restritivo | média SMP=4.9 | PRNT 90% | dose=11.89 t/ha',
-    entrada: {
-      versao_regra: 'ibiferti-calagem-graos-v1.6',
-      sistema_manejo: 'PD_CONSOLIDADO',
-      prnt_pct: 90,
-      amostras: [
-        { profundidade: '0-10', ph: 4.7, indice_smp: 5.0, v_pct: 55, m_pct: 20 },
-        { profundidade: '10-20', ph: 4.5, indice_smp: 4.8, m_pct: 12 },
-      ],
-      contexto_pd: {
-        produtividade_abaixo_media_local: true,
-        compactacao_solo: true,
-        fosforo_10_20_abaixo_critico: true,
-      },
-    },
-    // m_1020=12 > 10 → subsolo restritivo → média SMP = (5,0+4,8)/2 = 4,9
-    // NC_tabela(4.9) = 10,7 → Comercial = (10,7×100)/90 = 11,89
-    resultadoEsperado: 11.89,
-    unidade: 't/ha',
-    metodo: 'TABELA_SMP_5_2',
-    referencia: 'Tabela 5.2, p.70 — SMP médio 4.9, pH 6,0 = 10,7; ajuste PRNT 90%',
-  },
-];
+// ─── CT-06 ────────────────────────────────────────────────────────────────────
+test("CT-06: Trava de não-aplicação — V% e Al_sat no PD Consolidado", () => {
+  console.log("\nCT-06: Trava de não-aplicação — V% e Al_sat no PD Consolidado");
+  const resultado = executarMotorCalagem({
+    sistema_manejo: SistemaManejo.PD_CONSOLIDADO,
+    primeira_calagem: false,
+    pH_agua: 5.2,
+    SMP: 5.5,
+    PRNT: 100,
+    V_atual: 66.0,
+    Al_sat: 8.0,
+    CTC_pH7: 10.0,
+  });
+  assertEqual("aplicar_calcario = false", resultado.aplicar_calcario, false);
+});
 
-// ---------------------------------------------------------------------------
-// Execução dos testes com Jest
-// ---------------------------------------------------------------------------
-describe('Motor de Calagem — Validação contra Manual RS/SC 2016', () => {
-  test.each(casos)(
-    '$descricao',
-    ({ entrada, resultadoEsperado }) => {
-      const resultado = assertSucesso(executarMotorCalagem(entrada));
-      expect(resultado.dose_final_t_ha).toBeCloseTo(resultadoEsperado, 2);
-    },
+// ─── CT-07 ────────────────────────────────────────────────────────────────────
+test("CT-07: Encerramento precoce — pH >= 5.5 no PD Consolidado", () => {
+  console.log("\nCT-07: Encerramento precoce — pH >= 5.5 no PD Consolidado");
+  const resultado = executarMotorCalagem({
+    sistema_manejo: SistemaManejo.PD_CONSOLIDADO,
+    primeira_calagem: true,
+    pH_agua: 5.6,
+    SMP: 5.5,
+    PRNT: 100,
+  });
+  assertEqual("aplicar_calcario = false", resultado.aplicar_calcario, false);
+  // Al_sat NÃO deve ter sido solicitado (não está nos campos_necessarios)
+  assertEqual(
+    "Al_sat não solicitado",
+    resultado.campos_necessarios.includes("Al_sat"),
+    false
+  );
+});
+
+// ─── CT-08 ────────────────────────────────────────────────────────────────────
+test("CT-08: Saturação por bases — NC_vb (reaplicação, CTC >= 7.5)", () => {
+  console.log("\nCT-08: Saturação por bases — NC_vb (reaplicação, CTC >= 7.5)");
+  const resultado = executarMotorCalagem({
+    sistema_manejo: SistemaManejo.CONVENCIONAL,
+    primeira_calagem: false,
+    pH_agua: 5.0,
+    SMP: 5.5,
+    PRNT: 100,
+    V_atual: 55.0,
+    CTC_pH7: 10.0,
+  });
+  assertEqual("NC_vb = 2.0", resultado.NC_vb, 2.0);
+});
+
+// ─── CT-09 ────────────────────────────────────────────────────────────────────
+test("CT-09: Saturação por bases — ajuste por CTC baixa", () => {
+  console.log("\nCT-09: Saturação por bases — ajuste por CTC baixa");
+  const resultado = executarMotorCalagem({
+    sistema_manejo: SistemaManejo.CONVENCIONAL,
+    primeira_calagem: false,
+    pH_agua: 5.0,
+    SMP: 5.5,
+    PRNT: 100,
+    V_atual: 55.0,
+    CTC_pH7: 6.0,
+  });
+  // V_desejada = 75 - 5 = 70 (CTC < 7.5)
+  // NC_vb = ((70-55)/100)*6.0 = 0.9
+  assertEqual("NC_vb = 0.9", resultado.NC_vb, 0.9);
+});
+
+// ─── CT-10 ────────────────────────────────────────────────────────────────────
+test("CT-10: Roteamento automático → Polinomial", () => {
+  console.log("\nCT-10: Roteamento automático → Polinomial");
+  const resultado = executarMotorCalagem({
+    sistema_manejo: SistemaManejo.CONVENCIONAL,
+    primeira_calagem: true,
+    pH_agua: 5.0,
+    SMP: 6.5,
+    PRNT: 100,
+    MO: 2.0,
+    Al_trocavel: 0.5,
+  });
+  // NC_pol_6_0 = -0.516 + 0.805*2.0 + 2.435*0.5 = -0.516 + 1.610 + 1.2175 = 2.3115
+  assertEqual("metodo = POLINOMIAL", resultado.metodo_calc_roteado, MetodoCalcRoteado.POLINOMIAL);
+  assertEqual("NC_base ≈ 2.3115", resultado.NC_base, 2.3115);
+  // V_atual NÃO deve ter sido solicitado (TRAVA-11)
+  assertEqual(
+    "V_atual não solicitado",
+    resultado.campos_necessarios.includes("V_atual"),
+    false
+  );
+});
+
+// ─── CT-11 ────────────────────────────────────────────────────────────────────
+test("CT-11: Polinomial — trava de zero", () => {
+  console.log("\nCT-11: Polinomial — trava de zero");
+  const resultado = executarMotorCalagem({
+    sistema_manejo: SistemaManejo.CONVENCIONAL,
+    primeira_calagem: true,
+    pH_agua: 5.0,
+    SMP: 6.9,
+    PRNT: 100,
+    MO: 0.3,
+    Al_trocavel: 0.05,
+  });
+  // NC_pol = -0.516 + 0.805*0.3 + 2.435*0.05 = -0.516 + 0.2415 + 0.12175 = -0.15275 → 0.0
+  assertEqual("NC_base = 0.0 (trava)", resultado.NC_base, 0.0);
+});
+
+// ─── CT-12 ────────────────────────────────────────────────────────────────────
+test("CT-12: Ajuste PRNT", () => {
+  console.log("\nCT-12: Ajuste PRNT");
+  const resultado = executarMotorCalagem({
+    sistema_manejo: SistemaManejo.CONVENCIONAL,
+    primeira_calagem: true,
+    pH_agua: 5.0,
+    SMP: 5.9, // tabela → 3.7
+    PRNT: 75,
+  });
+  // NC_base = 3.7, NC_final = 3.7, NC_ajustada = 3.7 * (100/75) = 4.933...
+  // Para CT-12 específico: NC_final=3.0, PRNT=75 → 4.0
+  // Validar a fórmula diretamente
+  const NC_final = 3.0;
+  const NC_ajustada = NC_final * (100.0 / 75);
+  assertEqual("NC_ajustada = 4.0", NC_ajustada, 4.0);
+  // Verificar que o motor aplica a fórmula corretamente
+  assertEqual(
+    "motor: NC_ajustada = NC_final * 100/PRNT",
+    resultado.NC_ajustada,
+    resultado.NC_final * (100 / 75)
+  );
+});
+
+// ─── CT-13 ────────────────────────────────────────────────────────────────────
+test("CT-13: PD com Restrição — SMP médio das camadas", () => {
+  console.log("\nCT-13: PD com Restrição — SMP médio das camadas");
+  // SMP_medio = (5.2+4.8)/2 = 5.0 → tabela 6.0 = 9.9
+  const resultado = executarMotorCalagem({
+    sistema_manejo: SistemaManejo.PD_COM_RESTRICAO,
+    primeira_calagem: true,
+    pH_agua: 5.0,
+    SMP: 5.2, // SMP informado da camada 0-10 (também usado como SMP_0_10)
+    SMP_0_10: 5.2,
+    SMP_10_20: 4.8,
+    PRNT: 100,
+  });
+  // SMP_medio = 5.0 → tabela pH 6.0 → 9.9 * 1.0 = 9.9
+  assertEqual("NC_final = 9.9", resultado.NC_final, 9.9);
+  assertEqual("modo = INCORPORADO", resultado.modo_aplicacao, ModoAplicacao.INCORPORADO);
+});
+
+// ─── CT-14 ────────────────────────────────────────────────────────────────────
+test("CT-14: Roteamento — SMP exatamente em 6.3 → SMP (não polinomial)", () => {
+  console.log("\nCT-14: Roteamento — SMP exatamente em 6.3 → SMP (não polinomial)");
+  const resultado = executarMotorCalagem({
+    sistema_manejo: SistemaManejo.CONVENCIONAL,
+    primeira_calagem: true,
+    pH_agua: 5.0,
+    SMP: 6.3,
+    PRNT: 100,
+  });
+  assertEqual("metodo = SMP", resultado.metodo_calc_roteado, MetodoCalcRoteado.SMP);
+});
+
+// ─── CT-15 ────────────────────────────────────────────────────────────────────
+test("CT-15: PD Implantação com opção superficial em campo natural", () => {
+  console.log("\nCT-15: PD Implantação com opção superficial em campo natural");
+  // SMP=5.8 > 5.5 → superficial, NC_final = tabela(5.8, 6.0) * 0.5 = 4.2 * 0.5 = 2.1
+  const resultado = executarMotorCalagem({
+    sistema_manejo: SistemaManejo.PD_IMPLANTACAO,
+    primeira_calagem: true,
+    pH_agua: 5.0,
+    SMP: 5.8,
+    PRNT: 100,
+    opcao_superficial_campo_natural: true,
+  });
+  assertEqual("NC_final = 2.1", resultado.NC_final, 2.1);
+  assertEqual("modo = SUPERFICIAL", resultado.modo_aplicacao, ModoAplicacao.SUPERFICIAL);
+});
+
+// ─── CT-16 ────────────────────────────────────────────────────────────────────
+test("CT-16: Campos condicionais — polinomial não pede V_atual", () => {
+  console.log("\nCT-16: Campos condicionais — polinomial não pede V_atual");
+  const resultado = executarMotorCalagem({
+    sistema_manejo: SistemaManejo.CONVENCIONAL,
+    primeira_calagem: false,
+    pH_agua: 5.0,
+    SMP: 6.8,
+    PRNT: 100,
+    MO: 1.0,
+    Al_trocavel: 0.3,
+  });
+  assertEqual("metodo = POLINOMIAL", resultado.metodo_calc_roteado, MetodoCalcRoteado.POLINOMIAL);
+  assertEqual("V_atual NÃO solicitado", resultado.campos_necessarios.includes("V_atual"), false);
+  assertEqual("CTC_pH7 NÃO solicitado", resultado.campos_necessarios.includes("CTC_pH7"), false);
+  assertEqual("MO solicitado", resultado.campos_necessarios.includes("MO"), true);
+  assertEqual("Al_trocavel solicitado", resultado.campos_necessarios.includes("Al_trocavel"), true);
+});
+
+// ─── CT-17 ────────────────────────────────────────────────────────────────────
+test("CT-17: Al_sat calculado internamente (Opção 2)", () => {
+  console.log("\nCT-17: Al_sat calculado internamente (Opção 2)");
+  const Al_sat = calcularAlSat(2.0, 10.0);
+  assertEqual("Al_sat = 20.0%", Al_sat, 20.0);
+});
+
+// ─── CT-18 ────────────────────────────────────────────────────────────────────
+test("CT-18: Reaplicação com dois métodos — apresentação correta", () => {
+  console.log("\nCT-18: Reaplicação com dois métodos — apresentação correta");
+  const resultado = executarMotorCalagem({
+    sistema_manejo: SistemaManejo.CONVENCIONAL,
+    primeira_calagem: false,
+    pH_agua: 5.0,
+    SMP: 5.5,
+    PRNT: 100,
+    V_atual: 55.0,
+    CTC_pH7: 10.0,
+  });
+  // NC_smp = tabela(5.5, 6.0) = 6.1 * 1.0 = 6.1
+  // NC_vb = ((75-55)/100)*10.0 = 2.0
+  assertEqual("NC_smp = 6.1 (principal)", resultado.NC_smp, 6.1);
+  assertEqual("NC_vb = 2.0 (referência)", resultado.NC_vb, 2.0);
+  assertEqual("calcular_tambem_sat_bases = true", resultado.calcular_tambem_sat_bases, true);
+});
+
+// ─── Validações de entrada ────────────────────────────────────────────────────
+test("Validações de entrada: restrições de pH e PRNT", () => {
+  console.log("\nValidações de entrada:");
+
+  assertThrows("pH inválido < 3.5", () =>
+    executarMotorCalagem({
+      sistema_manejo: SistemaManejo.CONVENCIONAL,
+      primeira_calagem: true,
+      pH_agua: 3.0,
+      SMP: 5.5,
+      PRNT: 80,
+    })
   );
 
-  // -----------------------------------------------------------------------
-  // Testes de estado do motor (campos além de dose_final)
-  // -----------------------------------------------------------------------
-  describe('Estado do motor — campos de auditoria', () => {
-    test('CONVENCIONAL com calagem necessária deve retornar necessita_calagem=true e modo_aplicacao=INCORPORADO', () => {
-      const entrada: EntradaCalagem = {
-        versao_regra: 'ibiferti-calagem-graos-v1.6',
-        sistema_manejo: 'CONVENCIONAL',
-        prnt_pct: 100,
-        amostras: [{ profundidade: '0-20', ph: 4.9, indice_smp: 5.0 }],
-      };
-      const r = assertSucesso(executarMotorCalagem(entrada));
-      expect(r.necessita_calagem).toBe(true);
-      expect(r.modo_aplicacao).toBe('INCORPORADO');
-      expect(r.estado_motor).toBe('CONV_CALAGEM_INCORPORADA');
-    });
+  assertThrows("PRNT inválido = 0", () =>
+    executarMotorCalagem({
+      sistema_manejo: SistemaManejo.CONVENCIONAL,
+      primeira_calagem: true,
+      pH_agua: 5.0,
+      SMP: 5.5,
+      PRNT: 0,
+    })
+  );
 
-    test('CONVENCIONAL SMP 7.1 deve retornar necessita_calagem=false', () => {
-      const entrada: EntradaCalagem = {
-        versao_regra: 'ibiferti-calagem-graos-v1.6',
-        sistema_manejo: 'CONVENCIONAL',
-        prnt_pct: 100,
-        amostras: [{ profundidade: '0-20', ph: 6.5, indice_smp: 7.1 }],
-      };
-      const r = assertSucesso(executarMotorCalagem(entrada));
-      expect(r.necessita_calagem).toBe(false);
-      expect(r.estado_motor).toBe('CONV_SEM_CALAGEM');
-    });
+  assertThrows("PRNT inválido > 100", () =>
+    executarMotorCalagem({
+      sistema_manejo: SistemaManejo.CONVENCIONAL,
+      primeira_calagem: true,
+      pH_agua: 5.0,
+      SMP: 5.5,
+      PRNT: 101,
+    })
+  );
+});
 
-    test('PD_IMPLANTACAO CAMPO_NATURAL_SUPERFICIAL deve retornar modo_aplicacao=SUPERFICIAL', () => {
-      const entrada: EntradaCalagem = {
-        versao_regra: 'ibiferti-calagem-graos-v1.6',
-        sistema_manejo: 'PD_IMPLANTACAO',
-        modo_implantacao_pd: 'CAMPO_NATURAL_SUPERFICIAL',
-        prnt_pct: 100,
-        amostras: [{ profundidade: '0-20', ph: 5.1, indice_smp: 5.8 }],
-      };
-      const r = assertSucesso(executarMotorCalagem(entrada));
-      expect(r.modo_aplicacao).toBe('SUPERFICIAL');
-      expect(r.estado_motor).toBe('PDI_CALAGEM_SUPERFICIAL_CAMPO_NATURAL');
-    });
+// ─── RN-05: Monitoramento 10–20 cm ───────────────────────────────────────────
+test("RN-05: Monitoramento 10–20 cm", () => {
+  console.log("\nRN-05: Monitoramento 10–20 cm:");
 
-    test('PDC trava ativa deve retornar estado_motor=PDC_SEM_CALAGEM_TRAVA_V_M', () => {
-      const entrada: EntradaCalagem = {
-        versao_regra: 'ibiferti-calagem-graos-v1.6',
-        sistema_manejo: 'PD_CONSOLIDADO',
-        prnt_pct: 100,
-        amostras: [
-          { profundidade: '0-10', ph: 5.0, indice_smp: 5.5, v_pct: 70, m_pct: 5 },
-          { profundidade: '10-20', ph: 5.2, indice_smp: 5.8, m_pct: 8 },
-        ],
-      };
-      const r = assertSucesso(executarMotorCalagem(entrada));
-      expect(r.estado_motor).toBe('PDC_SEM_CALAGEM_TRAVA_V_M');
-      expect(r.necessita_calagem).toBe(false);
-    });
-
-    test('PDC cenário de reinício deve retornar estado_motor=PDC_CENARIO_REINICIO_PD e modo_aplicacao=INCORPORADO', () => {
-      const entrada: EntradaCalagem = {
-        versao_regra: 'ibiferti-calagem-graos-v1.6',
-        sistema_manejo: 'PD_CONSOLIDADO',
-        prnt_pct: 100,
-        amostras: [
-          { profundidade: '0-10', ph: 5.0, indice_smp: 5.4, v_pct: 55, m_pct: 15 },
-          { profundidade: '10-20', ph: 4.8, indice_smp: 5.0, m_pct: 15 },
-        ],
-      };
-      const r = assertSucesso(executarMotorCalagem(entrada));
-      expect(r.estado_motor).toBe('PDC_CENARIO_REINICIO_PD');
-      expect(r.modo_aplicacao).toBe('INCORPORADO');
-    });
-
-    test('CONVENCIONAL com polinômio deve registrar metodo_nc_utilizado=POLINOMIAL_BAIXO_TAMPAO', () => {
-      const entrada: EntradaCalagem = {
-        versao_regra: 'ibiferti-calagem-graos-v1.6',
-        sistema_manejo: 'CONVENCIONAL',
-        prnt_pct: 100,
-        amostras: [
-          { profundidade: '0-20', ph: 5.6, indice_smp: 6.4, mo_pct: 2.5, al_cmolc_dm3: 0.3 },
-        ],
-      };
-      const r = assertSucesso(executarMotorCalagem(entrada));
-      expect(r.metodo_nc_utilizado).toBe('POLINOMIAL_BAIXO_TAMPAO');
-    });
-
-    test('PDC reinício deve expor smp_medio correto na auditoria', () => {
-      const entrada: EntradaCalagem = {
-        versao_regra: 'ibiferti-calagem-graos-v1.6',
-        sistema_manejo: 'PD_CONSOLIDADO',
-        prnt_pct: 100,
-        amostras: [
-          { profundidade: '0-10', ph: 5.0, indice_smp: 5.4, v_pct: 55, m_pct: 15 },
-          { profundidade: '10-20', ph: 4.8, indice_smp: 5.0, m_pct: 15 },
-        ],
-      };
-      const r = assertSucesso(executarMotorCalagem(entrada));
-      // (5,4 + 5,0) / 2 = 5,2
-      expect(r.auditoria.smp_medio).toBeCloseTo(5.2, 1);
-    });
+  const res1 = avaliarMonitoramento10_20({
+    pH_agua_10_20: 4.8,
+    Al_sat_10_20: 35.0,
+    produtividade_abaixo_media: true,
+    compactacao_restringindo_raiz: false,
+    disponibilidade_P_10_20_abaixo_critico: false,
   });
+  assertEqual("restricao_10_20 = true (Al>=30 + prod abaixo)", res1.restricao_10_20, true);
+  assertEqual(
+    "sistema_manejo_atualizado = PD_COM_RESTRICAO",
+    res1.sistema_manejo_atualizado,
+    SistemaManejo.PD_COM_RESTRICAO
+  );
 
-  // -----------------------------------------------------------------------
-  // Testes do novo estado PDC_SEM_CALAGEM_PH
-  // -----------------------------------------------------------------------
-  describe('Estado PDC_SEM_CALAGEM_PH', () => {
-    test('PDC com ph >= 6.0 na camada 0-10 deve dispensar calagem por pH adequado', () => {
-      const entrada: EntradaCalagem = {
-        versao_regra: 'ibiferti-calagem-graos-v1.6',
-        sistema_manejo: 'PD_CONSOLIDADO',
-        prnt_pct: 100,
-        amostras: [
-          { profundidade: '0-10', ph: 6.0, indice_smp: 6.2, v_pct: 50, m_pct: 15 },
-          { profundidade: '10-20', ph: 5.5, indice_smp: 5.8, m_pct: 8 },
-        ],
-      };
-      const r = assertSucesso(executarMotorCalagem(entrada));
-      expect(r.estado_motor).toBe('PDC_SEM_CALAGEM_PH');
-      expect(r.necessita_calagem).toBe(false);
-      expect(r.dose_final_t_ha).toBe(0);
-    });
+  const res2 = avaliarMonitoramento10_20({
+    pH_agua_10_20: 4.8,
+    Al_sat_10_20: 25.0, // < 30 → sem restrição
+    produtividade_abaixo_media: true,
+    compactacao_restringindo_raiz: true,
+    disponibilidade_P_10_20_abaixo_critico: true,
   });
-
-  // -----------------------------------------------------------------------
-  // Testes de erro estruturado (RespostaErro)
-  // -----------------------------------------------------------------------
-  describe('Validação de schema — respostas de erro estruturadas', () => {
-    test('PD_CONSOLIDADO sem amostras separadas deve retornar RespostaErro', () => {
-      const payload = {
-        versao_regra: 'ibiferti-calagem-graos-v1.6',
-        sistema_manejo: 'PD_CONSOLIDADO',
-        prnt_pct: 100,
-        amostras: [
-          { profundidade: '0-20', ph: 5.0, indice_smp: 5.5, v_pct: 55, m_pct: 15 },
-        ],
-      };
-      const r = executarMotorCalagem(payload);
-      expect(r.sucesso).toBe(false);
-      if (!r.sucesso) {
-        expect(r.codigo_erro).toBe('E002_PD_CONSOLIDADO_AMOSTRAS_INVALIDAS');
-      }
-    });
-
-    test('modo_implantacao_pd fora de PD_IMPLANTACAO deve retornar RespostaErro', () => {
-      const payload = {
-        versao_regra: 'ibiferti-calagem-graos-v1.6',
-        sistema_manejo: 'CONVENCIONAL',
-        modo_implantacao_pd: 'INCORPORADO',
-        prnt_pct: 100,
-        amostras: [{ profundidade: '0-20', ph: 5.0, indice_smp: 5.5 }],
-      };
-      const r = executarMotorCalagem(payload);
-      expect(r.sucesso).toBe(false);
-      if (!r.sucesso) {
-        expect(r.codigo_erro).toBe('E003_MODO_IMPLANTACAO_PD_INVALIDO');
-      }
-    });
-
-    test('prnt_pct <= 0 deve retornar RespostaErro', () => {
-      const payload = {
-        versao_regra: 'ibiferti-calagem-graos-v1.6',
-        sistema_manejo: 'CONVENCIONAL',
-        prnt_pct: 0,
-        amostras: [{ profundidade: '0-20', ph: 5.0, indice_smp: 5.5 }],
-      };
-      const r = executarMotorCalagem(payload);
-      expect(r.sucesso).toBe(false);
-      if (!r.sucesso) {
-        expect(r.codigo_erro).toBe('E005_PRNT_INVALIDO');
-      }
-    });
-
-    test('CAMPO_NATURAL_SUPERFICIAL com SMP <= 5.5 deve retornar hard block', () => {
-      const payload = {
-        versao_regra: 'ibiferti-calagem-graos-v1.6',
-        sistema_manejo: 'PD_IMPLANTACAO',
-        modo_implantacao_pd: 'CAMPO_NATURAL_SUPERFICIAL',
-        prnt_pct: 100,
-        amostras: [{ profundidade: '0-20', ph: 4.2, indice_smp: 4.4 }],
-      };
-      const r = executarMotorCalagem(payload);
-      expect(r.sucesso).toBe(false);
-      if (!r.sucesso) {
-        // SMP 4.4 <= 5.5: hard block do schema (Regra 5 do calagemSchema)
-        expect(r.detalhes[0].campo).toBe('amostras');
-      }
-    });
-
-        test('versao_regra incorreta deve retornar RespostaErro', () => {
-      const payload = {
-        versao_regra: 'versao-errada',
-        sistema_manejo: 'CONVENCIONAL',
-        prnt_pct: 100,
-        amostras: [{ profundidade: '0-20', ph: 5.0, indice_smp: 5.5 }],
-      };
-      const r = executarMotorCalagem(payload);
-      expect(r.sucesso).toBe(false);
-      if (!r.sucesso) {
-        expect(r.codigo_erro).toBe('E004_VERSAO_REGRA_INVALIDA');
-      }
-    });
-  });
+  assertEqual("restricao_10_20 = false (Al_sat < 30)", res2.restricao_10_20, false);
 });

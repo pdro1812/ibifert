@@ -1,38 +1,43 @@
 import express from 'express';
-import { CalagemSchema } from './schemas/calagemSchema';
+import cors from 'cors';
 import { executarMotorCalagem } from './services/motorCalagem';
-import cors from 'cors'; // O CORS importado
+import { validarEntrada, calcularAlSat } from './services/calculadoraCalagem';
+import { CalagemValidationError, EntradaCalagem } from './schemas/calagemSchema';
 
 const app = express();
-app.use(express.json());
-
 app.use(cors());
 app.use(express.json());
 
-app.get('/', (req, res) => {
-  res.send({ message: 'Ibiferti Backend - Motor Agronômico rodando!' });
+app.get('/', (_req, res) => {
+  res.json({ message: 'Ibiferti Backend - Motor Agronômico rodando!' });
 });
 
 app.post('/api/calcular', (req, res) => {
   try {
-    // 1. O Guardião valida os dados
-    const dadosValidados = CalagemSchema.parse(req.body);
-    
-    // 2. O Motor faz a matemática e orquestra as regras agronômicas
-    const resultado = executarMotorCalagem(dadosValidados);
-    
-    // 3. Retornamos o Contrato de Saída em Sucesso
-    res.status(200).json(resultado);
+    const entrada = req.body as EntradaCalagem;
+
+    // Validação de runtime antes de passar ao motor
+    validarEntrada(entrada);
+
+    const resultado = executarMotorCalagem(entrada);
+
+    res.status(200).json({ sucesso: true, resultado });
 
   } catch (error: any) {
-    // Retornamos o Contrato de Saída em Erro
-    res.status(400).json({
-      sucesso: false,
-      versao_regra: req.body?.versao_regra || 'desconhecida',
-      codigo_erro: 'E001_FALHA_VALIDACAO_ENTRADA',
-      mensagem: 'Os dados enviados não seguem o contrato agronômico.',
-      detalhes: error.errors
-    });
+    if (error instanceof CalagemValidationError) {
+      res.status(400).json({
+        sucesso: false,
+        codigo_erro: 'E001_FALHA_VALIDACAO_ENTRADA',
+        mensagem: error.message,
+      });
+    } else {
+      res.status(500).json({
+        sucesso: false,
+        codigo_erro: 'E002_ERRO_INTERNO',
+        mensagem: 'Erro inesperado no motor de cálculo.',
+        detalhes: error?.message,
+      });
+    }
   }
 });
 

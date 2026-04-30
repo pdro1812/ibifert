@@ -1,402 +1,347 @@
 // backend/src/services/motorCalagem.ts
 
-import { CalagemSchema, EntradaCalagem } from '../schemas/calagemSchema';
 import {
-  aplicarClampingSuperficial,
-  aplicarFracionamento,
-  aplicarPrnt,
-  calcularMediaSmp,
-  soloSuperficialAtingiuMeta,
-} from './calculadoraCalagem';
-import { calcularNcViaPolinomio, calcularNcViaTabelaSmp } from './tabelaSmp';
-import { coletarWarningsLaboratoriais, Alerta } from './warnings';
+  CalagemValidationError,
+  EntradaCalagem,
+  EntradaMonitoramento10_20,
+  ModoAplicacao,
+  ResultadoCalagem,
+  ResultadoMonitoramento,
+  SistemaManejo,
+  MetodoCalcRoteado,
+} from "../schemas/calagemSchema";
+import { tabelaSmpLookup } from "./tabelaSmp";
 
-// ---------------------------------------------------------------------------
-// Tipos internos
-// ---------------------------------------------------------------------------
+// ─── Validação interna de entrada (Parte 10 do documento) ────────────────────
 
-export interface RespostaSucesso {
-  sucesso: true;
-  versao_regra: string;
-  sistema_manejo: string;
-  estado_motor: string;
-  necessita_calagem: boolean;
-  modo_aplicacao: string;
-  metodo_nc_utilizado: string;
-  dose_base_prnt100_t_ha: number;
-  prnt_utilizado_pct: number;
-  dose_final_t_ha: number;
-  mensagem_principal: string;
-  alertas: Alerta[];
-  auditoria: Record<string, unknown>;
-}
+function validarEntrada(entrada: EntradaCalagem): void {
+  const { pH_agua, PRNT, V_atual, Al_sat, CTC_pH7, MO, Al_trocavel } = entrada;
 
-interface RespostaErro {
-  sucesso: false;
-  versao_regra: string;
-  codigo_erro: string;
-  mensagem: string;
-  detalhes: Array<{ campo: string; problema: string }>;
-}
-
-export type RespostaMotor = RespostaSucesso | RespostaErro;
-
-// ---------------------------------------------------------------------------
-// Normalização
-// ---------------------------------------------------------------------------
-
-/**
- * Ordena amostras por profundidade para que o motor não dependa da ordem
- * do array enviado pelo cliente. Garante também o default de prnt_pct.
- */
-function normalizarEntrada(dados: EntradaCalagem): EntradaCalagem {
-  const ORDEM_PROFUNDIDADE: Record<string, number> = { '0-20': 0, '0-10': 1, '10-20': 2 };
-  return {
-    ...dados,
-    prnt_pct: dados.prnt_pct ?? 100,
-    amostras: [...dados.amostras].sort(
-      (a, b) => (ORDEM_PROFUNDIDADE[a.profundidade] ?? 99) - (ORDEM_PROFUNDIDADE[b.profundidade] ?? 99)
-    ),
-  };
-}
-
-/**
- * Transforma o array de amostras em um mapa indexado por profundidade
- * para acesso seguro e sem dependência de posição.
- */
-function indexarAmostrasPorProfundidade(dados: EntradaCalagem) {
-  return Object.fromEntries(dados.amostras.map((a) => [a.profundidade, a]));
-}
-
-// ---------------------------------------------------------------------------
-// Geradores de resposta
-// ---------------------------------------------------------------------------
-
-function montarRespostaErro(
-  versao_regra: string,
-  codigo_erro: string,
-  mensagem: string,
-  detalhes: Array<{ campo: string; problema: string }>
-): RespostaErro {
-  return { sucesso: false, versao_regra, codigo_erro, mensagem, detalhes };
-}
-
-function montarRespostaSucesso(
-  dados: EntradaCalagem,
-  campos: {
-    estado_motor: string;
-    necessita_calagem: boolean;
-    modo_aplicacao: string;
-    metodo_nc_utilizado: string;
-    dose_base: number;
-    alertas: Alerta[];
-    auditoria: Record<string, unknown>;
-  }
-): RespostaSucesso {
-  const { estado_motor, necessita_calagem, modo_aplicacao, metodo_nc_utilizado, dose_base, alertas, auditoria } = campos;
-  const prnt_pct = dados.prnt_pct ?? 100;
-  const dose_final_t_ha = aplicarPrnt(dose_base, prnt_pct);
-
-  return {
-    sucesso: true,
-    versao_regra: dados.versao_regra,
-    sistema_manejo: dados.sistema_manejo,
-    estado_motor,
-    necessita_calagem,
-    modo_aplicacao,
-    metodo_nc_utilizado,
-    dose_base_prnt100_t_ha: dose_base,
-    prnt_utilizado_pct: prnt_pct,
-    dose_final_t_ha,
-    mensagem_principal: necessita_calagem
-      ? `Calagem recomendada: ${dose_final_t_ha} t/ha (${modo_aplicacao})`
-      : 'Solo não necessita de calagem.',
-    alertas,
-    auditoria: {
-      ...auditoria,
-      dose_antes_prnt_t_ha: dose_base,
-    },
-  };
-}
-
-// ---------------------------------------------------------------------------
-// Lógica interna de seleção de método NC para rotas 0-20
-// ---------------------------------------------------------------------------
-
-function selecionarMetodoNc020(
-  amostra: EntradaCalagem['amostras'][number],
-  auditoria: Record<string, unknown>
-): { dose: number; metodo: string } {
-  if (
-    amostra.indice_smp > 6.3 &&
-    amostra.mo_pct !== undefined &&
-    amostra.al_cmolc_dm3 !== undefined
-  ) {
-    const regras = (auditoria.regras_disparadas as string[]);
-    regras.push('POLINOMIO_SMP_MAIOR_6_3');
-    return {
-      dose: calcularNcViaPolinomio(amostra.mo_pct, amostra.al_cmolc_dm3, 6.0),
-      metodo: 'POLINOMIAL_BAIXO_TAMPAO',
-    };
-  }
-  return {
-    dose: calcularNcViaTabelaSmp(amostra.indice_smp, 6.0),
-    metodo: 'TABELA_SMP_5_2',
-  };
-}
-
-// ---------------------------------------------------------------------------
-// Resolvedores por sistema de manejo
-// ---------------------------------------------------------------------------
-
-function resolverEstadoConvencional(
-  dados: EntradaCalagem,
-  amostras: ReturnType<typeof indexarAmostrasPorProfundidade>,
-  alertas: Alerta[],
-  auditoria: Record<string, unknown>
-): RespostaSucesso {
-  const amostra = dados.amostras[0];
-  auditoria.amostra_decisoria = amostra.profundidade;
-  auditoria.smp_usado_calculo = amostra.indice_smp;
-  auditoria.ph_usado_decisao = amostra.ph;
-
-  const { dose, metodo } = selecionarMetodoNc020(amostra, auditoria);
-
-  const estado_motor = dose > 0 ? 'CONV_CALAGEM_INCORPORADA' : 'CONV_SEM_CALAGEM';
-  const necessita_calagem = dose > 0;
-  const modo_aplicacao = dose > 0 ? 'INCORPORADO' : 'NENHUM';
-
-  return montarRespostaSucesso(dados, {
-    estado_motor,
-    necessita_calagem,
-    modo_aplicacao,
-    metodo_nc_utilizado: metodo,
-    dose_base: dose,
-    alertas,
-    auditoria,
-  });
-}
-
-function resolverEstadoPDImplantacao(
-  dados: EntradaCalagem,
-  amostras: ReturnType<typeof indexarAmostrasPorProfundidade>,
-  alertas: Alerta[],
-  auditoria: Record<string, unknown>
-): RespostaSucesso {
-  const amostra = dados.amostras[0];
-  auditoria.amostra_decisoria = amostra.profundidade;
-  auditoria.smp_usado_calculo = amostra.indice_smp;
-  auditoria.ph_usado_decisao = amostra.ph;
-
-  const { dose: doseInicial, metodo } = selecionarMetodoNc020(amostra, auditoria);
-
-  if (doseInicial <= 0) {
-    return montarRespostaSucesso(dados, {
-      estado_motor: 'PDI_SEM_CALAGEM',
-      necessita_calagem: false,
-      modo_aplicacao: 'NENHUM',
-      metodo_nc_utilizado: metodo,
-      dose_base: 0,
-      alertas,
-      auditoria,
-    });
-  }
-
-  if (dados.modo_implantacao_pd === 'CAMPO_NATURAL_SUPERFICIAL') {
-    // Fracionamento 0,25: conservador para não comprometer a pastagem
-    const doseFracionada = aplicarFracionamento(doseInicial, 0.25);
-    const doseClamped = aplicarClampingSuperficial(doseFracionada);
-    auditoria.fracionamento_superficial = 0.25;
-    auditoria.clamping_superficial_aplicado = doseFracionada > doseClamped || doseFracionada > 5.0;
-
-    return montarRespostaSucesso(dados, {
-      estado_motor: 'PDI_CALAGEM_SUPERFICIAL_CAMPO_NATURAL',
-      necessita_calagem: true,
-      modo_aplicacao: 'SUPERFICIAL',
-      metodo_nc_utilizado: metodo,
-      dose_base: doseClamped,
-      alertas,
-      auditoria,
-    });
-  }
-
-  return montarRespostaSucesso(dados, {
-    estado_motor: 'PDI_CALAGEM_INCORPORADA',
-    necessita_calagem: true,
-    modo_aplicacao: 'INCORPORADO',
-    metodo_nc_utilizado: metodo,
-    dose_base: doseInicial,
-    alertas,
-    auditoria,
-  });
-}
-
-function resolverEstadoPDConsolidado(
-  dados: EntradaCalagem,
-  amostras: ReturnType<typeof indexarAmostrasPorProfundidade>,
-  alertas: Alerta[],
-  auditoria: Record<string, unknown>
-): RespostaSucesso {
-  const amostra010 = amostras['0-10']!;
-  const amostra1020 = amostras['10-20']!;
-
-  auditoria.ph_usado_decisao = amostra010.ph;
-  auditoria.smp_usado_calculo = amostra010.indice_smp;
-
-  // ── Estado PDC_SEM_CALAGEM_PH ────────────────────────────────────────────
-  // Critério: ph >= 6.0 na camada 0-10 indica que o solo já está
-  // adequadamente corrigido em termos de reação, dispensando calagem
-  // independentemente de V% e m%. Verificado ANTES da trava V/m por ser
-  // uma condição mais objetiva e menos sujeita a variação amostral.
-  //
-  // REVISÃO AGRONÔMICA RECOMENDADA: confirmar limiar 6.0 com especialista
-  // para culturas específicas (soja pode exigir 6.2, por exemplo).
-  // ────────────────────────────────────────────────────────────────────────
-  if (amostra010.ph >= 6.0) {
-    (auditoria.regras_disparadas as string[]).push('PDC_PH_ADEQUADO');
-    return montarRespostaSucesso(dados, {
-      estado_motor: 'PDC_SEM_CALAGEM_PH',
-      necessita_calagem: false,
-      modo_aplicacao: 'NENHUM',
-      metodo_nc_utilizado: 'TABELA_SMP_5_2',
-      dose_base: 0,
-      alertas,
-      auditoria,
-    });
-  }
-
-  // ── Estado PDC_SEM_CALAGEM_TRAVA_V_M ────────────────────────────────────
-  if (soloSuperficialAtingiuMeta(amostra010.v_pct, amostra010.m_pct)) {
-    (auditoria.regras_disparadas as string[]).push('TRAVA_SUPERFICIAL_ATINGIDA');
-    return montarRespostaSucesso(dados, {
-      estado_motor: 'PDC_SEM_CALAGEM_TRAVA_V_M',
-      necessita_calagem: false,
-      modo_aplicacao: 'NENHUM',
-      metodo_nc_utilizado: 'TABELA_SMP_5_2',
-      dose_base: 0,
-      alertas,
-      auditoria,
-    });
-  }
-
-  // ── Estado PDC_CENARIO_REINICIO_PD ──────────────────────────────────────
-  const subsoloRestritivo = amostra1020.m_pct !== undefined && amostra1020.m_pct > 10;
-
-  if (subsoloRestritivo) {
-    (auditoria.regras_disparadas as string[]).push('PDC_SUBSOLO_RESTRITIVO');
-    alertas.push({
-      codigo: 'W001',
-      nivel: 'warning',
-      mensagem: 'Cenário de reinício sugerido. Exige validação agronômica de campo.',
-    });
-
-    const smpMedio = calcularMediaSmp(amostra010.indice_smp, amostra1020.indice_smp);
-    auditoria.smp_medio = smpMedio;
-    auditoria.smp_usado_calculo = smpMedio;
-    auditoria.amostra_decisoria = 'MEDIA_0_10_10_20';
-
-    const dose = calcularNcViaTabelaSmp(smpMedio, 6.0);
-
-    return montarRespostaSucesso(dados, {
-      estado_motor: 'PDC_CENARIO_REINICIO_PD',
-      necessita_calagem: true,
-      modo_aplicacao: 'INCORPORADO',
-      metodo_nc_utilizado: 'TABELA_SMP_5_2',
-      dose_base: dose,
-      alertas,
-      auditoria,
-    });
-  }
-
-  // ── Estado PDC_CALAGEM_SUPERFICIAL ──────────────────────────────────────
-  auditoria.amostra_decisoria = '0-10';
-
-  const doseInicial = calcularNcViaTabelaSmp(amostra010.indice_smp, 6.0);
-  const doseFracionada = aplicarFracionamento(doseInicial, 0.5);
-  const doseClamped = aplicarClampingSuperficial(doseFracionada);
-
-  auditoria.fracionamento_superficial = 0.5;
-  auditoria.clamping_superficial_aplicado = doseFracionada > doseClamped || doseFracionada > 5.0;
-
-  return montarRespostaSucesso(dados, {
-    estado_motor: 'PDC_CALAGEM_SUPERFICIAL',
-    necessita_calagem: true,
-    modo_aplicacao: 'SUPERFICIAL',
-    metodo_nc_utilizado: 'TABELA_SMP_5_2',
-    dose_base: doseClamped,
-    alertas,
-    auditoria,
-  });
-}
-
-// ---------------------------------------------------------------------------
-// Pipeline principal
-// ---------------------------------------------------------------------------
-
-export function executarMotorCalagem(payload: unknown): RespostaMotor {
-  // ── 1. Validação de schema (hard blocks via Zod) ─────────────────────────
-  const parse = CalagemSchema.safeParse(payload);
-
-  if (!parse.success) {
-    const detalhes = parse.error.issues.map((issue) => ({
-      campo: issue.path.join('.') || 'raiz',
-      problema: issue.message,
-    }));
-
-    // Deriva um código de erro semântico a partir do primeiro issue
-    const primeiroIssue = parse.error.issues[0];
-    const campoErro = primeiroIssue?.path.join('.') ?? '';
-    let codigo_erro = 'E001_PAYLOAD_INVALIDO';
-
-    if (campoErro.includes('amostras') || primeiroIssue?.message.includes('PD_CONSOLIDADO')) {
-      codigo_erro = 'E002_PD_CONSOLIDADO_AMOSTRAS_INVALIDAS';
-    } else if (campoErro.includes('modo_implantacao_pd')) {
-      codigo_erro = 'E003_MODO_IMPLANTACAO_PD_INVALIDO';
-    } else if (campoErro.includes('versao_regra')) {
-      codigo_erro = 'E004_VERSAO_REGRA_INVALIDA';
-    } else if (campoErro.includes('prnt_pct')) {
-      codigo_erro = 'E005_PRNT_INVALIDO';
-    }
-
-    return montarRespostaErro(
-      (payload as Record<string, unknown>)?.versao_regra as string ?? 'desconhecida',
-      codigo_erro,
-      primeiroIssue?.message ?? 'Payload inválido.',
-      detalhes
+  // pH_agua: [3.5, 8.0]
+  if (pH_agua < 3.5 || pH_agua > 8.0) {
+    throw new CalagemValidationError(
+      `pH inválido: ${pH_agua}. Deve estar entre 3.5 e 8.0.`
     );
   }
 
-  // ── 2. Normalização ──────────────────────────────────────────────────────
-  const dados = normalizarEntrada(parse.data);
-  const amostras = indexarAmostrasPorProfundidade(dados);
+  // PRNT: (0, 100]
+  if (PRNT <= 0 || PRNT > 100) {
+    throw new CalagemValidationError(
+      `PRNT inválido: ${PRNT}. Deve estar entre 1 e 100.`
+    );
+  }
 
-  // ── 3. Soft warnings laboratoriais ──────────────────────────────────────
-  const alertas = coletarWarningsLaboratoriais(dados);
+  // V_atual: [0, 100] — se fornecido
+  if (V_atual !== undefined && (V_atual < 0.0 || V_atual > 100.0)) {
+    throw new CalagemValidationError(
+      `V_atual inválido: ${V_atual}. Deve estar entre 0 e 100.`
+    );
+  }
 
-  // ── 4. Auditoria base ────────────────────────────────────────────────────
-  const auditoria: Record<string, unknown> = {
-    regras_disparadas: [] as string[],
-  };
+  // Al_sat: [0, 100] — se fornecido
+  if (Al_sat !== undefined && (Al_sat < 0.0 || Al_sat > 100.0)) {
+    throw new CalagemValidationError(
+      `Al_sat inválido: ${Al_sat}. Deve estar entre 0 e 100.`
+    );
+  }
 
-  // ── 5. Dispatch por sistema de manejo ────────────────────────────────────
-  switch (dados.sistema_manejo) {
-    case 'CONVENCIONAL':
-      return resolverEstadoConvencional(dados, amostras, alertas, auditoria);
+  // CTC_pH7: > 0 — se fornecido
+  if (CTC_pH7 !== undefined && CTC_pH7 <= 0.0) {
+    throw new CalagemValidationError(
+      `CTC_pH7 inválido: ${CTC_pH7}. Deve ser maior que 0.`
+    );
+  }
 
-    case 'PD_IMPLANTACAO':
-      return resolverEstadoPDImplantacao(dados, amostras, alertas, auditoria);
+  // MO: [0, 100] — se fornecido
+  if (MO !== undefined && (MO < 0.0 || MO > 100.0)) {
+    throw new CalagemValidationError(
+      `MO inválida: ${MO}. Deve estar entre 0 e 100.`
+    );
+  }
 
-    case 'PD_CONSOLIDADO':
-      return resolverEstadoPDConsolidado(dados, amostras, alertas, auditoria);
+  // Al_trocavel: >= 0 — se fornecido
+  if (Al_trocavel !== undefined && Al_trocavel < 0.0) {
+    throw new CalagemValidationError(
+      `Al_trocavel inválido: ${Al_trocavel}. Deve ser >= 0.`
+    );
+  }
+}
 
-    default: {
-      // TypeScript garante exhaustiveness, mas protege o runtime
-      return montarRespostaErro(
-        dados.versao_regra,
-        'E006_SISTEMA_MANEJO_DESCONHECIDO',
-        'sistema_manejo não reconhecido pelo motor.',
-        [{ campo: 'sistema_manejo', problema: `Valor '${dados.sistema_manejo}' não mapeado.` }]
+// ─── Funções internas de cálculo ─────────────────────────────────────────────
+
+/** RN-08: equação polinomial para pH 6.0 — TRAVA-08: mínimo 0 */
+function calcularNC_pol_6_0(MO: number, Al_trocavel: number): number {
+  const nc = -0.516 + 0.805 * MO + 2.435 * Al_trocavel;
+  return Math.max(0.0, nc);
+}
+
+/** RN-09: método saturação por bases */
+function calcularNC_vb(V_atual: number, CTC_pH7: number): number {
+  let V_desejada = 75.0;
+  if (CTC_pH7 < 7.5)  V_desejada -= 5.0; // → 70%
+  if (CTC_pH7 > 15.0) V_desejada += 5.0; // → 80%
+  const nc = ((V_desejada - V_atual) / 100.0) * CTC_pH7;
+  return Math.max(0.0, nc); // TRAVA-02
+}
+
+/** Resolve Al_sat: opção 1 (direto) ou opção 2 (calculado via Al_trocavel/CTC_pH7) */
+function resolverAlSat(entrada: EntradaCalagem): number | undefined {
+  if (entrada.Al_sat !== undefined) return entrada.Al_sat;
+  if (entrada.Al_trocavel !== undefined && entrada.CTC_pH7 !== undefined && entrada.CTC_pH7 > 0) {
+    return (entrada.Al_trocavel / entrada.CTC_pH7) * 100.0;
+  }
+  return undefined;
+}
+
+// ─── Motor principal ──────────────────────────────────────────────────────────
+
+export function executarMotorCalagem(entrada: EntradaCalagem): ResultadoCalagem {
+  // 1) Validações de entrada (Parte 10)
+  validarEntrada(entrada);
+
+  const alertas: string[] = [];
+  const campos_necessarios: string[] = [];
+
+  const { sistema_manejo, primeira_calagem, pH_agua, SMP, PRNT } = entrada;
+
+  // ── RN-01: Roteamento de método ──────────────────────────────────────────
+  const metodo_calc_roteado: MetodoCalcRoteado =
+    SMP > 6.3 ? MetodoCalcRoteado.POLINOMIAL : MetodoCalcRoteado.SMP;
+
+  // ── RN-02: Saturação por Bases como referência ───────────────────────────
+  // TRAVA-04: nunca em primeira calagem
+  // TRAVA-11: nunca quando método é POLINOMIAL
+  const calcular_tambem_sat_bases: boolean =
+    !primeira_calagem && metodo_calc_roteado === MetodoCalcRoteado.SMP;
+
+  // ── Campos condicionais necessários (Parte 1) ────────────────────────────
+  if (metodo_calc_roteado === MetodoCalcRoteado.POLINOMIAL) {
+    campos_necessarios.push("MO", "Al_trocavel"); // B3
+  }
+
+  if (sistema_manejo === SistemaManejo.PD_CONSOLIDADO && pH_agua < 5.5) {
+    campos_necessarios.push("Al_sat"); // B2
+  }
+
+  if (calcular_tambem_sat_bases) {
+    campos_necessarios.push("V_atual", "CTC_pH7"); // B1
+  }
+
+  // ── Helpers para retorno antecipado (não aplicar) ────────────────────────
+  const naoAplicar = (
+    fator: number,
+    modo: ModoAplicacao,
+    msg: string,
+    profundidade?: number
+  ): ResultadoCalagem => ({
+    aplicar_calcario: false,
+    metodo_calc_roteado,
+    calcular_tambem_sat_bases,
+    NC_base: 0,
+    NC_smp: 0,
+    NC_final: 0,
+    NC_ajustada: 0,
+    fator_manejo: fator,
+    modo_aplicacao: modo,
+    profundidade_cm: profundidade,
+    alertas: [msg],
+    campos_necessarios,
+  });
+
+  const MSG_NAO_NECESSARIO = "pH acima do limiar — não há necessidade de calagem no momento";
+
+  // ── RN-03: Gatilho — Convencional e PD Implantação ──────────────────────
+  if (
+    sistema_manejo === SistemaManejo.CONVENCIONAL ||
+    sistema_manejo === SistemaManejo.PD_IMPLANTACAO
+  ) {
+    if (pH_agua >= 5.5) {
+      return naoAplicar(1.0, ModoAplicacao.INCORPORADO, MSG_NAO_NECESSARIO, 20);
+    }
+  }
+
+  // ── RN-04: Gatilho — PD Consolidado ─────────────────────────────────────
+  if (sistema_manejo === SistemaManejo.PD_CONSOLIDADO) {
+    // Passo 1
+    if (pH_agua >= 5.5) {
+      return naoAplicar(0.25, ModoAplicacao.SUPERFICIAL, MSG_NAO_NECESSARIO);
+    }
+
+    // Passo 2 — pH < 5.5: resolver Al_sat (TRAVA-09)
+    const Al_sat_resolvido = resolverAlSat(entrada);
+    if (Al_sat_resolvido === undefined) {
+      throw new CalagemValidationError(
+        "Al_sat é obrigatório para PD_CONSOLIDADO quando pH_agua < 5.5"
+      );
+    }
+
+    // TRAVA-03: V>=65 E Al_sat<10 → não aplicar
+    const { V_atual } = entrada;
+    if (V_atual !== undefined && V_atual >= 65.0 && Al_sat_resolvido < 10.0) {
+      return naoAplicar(
+        0.25,
+        ModoAplicacao.SUPERFICIAL,
+        "pH abaixo de 5,5 mas saturação por bases >= 65% e Al_sat < 10%: calagem não recomendada neste momento"
       );
     }
   }
+
+  // ── RN-06: Gatilho — PD com Restrição ───────────────────────────────────
+  if (sistema_manejo === SistemaManejo.PD_COM_RESTRICAO) {
+    if (pH_agua >= 5.5) {
+      return naoAplicar(1.0, ModoAplicacao.INCORPORADO, MSG_NAO_NECESSARIO, 20);
+    }
+  }
+
+  // ── Fator de manejo (RN-07 Passo 3) ─────────────────────────────────────
+  let fator_manejo: number;
+  switch (sistema_manejo) {
+    case SistemaManejo.PD_CONSOLIDADO:
+      fator_manejo = 0.25;
+      break;
+    default:
+      fator_manejo = 1.0;
+  }
+
+  // ── SMP de entrada (PD_COM_RESTRICAO usa média das camadas) ─────────────
+  let smp_entrada = SMP;
+  if (sistema_manejo === SistemaManejo.PD_COM_RESTRICAO) {
+    const { SMP_0_10, SMP_10_20 } = entrada;
+    if (SMP_0_10 === undefined || SMP_10_20 === undefined) {
+      throw new CalagemValidationError(
+        "SMP_0_10 e SMP_10_20 são obrigatórios para PD_COM_RESTRICAO"
+      );
+    }
+    smp_entrada = (SMP_0_10 + SMP_10_20) / 2.0;
+  }
+
+  // ── Cálculo de NC_base ───────────────────────────────────────────────────
+  let NC_base: number;
+  let NC_smp: number | undefined;
+  let NC_vb: number | undefined;
+
+  if (metodo_calc_roteado === MetodoCalcRoteado.SMP) {
+    // RN-07
+    NC_base = tabelaSmpLookup(smp_entrada, 6.0);
+    NC_smp = NC_base * fator_manejo;
+
+    // RN-09: NC_vb como referência (somente reaplicação, TRAVA-10/11 já garantidas)
+    if (calcular_tambem_sat_bases) {
+      const { V_atual, CTC_pH7 } = entrada;
+      if (V_atual === undefined || CTC_pH7 === undefined) {
+        throw new CalagemValidationError(
+          "V_atual e CTC_pH7 são obrigatórios para reaplicação com método SMP"
+        );
+      }
+      NC_vb = calcularNC_vb(V_atual, CTC_pH7);
+    }
+  } else {
+    // RN-08: POLINOMIAL
+    const { MO, Al_trocavel } = entrada;
+    if (MO === undefined || Al_trocavel === undefined) {
+      throw new CalagemValidationError(
+        "MO e Al_trocavel são obrigatórios para método POLINOMIAL (SMP > 6.3)"
+      );
+    }
+    NC_base = calcularNC_pol_6_0(MO, Al_trocavel);
+    NC_smp = NC_base * fator_manejo;
+  }
+
+  // ── RN-10 + RN-11: NC_final e modo de aplicação ─────────────────────────
+  let NC_final: number;
+  let modo_aplicacao: ModoAplicacao;
+  let profundidade_cm: number | undefined;
+
+  switch (sistema_manejo) {
+    case SistemaManejo.PD_CONSOLIDADO: {
+      // RN-10: trava 5 t/ha para aplicação superficial
+      const NC_calculada = NC_base * fator_manejo;
+      if (NC_calculada > 5.0) {
+        NC_final = 5.0;
+        alertas.push(
+          "Dose calculada excede o limite de 5 t/ha para aplicação superficial. " +
+            "A correção completa poderá requerer reaplicação futura."
+        );
+      } else {
+        NC_final = NC_calculada;
+      }
+      modo_aplicacao = ModoAplicacao.SUPERFICIAL;
+      break;
+    }
+
+    case SistemaManejo.PD_IMPLANTACAO: {
+      // RN-11: opção superficial em campo natural (TRAVA-07: fator 0.5, não 0.25)
+      const opcao = entrada.opcao_superficial_campo_natural ?? false;
+      if (opcao && SMP > 5.5) {
+        NC_final = tabelaSmpLookup(SMP, 6.0) * 0.5;
+        modo_aplicacao = ModoAplicacao.SUPERFICIAL;
+      } else {
+        NC_final = NC_base * fator_manejo;
+        modo_aplicacao = ModoAplicacao.INCORPORADO;
+        profundidade_cm = 20;
+      }
+      break;
+    }
+
+    default:
+      // CONVENCIONAL e PD_COM_RESTRICAO — sem limite máximo
+      NC_final = NC_base * fator_manejo;
+      modo_aplicacao = ModoAplicacao.INCORPORADO;
+      profundidade_cm = 20;
+  }
+
+  // TRAVA-02: NC mínima = 0
+  NC_final = Math.max(0.0, NC_final);
+
+  // ── RN-12: Ajuste pelo PRNT ──────────────────────────────────────────────
+  const NC_ajustada = NC_final * (100.0 / PRNT);
+
+  return {
+    aplicar_calcario: true,
+    metodo_calc_roteado,
+    calcular_tambem_sat_bases,
+    NC_base,
+    NC_smp,
+    NC_vb,
+    NC_final,
+    NC_ajustada,
+    fator_manejo,
+    modo_aplicacao,
+    profundidade_cm,
+    alertas,
+    campos_necessarios,
+  };
+}
+
+// ─── RN-05: Monitoramento 10–20 cm ───────────────────────────────────────────
+
+export function avaliarMonitoramento10_20(
+  dados: EntradaMonitoramento10_20
+): ResultadoMonitoramento {
+  const {
+    Al_sat_10_20,
+    produtividade_abaixo_media,
+    compactacao_restringindo_raiz,
+    disponibilidade_P_10_20_abaixo_critico,
+  } = dados;
+
+  const restricao_10_20 =
+    Al_sat_10_20 >= 30.0 &&
+    (produtividade_abaixo_media ||
+      compactacao_restringindo_raiz ||
+      disponibilidade_P_10_20_abaixo_critico);
+
+  if (restricao_10_20) {
+    return {
+      restricao_10_20: true,
+      sistema_manejo_atualizado: SistemaManejo.PD_COM_RESTRICAO,
+      emitir_alerta:
+        "Recomenda-se avaliação por engenheiro agrônomo antes de reiniciar o sistema plantio direto",
+    };
+  }
+
+  return {
+    restricao_10_20: false,
+    sistema_manejo_atualizado: SistemaManejo.PD_CONSOLIDADO,
+  };
 }
