@@ -41,6 +41,7 @@ import {
   type CalagemResultado,
   type EntradaCalagem,
 } from './schemas/calagemSchema';
+import { gerarPDFRelatorio } from './services/pdfGenerator';
 import { calcularCalagem } from './services/api';
 import { ibgeService } from './services/ibge';
 import type { Estado, Municipio } from './services/ibge';
@@ -1584,7 +1585,20 @@ const CalculadoraScreen = ({ isLoggedIn }: { isLoggedIn: boolean }) => {
 
               <div className="mt-4 grid grid-cols-2 gap-4">
                 <button
-                  onClick={() => alert('Exportação de PDF será reintegrada em breve.')}
+                  onClick={() => {
+                    if (!resultado) {
+                      return;
+                    }
+
+                    gerarPDFRelatorio({
+                      dadosEntrada: getValues(),
+                      resultado,
+                      localizacao: {
+                        uf: ufSelecionada,
+                        cidade: cidadeSelecionada,
+                      },
+                    });
+                  }}
                   className="flex items-center justify-center gap-2 rounded-xl border border-green-200 bg-white py-3 font-semibold text-green-700 shadow-sm hover:bg-green-50"
                 >
                   <FileDown size={18} /> PDF
