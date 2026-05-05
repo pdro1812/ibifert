@@ -1,8 +1,8 @@
 import express from 'express';
 import cors from 'cors';
 import { executarMotorCalagem } from './services/motorCalagem';
-import { validarEntrada, calcularAlSat } from './services/calculadoraCalagem';
-import { CalagemValidationError, EntradaCalagem } from './schemas/calagemSchema';
+import { validarEntrada } from './services/calculadoraCalagem';
+import { CalagemValidationError } from './schemas/calagemSchema';
 
 const app = express();
 app.use(cors());
@@ -14,11 +14,7 @@ app.get('/', (_req, res) => {
 
 app.post('/api/calcular', (req, res) => {
   try {
-    const entrada = req.body as EntradaCalagem;
-
-    // Validação de runtime antes de passar ao motor
-    validarEntrada(entrada);
-
+    const entrada = validarEntrada(req.body);
     const resultado = executarMotorCalagem(entrada);
 
     res.status(200).json({ sucesso: true, resultado });

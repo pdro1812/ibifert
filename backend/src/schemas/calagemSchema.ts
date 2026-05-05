@@ -1,4 +1,4 @@
-// backend/src/schemas/calagemSchema.ts
+import { z } from "zod";
 
 export enum SistemaManejo {
   CONVENCIONAL = "CONVENCIONAL",
@@ -17,74 +17,166 @@ export enum ModoAplicacao {
   SUPERFICIAL = "SUPERFICIAL",
 }
 
-// ─── Entradas ────────────────────────────────────────────────────────────────
-
-export interface EntradaCalagemBase {
-  sistema_manejo: SistemaManejo;
-  primeira_calagem: boolean;
-  pH_agua: number;
-  SMP: number;
-  PRNT: number;
+export enum AcaoRequerida {
+  REINICIAR_PLANTIO_DIRETO = "REINICIAR_PLANTIO_DIRETO",
 }
 
-/** Bloco B1 — reaplicação com método SMP */
-export interface EntradaSatBases {
-  V_atual: number;
-  CTC_pH7: number;
-}
+const SISTEMA_MANEJO_SCHEMA = z.nativeEnum(SistemaManejo);
 
-/** Bloco B2 — trava PD Consolidado */
-export interface EntradaAlSat {
-  /** Pode ser fornecido diretamente (opção 1) */
-  Al_sat?: number;
-  /** Ou calculado via opção 2 */
-  Al_trocavel?: number;
-  CTC_pH7?: number;
-}
+const percentualSchema = (campo: string) =>
+  z
+    .number()
+    .finite()
+    .min(0.0, `${campo} inválido: deve estar entre 0 e 100.`)
+    .max(100.0, `${campo} inválido: deve estar entre 0 e 100.`);
 
-/** Bloco B3 — método polinomial */
-export interface EntradaPolinomial {
-  MO: number;
-  Al_trocavel: number;
-}
+const phSchema = z
+  .number()
+  .finite()
+  .min(3.5, "pH inválido: deve estar entre 3.5 e 8.0.")
+  .max(8.0, "pH inválido: deve estar entre 3.5 e 8.0.");
 
-/** PD com Restrição — SMP médio das camadas */
-export interface EntradaPDRestricao {
-  SMP_0_10: number;
-  SMP_10_20: number;
-}
+const smpSchema = z.number().finite();
 
-/** PD Implantação superficial em campo natural */
-export interface EntradaPDImplantacaoSuperficial {
-  opcao_superficial_campo_natural: boolean;
-}
+const ctcSchema = z
+  .number()
+  .finite()
+  .gt(0.0, "CTC_pH7 inválido: deve ser maior que 0.");
 
-/** Monitoramento camada 10–20 cm (Bloco B4) */
-export interface EntradaMonitoramento10_20 {
-  pH_agua_10_20: number;
-  Al_sat_10_20: number;
-  disponibilidade_P_10_20_abaixo_critico: boolean;
-  compactacao_restringindo_raiz: boolean;
-  produtividade_abaixo_media: boolean;
-}
+const moSchema = z
+  .number()
+  .finite()
+  .min(0.0, "MO inválida: deve estar entre 0 e 100.")
+  .max(100.0, "MO inválida: deve estar entre 0 e 100.");
 
-/** Entrada consolidada completa para o motor */
-export interface EntradaCalagem
-  extends EntradaCalagemBase,
-    Partial<EntradaSatBases>,
-    Partial<EntradaPolinomial>,
-    Partial<EntradaPDRestricao>,
-    Partial<EntradaPDImplantacaoSuperficial> {
-  /** B2 — Al_sat direto ou calculado */
-  Al_sat?: number;
-  /** B2 opção 2 — se Al_sat não informado diretamente */
-  Al_trocavel?: number;
-  CTC_pH7?: number;
-  /** Monitoramento (independente) */
-  monitoramento?: EntradaMonitoramento10_20;
-}
+const alTrocavelSchema = z
+  .number()
+  .finite()
+  .min(0.0, "Al_trocavel inválido: deve ser >= 0.");
 
-// ─── Resultados ──────────────────────────────────────────────────────────────
+const prntSchema = z
+  .number()
+  .finite()
+  .gt(0.0, "PRNT inválido: deve estar entre 1 e 100.")
+  .max(100.0, "PRNT inválido: deve estar entre 1 e 100.");
+
+export const Monitoramento10_20Schema = z.object({
+  pH_agua_10_20: phSchema,
+  Al_sat_10_20: percentualSchema("Al_sat_10_20"),
+  disponibilidade_P_10_20_abaixo_critico: z.boolean(),
+  compactacao_restringindo_raiz: z.boolean(),
+  produtividade_abaixo_media: z.boolean(),
+});
+
+export type EntradaMonitoramento10_20 = z.infer<typeof Monitoramento10_20Schema>;
+
+export const CalagemSchema = z
+  .object({
+    sistema_manejo: SISTEMA_MANEJO_SCHEMA,
+    primeira_calagem: z.boolean(),
+    pH_agua: phSchema,
+    SMP: smpSchema,
+    PRNT: prntSchema,
+
+    V_atual: percentualSchema("V_atual").optional(),
+    CTC_pH7: ctcSchema.optional(),
+
+    Al_sat: percentualSchema("Al_sat").optional(),
+    Al_sat_10_20: percentualSchema("Al_sat_10_20").optional(),
+
+    MO: moSchema.optional(),
+    Al_trocavel: alTrocavelSchema.optional(),
+
+    SMP_0_10: smpSchema.optional(),
+    SMP_10_20: smpSchema.optional(),
+
+    opcao_superficial_campo_natural: z.boolean().optional(),
+    monitoramento: Monitoramento10_20Schema.optional(),
+  })
+  .superRefine((entrada, ctx) => {
+    const metodo =
+      entrada.SMP > 6.3
+        ? MetodoCalcRoteado.POLINOMIAL
+        : MetodoCalcRoteado.SMP;
+
+    if (metodo === MetodoCalcRoteado.POLINOMIAL) {
+      if (entrada.MO === undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["MO"],
+          message: "MO é obrigatória quando SMP > 6.3.",
+        });
+      }
+
+      if (entrada.Al_trocavel === undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["Al_trocavel"],
+          message: "Al_trocavel é obrigatório quando SMP > 6.3.",
+        });
+      }
+    }
+
+    if (!entrada.primeira_calagem && metodo === MetodoCalcRoteado.SMP) {
+      if (entrada.V_atual === undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["V_atual"],
+          message: "V_atual é obrigatório em reaplicação com método SMP.",
+        });
+      }
+
+      if (entrada.CTC_pH7 === undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["CTC_pH7"],
+          message: "CTC_pH7 é obrigatório em reaplicação com método SMP.",
+        });
+      }
+    }
+
+    if (
+      entrada.sistema_manejo === SistemaManejo.PD_CONSOLIDADO &&
+      entrada.pH_agua < 5.5
+    ) {
+      const temAlSatDireto = entrada.Al_sat !== undefined;
+      const temAlSatPorCalculo =
+        entrada.Al_trocavel !== undefined && entrada.CTC_pH7 !== undefined;
+
+      if (!temAlSatDireto && !temAlSatPorCalculo) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["Al_sat"],
+          message:
+            "Al_sat é obrigatório para PD_CONSOLIDADO quando pH_agua < 5.5 (diretamente ou via Al_trocavel + CTC_pH7).",
+        });
+      }
+    }
+
+    if (entrada.sistema_manejo === SistemaManejo.PD_COM_RESTRICAO) {
+      if (entrada.SMP_10_20 === undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["SMP_10_20"],
+          message: "SMP_10_20 é obrigatório para PD_COM_RESTRICAO.",
+        });
+      }
+
+      const alSat10_20 =
+        entrada.Al_sat_10_20 ?? entrada.monitoramento?.Al_sat_10_20;
+
+      if (alSat10_20 === undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["Al_sat_10_20"],
+          message:
+            "Al_sat_10_20 é obrigatório para PD_COM_RESTRICAO.",
+        });
+      }
+    }
+  });
+
+export type EntradaCalagem = z.infer<typeof CalagemSchema>;
 
 export interface ResultadoCalagem {
   aplicar_calcario: boolean;
@@ -100,8 +192,10 @@ export interface ResultadoCalagem {
   fator_manejo: number;
   modo_aplicacao: ModoAplicacao;
   profundidade_cm?: number;
+  acao_requerida?: AcaoRequerida;
 
   alertas: string[];
+  nota_tecnica?: string;
   campos_necessarios: string[];
 }
 
@@ -109,9 +203,8 @@ export interface ResultadoMonitoramento {
   restricao_10_20: boolean;
   sistema_manejo_atualizado: SistemaManejo;
   emitir_alerta?: string;
+  campos_adicionais_necessarios: string[];
 }
-
-// ─── Erros de validação ───────────────────────────────────────────────────────
 
 export class CalagemValidationError extends Error {
   constructor(message: string) {
