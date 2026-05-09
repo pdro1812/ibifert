@@ -11,11 +11,22 @@ interface User {
   role: string;
 }
 
+export interface RegisterData {
+  nome: string;
+  cpf: string;
+  email: string;
+  senha: string;
+  cidade: string;
+  estado: string;
+  telefone?: string;
+}
+
 interface AuthContextData {
   user: User | null;
   isLoggedIn: boolean;
   isLoading: boolean;
   login: (email: string, senha: string) => Promise<void>;
+  cadastrar: (data: RegisterData) => Promise<void>;
   logout: () => void;
 }
 
@@ -66,6 +77,21 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setUser(usuario);
   };
 
+  const cadastrar = async (data: RegisterData) => {
+    // Assumindo que a rota de criação no backend seja /api/auth/register
+    const response = await api.post('/auth/register', data);
+
+    // Assumindo que o backend já retorna o token e o usuário logado ao criar a conta
+    const { token, usuario } = response.data;
+
+    // Salva os dados no navegador (já deixa o usuário logado)
+    localStorage.setItem('@ibiferti:token', token);
+    localStorage.setItem('@ibiferti:user', JSON.stringify(usuario));
+
+    // Atualiza o estado global da aplicação
+    setUser(usuario);
+  };
+
   const logout = () => {
     // Limpa o navegador e o estado
     localStorage.removeItem('@ibiferti:token');
@@ -82,6 +108,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         isLoggedIn: !!user,
         isLoading,
         login,
+        cadastrar,
         logout,
       }}
     >

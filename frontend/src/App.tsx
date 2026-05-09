@@ -8,8 +8,11 @@ import { DashboardLayout } from './layouts/DashboardLayout';
 import { CalculadoraPage } from './pages/CalculadoraPage';
 import { MonitoramentoPage } from './pages/MonitoramentoPage';
 import { LoginPage } from './pages/LoginPage';
+import { RegisterPage } from './pages/RegisterPage';
 import { FazendasPage } from './pages/FazendasPage';
 import { NovaAnalisePage } from './pages/NovaAnalisePage';
+import { HistoricoAnalisesPage } from './pages/HistoricoAnalisesPage';
+
 
 /**
  * App root — only providers and route declarations live here.
@@ -25,7 +28,8 @@ export default function App() {
             <Route path="/" element={<CalculadoraPage />} />
             <Route path="/monitoramento" element={<MonitoramentoPage />} />
             <Route path="/login" element={<LoginPage />} />
-            {/* /cadastro would go here when built */}
+            <Route path="/RegisterPage" element={<RegisterPage />} />
+            <Route path="/historico" element={<HistoricoAnalisesPage />} />
           </Route>
 
           {/* ── Protected routes (must be authenticated) ──────────────── */}
