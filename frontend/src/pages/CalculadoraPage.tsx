@@ -214,7 +214,12 @@ export function CalculadoraPage() {
     setSalvo(false);
 
     try {
-      const resposta = await calcularCalagem(dados);
+      const resposta = await calcularCalagem(dados, {
+        uf:                  ufSelecionada,
+        cidade:              cidadeSelecionada,
+        modo_al_sat:         modoAlSatAtual,
+        monitoramento_ativo: monitoramentoAtivo,
+      });
       setResultado(resposta);
     } catch (error) {
       setMensagemApi(extrairMensagemErro(error));

@@ -33,6 +33,12 @@ export function PublicLayout() {
             >
               Monitoramento Regional
             </Link>
+             <Link
+              to="/historico"
+              className="text-sm font-semibold text-stone-600 transition-colors hover:text-green-600"
+            >
+              Historico
+            </Link>
           </nav>
 
           <div className="flex items-center gap-4">
@@ -60,7 +66,7 @@ export function PublicLayout() {
                   Entrar
                 </Link>
                 <Link
-                  to="/login"
+                  to="/RegisterPage"
                   className="rounded-lg bg-stone-900 px-5 py-2.5 text-sm font-semibold text-white shadow-md transition-all hover:bg-stone-800"
                 >
                   Criar Conta
