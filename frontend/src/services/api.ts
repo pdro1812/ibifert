@@ -19,6 +19,21 @@ export const api = axios.create({
   },
 });
 
+api.interceptors.request.use(
+  (config) => {
+    // Pega o token que salvaremos no login
+    const token = localStorage.getItem('@ibiferti:token');
+    
+    if (token && config.headers) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
 function arredondar(valor: number): number {
   return Number(valor.toFixed(2));
 }
