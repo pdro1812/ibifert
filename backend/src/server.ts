@@ -1,8 +1,10 @@
+import 'dotenv/config'; // Isso injeta as variáveis do .env no process.env
 import express from 'express';
 import cors from 'cors';
 import { executarMotorCalagem } from './services/motorCalagem';
 import { validarEntrada } from './services/calculadoraCalagem';
 import { CalagemValidationError } from './schemas/calagemSchema';
+import { authRoutes } from './routes/authRoutes';
 
 const app = express();
 app.use(cors());
@@ -36,6 +38,8 @@ app.post('/api/calcular', (req, res) => {
     }
   }
 });
+
+app.use('/api/auth', authRoutes);
 
 app.listen(3000, () => {
   console.log('🚀 Backend rodando na porta 3000');
