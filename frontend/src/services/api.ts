@@ -112,3 +112,4 @@ export async function calcularCalagem(
   const resposta = await api.post('/calcular', payload);
   return resposta.data.resultado ?? resposta.data;
 }
+
