@@ -1,3 +1,5 @@
+// frontend/src/pages/FazendasPage.tsx
+
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -5,17 +7,24 @@ import { FlaskConical, MapPin, Plus, Tractor } from 'lucide-react';
 import { ibgeService } from '../services/ibge';
 import type { Estado, Municipio } from '../services/ibge';
 import { Modal } from '../components/Modal';
+import {
+  getFazendas,
+  postFazenda,
+  deleteFazendaApi,
+  postTalhao,
+  deleteTalhaoApi,
+} from '../services/api';
 
-// ─── Types ───────────────────────────────────────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface Talhao {
-  id: number;
+  id: string;
   nome: string;
   cultura: string;
 }
 
 interface Fazenda {
-  id: number;
+  id: string;
   nome: string;
   municipio: string;
   uf: string;
@@ -32,24 +41,24 @@ const CULTURAS_GRAOS = [
 export function FazendasPage() {
   const navigate = useNavigate();
 
-  // ── Local UI state (not global — lives only in this page) ────────────────
-  const [fazendas, setFazendas] = useState<Fazenda[]>([
-    {
-      id: 1,
-      nome: 'Fazenda Bela Vista',
-      municipio: 'Ibirubá',
-      uf: 'RS',
-      talhoes: [
-        { id: 101, nome: 'Talhão Sul', cultura: 'Soja' },
-        { id: 102, nome: 'Talhão Norte', cultura: 'Milho' },
-      ],
-    },
-  ]);
+  const [fazendas, setFazendas] = useState<Fazenda[]>([]);
+  const [loading, setLoading] = useState(true);
+
   const [modalFazendaOpen, setModalFazendaOpen] = useState(false);
   const [modalTalhaoOpen, setModalTalhaoOpen] = useState(false);
+
   const [estados, setEstados] = useState<Estado[]>([]);
   const [municipios, setMunicipios] = useState<Municipio[]>([]);
   const [ufSelecionada, setUfSelecionada] = useState('RS');
+
+  // ── Carrega dados iniciais ──────────────────────────────────────────────────
+
+  useEffect(() => {
+    getFazendas()
+      .then(setFazendas)
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
 
   useEffect(() => {
     ibgeService.getEstados().then(setEstados);
@@ -61,9 +70,9 @@ export function FazendasPage() {
     }
   }, [ufSelecionada]);
 
-  // ── Handlers ─────────────────────────────────────────────────────────────
+  // ── Handlers ───────────────────────────────────────────────────────────────
 
-  const handleSalvarFazenda = (evento: FormEvent<HTMLFormElement>) => {
+  const handleSalvarFazenda = async (evento: FormEvent<HTMLFormElement>) => {
     evento.preventDefault();
     const formData = new FormData(evento.currentTarget);
     const municipioDigitado = String(formData.get('municipio') ?? '');
@@ -73,38 +82,71 @@ export function FazendasPage() {
       return;
     }
 
-    setFazendas((prev) => [
-      ...prev,
-      {
-        id: Date.now(),
+    try {
+      const novaFazenda = await postFazenda({
         nome: String(formData.get('nomeFazenda') ?? ''),
         uf: String(formData.get('uf') ?? ''),
         municipio: municipioDigitado,
-        talhoes: [],
-      },
-    ]);
-    setModalFazendaOpen(false);
+      });
+      setFazendas((prev) => [...prev, { ...novaFazenda, talhoes: [] }]);
+      setModalFazendaOpen(false);
+    } catch (err) {
+      console.error(err);
+      alert('Erro ao salvar fazenda.');
+    }
   };
 
-  const handleSalvarTalhao = (evento: FormEvent<HTMLFormElement>) => {
+  const handleSalvarTalhao = async (evento: FormEvent<HTMLFormElement>) => {
     evento.preventDefault();
     const formData = new FormData(evento.currentTarget);
-    const fazendaId = Number(formData.get('fazendaId'));
-    const novoTalhao: Talhao = {
-      id: Date.now(),
-      nome: String(formData.get('nomeTalhao') ?? ''),
-      cultura: String(formData.get('cultura') ?? ''),
-    };
+    const fazendaId = String(formData.get('fazendaId') ?? '');
 
-    setFazendas((prev) =>
-      prev.map((f) =>
-        f.id === fazendaId ? { ...f, talhoes: [...f.talhoes, novoTalhao] } : f
-      )
-    );
-    setModalTalhaoOpen(false);
+    try {
+      const novoTalhao = await postTalhao(fazendaId, {
+        nome: String(formData.get('nomeTalhao') ?? ''),
+        cultura: String(formData.get('cultura') ?? ''),
+      });
+      setFazendas((prev) =>
+        prev.map((f) =>
+          f.id === fazendaId ? { ...f, talhoes: [...f.talhoes, novoTalhao] } : f
+        )
+      );
+      setModalTalhaoOpen(false);
+    } catch (err) {
+      console.error(err);
+      alert('Erro ao salvar talhão.');
+    }
   };
 
-  // ── Render ───────────────────────────────────────────────────────────────
+  const handleDeletarFazenda = async (id: string) => {
+    if (!confirm('Remover esta fazenda e todos os seus talhões?')) return;
+    try {
+      await deleteFazendaApi(id);
+      setFazendas((prev) => prev.filter((f) => f.id !== id));
+    } catch (err) {
+      console.error(err);
+      alert('Erro ao remover fazenda.');
+    }
+  };
+
+  const handleDeletarTalhao = async (fazendaId: string, talhaoId: string) => {
+    if (!confirm('Remover este talhão?')) return;
+    try {
+      await deleteTalhaoApi(talhaoId);
+      setFazendas((prev) =>
+        prev.map((f) =>
+          f.id === fazendaId
+            ? { ...f, talhoes: f.talhoes.filter((t) => t.id !== talhaoId) }
+            : f
+        )
+      );
+    } catch (err) {
+      console.error(err);
+      alert('Erro ao remover talhão.');
+    }
+  };
+
+  // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
     <div className="w-full max-w-6xl space-y-8">
@@ -137,55 +179,76 @@ export function FazendasPage() {
       </div>
 
       {/* Fazendas list */}
-      <div className="space-y-6">
-        {fazendas.map((fazenda) => (
-          <div
-            key={fazenda.id}
-            className="overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm"
-          >
-            <div className="flex items-center justify-between border-b border-stone-200 bg-stone-50 px-6 py-4">
-              <div className="flex items-center gap-4">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-green-100">
-                  <MapPin className="text-green-600" size={20} />
+      {loading ? (
+        <p className="text-sm text-stone-400">Carregando...</p>
+      ) : (
+        <div className="space-y-6">
+          {fazendas.length === 0 && (
+            <p className="text-sm italic text-stone-400">Nenhuma fazenda cadastrada.</p>
+          )}
+          {fazendas.map((fazenda) => (
+            <div
+              key={fazenda.id}
+              className="overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm"
+            >
+              <div className="flex items-center justify-between border-b border-stone-200 bg-stone-50 px-6 py-4">
+                <div className="flex items-center gap-4">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-green-100">
+                    <MapPin className="text-green-600" size={20} />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-stone-800">{fazenda.nome}</h3>
+                    <p className="text-sm text-stone-500">{fazenda.municipio}, {fazenda.uf}</p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-xl font-bold text-stone-800">{fazenda.nome}</h3>
-                  <p className="text-sm text-stone-500">{fazenda.municipio}, {fazenda.uf}</p>
+                <div className="flex items-center gap-4">
+                  <button
+                    onClick={() => setModalTalhaoOpen(true)}
+                    className="flex items-center gap-1 text-sm font-semibold text-green-600 hover:text-green-700"
+                  >
+                    <Plus size={16} /> Adicionar Talhão
+                  </button>
+                  <button
+                    onClick={() => handleDeletarFazenda(fazenda.id)}
+                    className="text-sm font-semibold text-red-400 hover:text-red-600"
+                  >
+                    Remover
+                  </button>
                 </div>
               </div>
-              <button
-                onClick={() => setModalTalhaoOpen(true)}
-                className="flex items-center gap-1 text-sm font-semibold text-green-600 hover:text-green-700"
-              >
-                <Plus size={16} /> Adicionar Talhão
-              </button>
-            </div>
-            <div className="p-6">
-              {fazenda.talhoes.length === 0 ? (
-                <p className="text-sm italic text-stone-400">Nenhum talhão cadastrado.</p>
-              ) : (
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                  {fazenda.talhoes.map((talhao) => (
-                    <div
-                      key={talhao.id}
-                      className="group cursor-pointer rounded-xl border border-stone-100 p-4 transition-all hover:border-green-200 hover:shadow-md"
-                    >
-                      <div className="mb-2 flex items-start justify-between">
-                        <Tractor className="text-stone-300 transition-colors group-hover:text-green-500" size={24} />
-                        <span className="rounded-md bg-green-50 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-green-700">
-                          {talhao.cultura}
-                        </span>
+              <div className="p-6">
+                {fazenda.talhoes.length === 0 ? (
+                  <p className="text-sm italic text-stone-400">Nenhum talhão cadastrado.</p>
+                ) : (
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                    {fazenda.talhoes.map((talhao) => (
+                      <div
+                        key={talhao.id}
+                        className="group relative cursor-pointer rounded-xl border border-stone-100 p-4 transition-all hover:border-green-200 hover:shadow-md"
+                      >
+                        <div className="mb-2 flex items-start justify-between">
+                          <Tractor className="text-stone-300 transition-colors group-hover:text-green-500" size={24} />
+                          <span className="rounded-md bg-green-50 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-green-700">
+                            {talhao.cultura}
+                          </span>
+                        </div>
+                        <h4 className="font-bold text-stone-800">{talhao.nome}</h4>
+                        <p className="mt-2 text-xs text-stone-500">Sem análises recentes</p>
+                        <button
+                          onClick={() => handleDeletarTalhao(fazenda.id, talhao.id)}
+                          className="mt-2 text-xs font-semibold text-red-400 hover:text-red-600"
+                        >
+                          Remover
+                        </button>
                       </div>
-                      <h4 className="font-bold text-stone-800">{talhao.nome}</h4>
-                      <p className="mt-2 text-xs text-stone-500">Sem análises recentes</p>
-                    </div>
-                  ))}
-                </div>
-              )}
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       {/* Modal: Nova Fazenda */}
       <Modal isOpen={modalFazendaOpen} onClose={() => setModalFazendaOpen(false)} titulo="Cadastrar Nova Fazenda">

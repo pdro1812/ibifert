@@ -121,4 +121,39 @@ export async function calcularCalagem(
 }
 
 
+// Adicionar em frontend/src/services/api.ts
+// (junto das outras funções existentes, sem mexer no que já existe)
 
+ 
+// ── Fazendas ──────────────────────────────────────────────────────────────────
+ 
+export async function getFazendas() {
+  const res = await api.get('/fazendas');
+  return res.data;
+}
+ 
+export async function postFazenda(data: { nome: string; municipio: string; uf: string }) {
+  const res = await api.post('/fazendas', data);
+  return res.data;
+}
+ 
+export async function deleteFazendaApi(id: string) {
+  const res = await api.delete(`/fazendas/${id}`);
+  return res.data;
+}
+ 
+// ── Talhoes ───────────────────────────────────────────────────────────────────
+ 
+export async function postTalhao(
+  fazendaId: string,
+  data: { nome: string; cultura: string }
+) {
+  const res = await api.post(`/fazendas/${fazendaId}/talhoes`, data);
+  return res.data;
+}
+ 
+export async function deleteTalhaoApi(id: string) {
+  const res = await api.delete(`/fazendas/talhoes/${id}`);
+  return res.data;
+}
+ 
