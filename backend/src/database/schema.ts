@@ -100,3 +100,24 @@ export const analises = pgTable('analises', {
   acao_requerida:      text('acao_requerida'),
   alertas:             text('alertas').array(),
 });
+
+// ── Fazendas ──────────────────────────────────────────────────────────────────
+
+export const fazendas = pgTable('fazendas', {
+  id:         uuid('id').primaryKey().defaultRandom(),
+  usuario_id: uuid('usuario_id'),                      // opcional — FK lógica para users.id
+  nome:       text('nome').notNull(),
+  municipio:  text('municipio').notNull(),
+  uf:         text('uf').notNull(),
+  criado_em:  timestamp('criado_em').notNull().defaultNow(),
+});
+
+// ── Talhoes ───────────────────────────────────────────────────────────────────
+
+export const talhoes = pgTable('talhoes', {
+  id:         uuid('id').primaryKey().defaultRandom(),
+  fazenda_id: uuid('fazenda_id'),                      // opcional — FK lógica para fazendas.id
+  nome:       text('nome').notNull(),
+  cultura:    text('cultura').notNull(),
+  criado_em:  timestamp('criado_em').notNull().defaultNow(),
+});
