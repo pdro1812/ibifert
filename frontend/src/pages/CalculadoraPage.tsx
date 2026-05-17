@@ -114,7 +114,7 @@ const CampoNumerico = ({
       {...register(name, { setValueAs: normalizarNumero })}
       className={`w-full rounded-lg border px-3 py-2.5 text-sm outline-none transition-all ${
         error
-          ? 'border-red-400 bg-red-50 focus:border-red-500'
+          ? 'border-red-400 bg-red-50'
           : 'border-stone-200 bg-stone-50 focus:border-green-500 focus:bg-white'
       }`}
     />
@@ -161,32 +161,49 @@ export function CalculadoraPage() {
     handleSubmit,
     getValues,
     formState: { errors },
+    setValue,
+    clearErrors,
   } = useForm<FormValores>({
     resolver: zodResolver(CalagemSchema),
     shouldUnregister: true,
     defaultValues: {
+      modo: 'simplificado',
       sistema_manejo: 'CONVENCIONAL',
       primeira_calagem: true,
       opcao_superficial_campo_natural: false,
     },
   });
 
+  const modoForm           = useWatch({ control, name: 'modo' });
   const sistemaSelecionado = useWatch({ control, name: 'sistema_manejo' });
   const primeiraCalagem    = useWatch({ control, name: 'primeira_calagem' });
   const smpValor           = useWatch({ control, name: 'SMP' });
   const pHValor            = useWatch({ control, name: 'pH_agua' });
   const monitoramento      = useWatch({ control, name: 'monitoramento' });
 
+  const isSimplificado   = modoForm === 'simplificado';
+
+  // ── Efeito: Resetar campos ao alternar modo ──────────────────────────────
+  useEffect(() => {
+    if (isSimplificado) {
+      setValue('primeira_calagem', true);
+      setValue('opcao_superficial_campo_natural', false);
+      // Limpa erros de campos que não estão visíveis no simplificado
+      clearErrors(['primeira_calagem', 'V_atual', 'CTC_pH7', 'Al_sat', 'MO', 'Al_trocavel']);
+    }
+  }, [isSimplificado, setValue, clearErrors]);
+
   const temSmpInformado  = typeof smpValor === 'number';
   const temPhInformado   = typeof pHValor  === 'number';
   const metodoRoteado    = temSmpInformado ? rotearMetodoCalagem(smpValor) : null;
-  const isPolinomial     = metodoRoteado === 'POLINOMIAL';
-  const isReaplicacaoSMP = primeiraCalagem === false && metodoRoteado === 'SMP';
+  const isPolinomial     = !isSimplificado && metodoRoteado === 'POLINOMIAL';
+  const isReaplicacaoSMP = !isSimplificado && primeiraCalagem === false && metodoRoteado === 'SMP';
   const isPDConsolidado  = sistemaSelecionado === 'PD_CONSOLIDADO';
   const isPDImplantacao  = sistemaSelecionado === 'PD_IMPLANTACAO';
-  const precisaAlSat     = isPDConsolidado && temPhInformado && pHValor < 5.5;
+  const precisaAlSat     = !isSimplificado && isPDConsolidado && temPhInformado && pHValor < 5.5;
   const modoAlSatAtual   = precisaAlSat ? modoAlSat : 'direto';
   const restricao10_20   =
+    !isSimplificado &&
     isPDConsolidado &&
     monitoramentoAtivo &&
     detectarRestricaoMonitoramento(monitoramento);
@@ -294,6 +311,38 @@ export function CalculadoraPage() {
 
         <form onSubmit={handleSubmit(onSubmitValidado, onErrorNoForm)} noValidate className="space-y-8">
 
+          {/* ── Bloco: Modo de Uso ───────────────────────────────────────── */}
+          <div className="flex flex-col gap-4 rounded-2xl border border-stone-100 bg-stone-50 p-6 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h3 className="text-sm font-bold uppercase tracking-wider text-stone-500">Modo de Diagnóstico</h3>
+              <p className="text-xs text-stone-400">Escolha o nível de detalhamento dos dados.</p>
+            </div>
+            <div className="flex rounded-xl bg-white p-1 shadow-sm">
+              <label className="relative flex cursor-pointer items-center">
+                <input
+                  type="radio"
+                  value="simplificado"
+                  {...register('modo')}
+                  className="peer sr-only"
+                />
+                <span className="rounded-lg px-6 py-2 text-sm font-bold text-stone-500 transition-all peer-checked:bg-stone-900 peer-checked:text-white">
+                  Simplificado
+                </span>
+              </label>
+              <label className="relative flex cursor-pointer items-center">
+                <input
+                  type="radio"
+                  value="avancado"
+                  {...register('modo')}
+                  className="peer sr-only"
+                />
+                <span className="rounded-lg px-6 py-2 text-sm font-bold text-stone-500 transition-all peer-checked:bg-stone-900 peer-checked:text-white">
+                  Avançado
+                </span>
+              </label>
+            </div>
+          </div>
+
           {/* ── Bloco: Localização ──────────────────────────────────────── */}
           <div className="space-y-5 rounded-2xl border border-stone-100 bg-stone-50 p-6">
             <h3 className="text-sm font-bold uppercase tracking-wider text-stone-500">Localização</h3>
@@ -345,29 +394,31 @@ export function CalculadoraPage() {
               </div>
             </div>
 
-            {/* Identificação */}
-            <div className="space-y-1">
-              <label className="flex justify-between text-xs font-semibold text-stone-600">
-                Identificação <span className="font-normal text-stone-400">Opcional</span>
-              </label>
-              <input
-                type="text"
-                placeholder="Ex: Talhão da Caixa d'água"
-                {...register('identificacao')}
-                className="w-full rounded-xl border border-stone-200 bg-white px-4 py-3 shadow-sm outline-none focus:border-green-500"
-              />
-            </div>
+            {/* Identificação (Somente Avançado) */}
+            {!isSimplificado && (
+              <div className="space-y-1">
+                <label className="flex justify-between text-xs font-semibold text-stone-600">
+                  Identificação <span className="font-normal text-stone-400">Opcional</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ex: Talhão da Caixa d'água"
+                  {...register('identificacao')}
+                  className="w-full rounded-xl border border-stone-200 bg-white px-4 py-3 shadow-sm outline-none focus:border-green-500"
+                />
+              </div>
+            )}
           </div>
 
           {/* ── Bloco: Configuração do Sistema ──────────────────────────── */}
           <div className="space-y-5 rounded-2xl border border-stone-100 bg-stone-50 p-6">
             <h3 className="text-sm font-bold uppercase tracking-wider text-stone-500">
-              Configuração do Sistema
+              {isSimplificado ? 'Dados para Diagnóstico' : 'Configuração do Sistema'}
             </h3>
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               {/* Sistema de Manejo */}
-              <div className="space-y-1">
+              <div className={isSimplificado ? 'col-span-full space-y-1' : 'space-y-1'}>
                 <div className="group relative flex w-max items-center gap-2">
                   <label className="text-xs font-semibold text-stone-600">Sistema de Manejo *</label>
                   <div className="cursor-help text-yellow-500"><Lightbulb size={14} /></div>
@@ -400,25 +451,27 @@ export function CalculadoraPage() {
                 </select>
               </div>
 
-              {/* Tipo de Aplicação */}
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-stone-600">Tipo de Aplicação *</label>
-                <select
-                  {...register('primeira_calagem', { setValueAs: (v) => v === 'true' })}
-                  className={`w-full rounded-xl border px-4 py-3 shadow-sm outline-none transition-all ${
-                    errors.primeira_calagem
-                      ? 'border-red-400 bg-red-50'
-                      : 'border-stone-200 bg-white focus:border-green-500'
-                  }`}
-                >
-                  <option value="true">Primeira calagem</option>
-                  <option value="false">Reaplicação</option>
-                </select>
-              </div>
+              {/* Tipo de Aplicação (Somente Avançado) */}
+              {!isSimplificado && (
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-stone-600">Tipo de Aplicação *</label>
+                  <select
+                    {...register('primeira_calagem', { setValueAs: (v) => v === 'true' })}
+                    className={`w-full rounded-xl border px-4 py-3 shadow-sm outline-none transition-all ${
+                      errors.primeira_calagem
+                        ? 'border-red-400 bg-red-50'
+                        : 'border-stone-200 bg-white focus:border-green-500'
+                    }`}
+                  >
+                    <option value="true">Primeira calagem</option>
+                    <option value="false">Reaplicação</option>
+                  </select>
+                </div>
+              )}
             </div>
 
-            {/* PRNT */}
-            <div className="max-w-xs">
+            {/* PRNT e Dados de Solo Agrupados no modo Simplificado */}
+            <div className={`grid grid-cols-1 gap-4 ${isSimplificado ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
               <CampoNumerico
                 label="PRNT (%) *"
                 name="PRNT"
@@ -429,10 +482,32 @@ export function CalculadoraPage() {
                 error={errors.PRNT}
                 dica="PRNT deve estar no intervalo (0, 100]."
               />
+              {isSimplificado && (
+                <>
+                  <CampoNumerico
+                    label="pH em água *"
+                    name="pH_agua"
+                    min={3.5}
+                    max={8}
+                    placeholder="Ex: 5,2"
+                    register={register}
+                    error={errors.pH_agua}
+                  />
+                  <CampoNumerico
+                    label="Índice SMP *"
+                    name="SMP"
+                    min={4.4}
+                    max={7.1}
+                    placeholder="Ex: 5,5"
+                    register={register}
+                    error={errors.SMP}
+                  />
+                </>
+              )}
             </div>
 
-            {/* Modo de aplicação — PD Implantação */}
-            {isPDImplantacao ? (
+            {/* Modo de aplicação — PD Implantação (Somente Avançado) */}
+            {isPDImplantacao && !isSimplificado ? (
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-stone-600">Modo de Aplicação *</label>
                 <select
@@ -446,185 +521,187 @@ export function CalculadoraPage() {
             ) : null}
           </div>
 
-          {/* ── Bloco: Dados de Solo ─────────────────────────────────────── */}
-          <div className="space-y-5 rounded-2xl border border-stone-100 bg-stone-50 p-6">
-            <div className="flex flex-wrap items-center gap-2">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-stone-500">Dados de Solo</h3>
-              {isPDConsolidado ? (
-                <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
-                  Camada principal: 0–10 cm
-                </span>
-              ) : (
-                <span className="rounded-full bg-stone-200 px-3 py-1 text-xs font-semibold text-stone-600">
-                  Camada principal: 0–20 cm
-                </span>
-              )}
-              {sistemaEfetivo === 'PD_COM_RESTRICAO' ? (
-                <span className="rounded-full bg-orange-100 px-3 py-1 text-xs font-semibold text-orange-700">
-                  Fluxo efetivo: PD com Restrição
-                </span>
+          {/* ── Bloco: Dados de Solo (Somente Avançado) ────────────────────── */}
+          {!isSimplificado && (
+            <div className="space-y-5 rounded-2xl border border-stone-100 bg-stone-50 p-6">
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="text-sm font-bold uppercase tracking-wider text-stone-500">Dados de Solo</h3>
+                {isPDConsolidado ? (
+                  <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
+                    Camada principal: 0–10 cm
+                  </span>
+                ) : (
+                  <span className="rounded-full bg-stone-200 px-3 py-1 text-xs font-semibold text-stone-600">
+                    Camada principal: 0–20 cm
+                  </span>
+                )}
+                {sistemaEfetivo === 'PD_COM_RESTRICAO' ? (
+                  <span className="rounded-full bg-orange-100 px-3 py-1 text-xs font-semibold text-orange-700">
+                    Fluxo efetivo: PD com Restrição
+                  </span>
+                ) : null}
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <CampoNumerico
+                  label="pH em água *"
+                  name="pH_agua"
+                  min={3.5}
+                  max={8}
+                  placeholder="Ex: 5,2"
+                  register={register}
+                  error={errors.pH_agua}
+                  dica={
+                    isPDConsolidado
+                      ? 'Para PD Consolidado, informe o pH da camada 0–10 cm.'
+                      : 'Para Convencional e PD Implantação, informe o pH da camada 0–20 cm.'
+                  }
+                />
+                <CampoNumerico
+                  label="Índice SMP *"
+                  name="SMP"
+                  min={4.4}
+                  max={7.1}
+                  placeholder="Ex: 5,5"
+                  register={register}
+                  error={errors.SMP}
+                  dica="SMP deve estar entre 4.4 e 7.1."
+                />
+              </div>
+
+              {/* Bloco B3 — Polinomial */}
+              {isPolinomial ? (
+                <div className="space-y-4 rounded-2xl border border-green-200 bg-white p-5">
+                  <div>
+                    <h4 className="text-sm font-bold text-stone-800">Bloco B3 — Método Polinomial</h4>
+                    <p className="text-xs text-stone-500">O formulário exibe estes campos porque SMP &gt; 6,3.</p>
+                  </div>
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <CampoNumerico label="MO (%) *" name="MO" min={0} max={100} placeholder="Ex: 2,5" register={register} error={errors.MO} />
+                    <CampoNumerico label="Al trocável (cmolc/dm³) *" name="Al_trocavel" min={0} placeholder="Ex: 0,5" register={register} error={errors.Al_trocavel} />
+                  </div>
+                </div>
               ) : null}
-            </div>
 
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <CampoNumerico
-                label="pH em água *"
-                name="pH_agua"
-                min={3.5}
-                max={8}
-                placeholder="Ex: 5,2"
-                register={register}
-                error={errors.pH_agua}
-                dica={
-                  isPDConsolidado
-                    ? 'Para PD Consolidado, informe o pH da camada 0–10 cm.'
-                    : 'Para Convencional e PD Implantação, informe o pH da camada 0–20 cm.'
-                }
-              />
-              <CampoNumerico
-                label="Índice SMP *"
-                name="SMP"
-                min={4.4}
-                max={7.1}
-                placeholder="Ex: 5,5"
-                register={register}
-                error={errors.SMP}
-                dica="SMP deve estar entre 4.4 e 7.1."
-              />
-            </div>
+              {/* Bloco B1 — Reaplicação SMP */}
+              {isReaplicacaoSMP ? (
+                <div className="space-y-4 rounded-2xl border border-blue-200 bg-white p-5">
+                  <div>
+                    <h4 className="text-sm font-bold text-stone-800">Bloco B1 — Saturação por Bases (referência)</h4>
+                    <p className="text-xs text-stone-500">Campos exibidos em reaplicação com método roteado para SMP.</p>
+                  </div>
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <CampoNumerico label="V atual (%) *" name="V_atual" min={0} max={100} placeholder="Ex: 55" register={register} error={errors.V_atual} />
+                    <CampoNumerico label="CTC pH7 (cmolc/dm³) *" name="CTC_pH7" min={0.1} placeholder="Ex: 10" register={register} error={errors.CTC_pH7} />
+                  </div>
+                </div>
+              ) : null}
 
-            {/* Bloco B3 — Polinomial */}
-            {isPolinomial ? (
-              <div className="space-y-4 rounded-2xl border border-green-200 bg-white p-5">
-                <div>
-                  <h4 className="text-sm font-bold text-stone-800">Bloco B3 — Método Polinomial</h4>
-                  <p className="text-xs text-stone-500">O formulário exibe estes campos porque SMP &gt; 6,3.</p>
-                </div>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <CampoNumerico label="MO (%) *" name="MO" min={0} max={100} placeholder="Ex: 2,5" register={register} error={errors.MO} />
-                  <CampoNumerico label="Al trocável (cmolc/dm³) *" name="Al_trocavel" min={0} placeholder="Ex: 0,5" register={register} error={errors.Al_trocavel} />
-                </div>
-              </div>
-            ) : null}
+              {/* Bloco B2 — Trava PD Consolidado */}
+              {precisaAlSat ? (
+                <div className="space-y-4 rounded-2xl border border-orange-200 bg-white p-5">
+                  <div className="space-y-1">
+                    <h4 className="text-sm font-bold text-stone-800">Bloco B2 — Verificação da trava do PD Consolidado</h4>
+                    <p className="text-xs text-stone-500">
+                      Sistema PD_CONSOLIDADO com pH_agua &lt; 5,5 — coleta de Al_sat liberada.
+                    </p>
+                  </div>
 
-            {/* Bloco B1 — Reaplicação SMP */}
-            {isReaplicacaoSMP ? (
-              <div className="space-y-4 rounded-2xl border border-blue-200 bg-white p-5">
-                <div>
-                  <h4 className="text-sm font-bold text-stone-800">Bloco B1 — Saturação por Bases (referência)</h4>
-                  <p className="text-xs text-stone-500">Campos exibidos em reaplicação com método roteado para SMP.</p>
-                </div>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <CampoNumerico label="V atual (%) *" name="V_atual" min={0} max={100} placeholder="Ex: 55" register={register} error={errors.V_atual} />
-                  <CampoNumerico label="CTC pH7 (cmolc/dm³) *" name="CTC_pH7" min={0.1} placeholder="Ex: 10" register={register} error={errors.CTC_pH7} />
-                </div>
-              </div>
-            ) : null}
+                  {!primeiraCalagem ? (
+                    isReaplicacaoSMP ? (
+                      <div className="rounded-xl border border-blue-200 bg-blue-50 p-3 text-xs text-blue-800">
+                        V_atual já foi coletado no Bloco B1 e será reaproveitado aqui.
+                      </div>
+                    ) : (
+                      <CampoNumerico
+                        label="V atual (%) *"
+                        name="V_atual"
+                        min={0}
+                        max={100}
+                        placeholder="Ex: 66"
+                        register={register}
+                        error={errors.V_atual}
+                        dica="Necessário para verificar a trava RN-04/TRAVA-03."
+                      />
+                    )
+                  ) : null}
 
-            {/* Bloco B2 — Trava PD Consolidado */}
-            {precisaAlSat ? (
-              <div className="space-y-4 rounded-2xl border border-orange-200 bg-white p-5">
-                <div className="space-y-1">
-                  <h4 className="text-sm font-bold text-stone-800">Bloco B2 — Verificação da trava do PD Consolidado</h4>
-                  <p className="text-xs text-stone-500">
-                    Sistema PD_CONSOLIDADO com pH_agua &lt; 5,5 — coleta de Al_sat liberada.
-                  </p>
-                </div>
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                    <button
+                      type="button"
+                      onClick={() => setModoAlSat('direto')}
+                      className={`rounded-xl border p-4 text-left transition-all ${
+                        modoAlSatAtual === 'direto'
+                          ? 'border-green-500 bg-green-50'
+                          : 'border-stone-200 bg-stone-50 hover:border-stone-300'
+                      }`}
+                    >
+                      <div className="text-sm font-bold text-stone-800">Opção 1</div>
+                      <div className="text-xs text-stone-500">Informar Al_sat diretamente</div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setModoAlSat('calculado')}
+                      className={`rounded-xl border p-4 text-left transition-all ${
+                        modoAlSatAtual === 'calculado'
+                          ? 'border-green-500 bg-green-50'
+                          : 'border-stone-200 bg-stone-50 hover:border-stone-300'
+                      }`}
+                    >
+                      <div className="text-sm font-bold text-stone-800">Opção 2</div>
+                      <div className="text-xs text-stone-500">Calcular Al_sat = (Al_trocavel / CTC_pH7) × 100</div>
+                    </button>
+                  </div>
 
-                {!primeiraCalagem ? (
-                  isReaplicacaoSMP ? (
-                    <div className="rounded-xl border border-blue-200 bg-blue-50 p-3 text-xs text-blue-800">
-                      V_atual já foi coletado no Bloco B1 e será reaproveitado aqui.
-                    </div>
-                  ) : (
+                  {modoAlSatAtual === 'direto' ? (
                     <CampoNumerico
-                      label="V atual (%) *"
-                      name="V_atual"
+                      label="Al saturação (%) *"
+                      name="Al_sat"
                       min={0}
                       max={100}
-                      placeholder="Ex: 66"
+                      placeholder="Ex: 8"
                       register={register}
-                      error={errors.V_atual}
-                      dica="Necessário para verificar a trava RN-04/TRAVA-03."
+                      error={errors.Al_sat}
                     />
-                  )
-                ) : null}
-
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                  <button
-                    type="button"
-                    onClick={() => setModoAlSat('direto')}
-                    className={`rounded-xl border p-4 text-left transition-all ${
-                      modoAlSatAtual === 'direto'
-                        ? 'border-green-500 bg-green-50'
-                        : 'border-stone-200 bg-stone-50 hover:border-stone-300'
-                    }`}
-                  >
-                    <div className="text-sm font-bold text-stone-800">Opção 1</div>
-                    <div className="text-xs text-stone-500">Informar Al_sat diretamente</div>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setModoAlSat('calculado')}
-                    className={`rounded-xl border p-4 text-left transition-all ${
-                      modoAlSatAtual === 'calculado'
-                        ? 'border-green-500 bg-green-50'
-                        : 'border-stone-200 bg-stone-50 hover:border-stone-300'
-                    }`}
-                  >
-                    <div className="text-sm font-bold text-stone-800">Opção 2</div>
-                    <div className="text-xs text-stone-500">Calcular Al_sat = (Al_trocavel / CTC_pH7) × 100</div>
-                  </button>
+                  ) : (
+                    <div className="space-y-4 rounded-2xl border border-stone-200 bg-stone-50 p-4">
+                      {!isPolinomial ? (
+                        <CampoNumerico
+                          label="Al trocável (cmolc/dm³) *"
+                          name="Al_trocavel"
+                          min={0}
+                          placeholder="Ex: 0,8"
+                          register={register}
+                          error={errors.Al_trocavel}
+                        />
+                      ) : (
+                        <div className="rounded-xl border border-green-200 bg-green-50 p-3 text-xs text-green-800">
+                          Al_trocavel já está visível no Bloco B3 e será reaproveitado.
+                        </div>
+                      )}
+                      {!isReaplicacaoSMP ? (
+                        <CampoNumerico
+                          label="CTC pH7 (cmolc/dm³) *"
+                          name="CTC_pH7"
+                          min={0.1}
+                          placeholder="Ex: 10"
+                          register={register}
+                          error={errors.CTC_pH7}
+                        />
+                      ) : (
+                        <div className="rounded-xl border border-blue-200 bg-blue-50 p-3 text-xs text-blue-800">
+                          CTC_pH7 já foi coletada no Bloco B1 e será reutilizada.
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
-
-                {modoAlSatAtual === 'direto' ? (
-                  <CampoNumerico
-                    label="Al saturação (%) *"
-                    name="Al_sat"
-                    min={0}
-                    max={100}
-                    placeholder="Ex: 8"
-                    register={register}
-                    error={errors.Al_sat}
-                  />
-                ) : (
-                  <div className="space-y-4 rounded-2xl border border-stone-200 bg-stone-50 p-4">
-                    {!isPolinomial ? (
-                      <CampoNumerico
-                        label="Al trocável (cmolc/dm³) *"
-                        name="Al_trocavel"
-                        min={0}
-                        placeholder="Ex: 0,8"
-                        register={register}
-                        error={errors.Al_trocavel}
-                      />
-                    ) : (
-                      <div className="rounded-xl border border-green-200 bg-green-50 p-3 text-xs text-green-800">
-                        Al_trocavel já está visível no Bloco B3 e será reaproveitado.
-                      </div>
-                    )}
-                    {!isReaplicacaoSMP ? (
-                      <CampoNumerico
-                        label="CTC pH7 (cmolc/dm³) *"
-                        name="CTC_pH7"
-                        min={0.1}
-                        placeholder="Ex: 10"
-                        register={register}
-                        error={errors.CTC_pH7}
-                      />
-                    ) : (
-                      <div className="rounded-xl border border-blue-200 bg-blue-50 p-3 text-xs text-blue-800">
-                        CTC_pH7 já foi coletada no Bloco B1 e será reutilizada.
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            ) : null}
-          </div>
+              ) : null}
+            </div>
+          )}
 
           {/* ── Bloco: Monitoramento de Profundidade (só PD Consolidado) ── */}
-          {isPDConsolidado ? (
+          {isPDConsolidado && !isSimplificado ? (
             <div className="space-y-5 rounded-2xl border border-stone-100 bg-stone-50 p-6">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>

@@ -31,6 +31,7 @@ export type Monitoramento10_20 = z.infer<typeof MonitoramentoSchema>;
 
 export const CalagemSchema = z
   .object({
+    modo: z.enum(['simplificado', 'avancado']).optional().default('avancado'),
     sistema_manejo: SistemaManejoSchema,
     primeira_calagem: z.boolean(),
     pH_agua: numeroObrigatorio('Informe o pH em água.')
@@ -72,6 +73,10 @@ export const CalagemSchema = z
     identificacao: z.string().trim().max(120, 'Identificação muito longa.').optional(),
   })
   .superRefine((entrada, ctx) => {
+    if (entrada.modo === 'simplificado') {
+      return;
+    }
+
     const metodo = rotearMetodoCalagem(entrada.SMP);
     const precisaAlSat =
       entrada.sistema_manejo === 'PD_CONSOLIDADO' && entrada.pH_agua < 5.5;
@@ -162,6 +167,7 @@ export const CalagemSchema = z
 export type EntradaCalagem = z.infer<typeof CalagemSchema>;
 
 export interface CalagemPayload {
+  modo: 'simplificado' | 'avancado';
   sistema_manejo: SistemaManejo;
   primeira_calagem: boolean;
   pH_agua: number;
