@@ -12,6 +12,7 @@ import { RegisterPage } from './pages/RegisterPage';
 import { FazendasPage } from './pages/FazendasPage';
 import { NovaAnalisePage } from './pages/NovaAnalisePage';
 import { HistoricoAnalisesPage } from './pages/HistoricoAnalisesPage';
+import { ValidacaoAgronomicaPage } from './pages/ValidacaoAgronomicaPage';
 
 
 /**
@@ -27,12 +28,14 @@ export default function App() {
           <Route element={<PublicLayout />}>
             <Route path="/" element={<CalculadoraPage />} />
             <Route path="/monitoramento" element={<MonitoramentoPage />} />
+            <Route path="/validacao" element={<ValidacaoAgronomicaPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/RegisterPage" element={<RegisterPage />} />
             <Route path="/historico" element={<HistoricoAnalisesPage />} />
           </Route>
 
           {/* ── Protected routes (must be authenticated) ──────────────── */}
+
           <Route element={<ProtectedRoute />}>
             <Route element={<DashboardLayout />}>
               <Route path="/dashboard" element={<FazendasPage />} />
