@@ -28,6 +28,12 @@ export function PublicLayout() {
               Calculadora
             </Link>
             <Link
+              to="/validacao"
+              className="text-sm font-semibold text-stone-600 transition-colors hover:text-green-600"
+            >
+              Validação Agronômica
+            </Link>
+            <Link
               to="/monitoramento"
               className="text-sm font-semibold text-stone-600 transition-colors hover:text-green-600"
             >
@@ -35,6 +41,7 @@ export function PublicLayout() {
             </Link>
              <Link
               to="/historico"
+
               className="text-sm font-semibold text-stone-600 transition-colors hover:text-green-600"
             >
               Historico
