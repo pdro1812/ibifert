@@ -46,18 +46,22 @@ function calcularPhMedio0_20(
 }
 
 export function sanitizarPayloadCalagem(dados: EntradaCalagem): CalagemPayload {
+  const isSimplificado = dados.modo === 'simplificado';
   const metodo = rotearMetodoCalagem(dados.SMP);
-  const precisaSatBases = !dados.primeira_calagem && metodo === 'SMP';
+  const primeira_calagem = isSimplificado ? true : dados.primeira_calagem;
+  const precisaSatBases = !primeira_calagem && metodo === 'SMP';
   const precisaAlSat =
     dados.sistema_manejo === 'PD_CONSOLIDADO' && dados.pH_agua < 5.5;
   const monitoramento = dados.monitoramento;
   const temRestricao =
+    !isSimplificado &&
     dados.sistema_manejo === 'PD_CONSOLIDADO' &&
     detectarRestricaoMonitoramento(monitoramento);
 
   const payload: CalagemPayload = {
+    modo: dados.modo ?? 'avancado',
     sistema_manejo: temRestricao ? 'PD_COM_RESTRICAO' : dados.sistema_manejo,
-    primeira_calagem: dados.primeira_calagem,
+    primeira_calagem: primeira_calagem,
     pH_agua:
       temRestricao && monitoramento
         ? calcularPhMedio0_20(dados.pH_agua, monitoramento)
@@ -66,18 +70,18 @@ export function sanitizarPayloadCalagem(dados: EntradaCalagem): CalagemPayload {
     PRNT: dados.PRNT,
   };
 
-  if (metodo === 'POLINOMIAL') {
+  if (!isSimplificado && metodo === 'POLINOMIAL') {
     payload.MO = dados.MO;
     payload.Al_trocavel = dados.Al_trocavel;
   }
 
-  if (precisaSatBases) {
+  if (!isSimplificado && precisaSatBases) {
     payload.V_atual = dados.V_atual;
     payload.CTC_pH7 = dados.CTC_pH7;
   }
 
-  if (!temRestricao && precisaAlSat) {
-    if (!dados.primeira_calagem && dados.V_atual !== undefined) {
+  if (!isSimplificado && !temRestricao && precisaAlSat) {
+    if (!primeira_calagem && dados.V_atual !== undefined) {
       payload.V_atual = dados.V_atual;
     }
 
