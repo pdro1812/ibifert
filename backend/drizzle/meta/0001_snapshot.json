@@ -1,0 +1,500 @@
+{
+  "id": "8dc8de7e-2535-4c4e-8708-14418a123523",
+  "prevId": "14b1bc6b-92cc-40b4-9291-02b530acc15d",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.analises": {
+      "name": "analises",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "usuario_id": {
+          "name": "usuario_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "talhao_id": {
+          "name": "talhao_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "uf": {
+          "name": "uf",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "cidade": {
+          "name": "cidade",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "identificacao": {
+          "name": "identificacao",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sistema_manejo": {
+          "name": "sistema_manejo",
+          "type": "sistema_manejo",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "primeira_calagem": {
+          "name": "primeira_calagem",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "PRNT": {
+          "name": "PRNT",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "opcao_superficial_campo_natural": {
+          "name": "opcao_superficial_campo_natural",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "pH_agua": {
+          "name": "pH_agua",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "SMP": {
+          "name": "SMP",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "MO": {
+          "name": "MO",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "Al_trocavel": {
+          "name": "Al_trocavel",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "V_atual": {
+          "name": "V_atual",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "CTC_pH7": {
+          "name": "CTC_pH7",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "modo_al_sat": {
+          "name": "modo_al_sat",
+          "type": "modo_al_sat",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "Al_sat": {
+          "name": "Al_sat",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "monitoramento_ativo": {
+          "name": "monitoramento_ativo",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "monitoramento_pH_agua_10_20": {
+          "name": "monitoramento_pH_agua_10_20",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "monitoramento_Al_sat_10_20": {
+          "name": "monitoramento_Al_sat_10_20",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "monitoramento_disponibilidade_P_abaixo": {
+          "name": "monitoramento_disponibilidade_P_abaixo",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "monitoramento_compactacao_restringindo": {
+          "name": "monitoramento_compactacao_restringindo",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "monitoramento_produtividade_abaixo_media": {
+          "name": "monitoramento_produtividade_abaixo_media",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "SMP_10_20": {
+          "name": "SMP_10_20",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "aplicar_calcario": {
+          "name": "aplicar_calcario",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "NC_base": {
+          "name": "NC_base",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "NC_final": {
+          "name": "NC_final",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "NC_ajustada": {
+          "name": "NC_ajustada",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "NC_vb": {
+          "name": "NC_vb",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "metodo_calc_roteado": {
+          "name": "metodo_calc_roteado",
+          "type": "metodo_calc_roteado",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "modo_aplicacao": {
+          "name": "modo_aplicacao",
+          "type": "modo_aplicacao",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "profundidade_cm": {
+          "name": "profundidade_cm",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sistema_efetivo": {
+          "name": "sistema_efetivo",
+          "type": "sistema_efetivo",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "nota_tecnica": {
+          "name": "nota_tecnica",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "acao_requerida": {
+          "name": "acao_requerida",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "alertas": {
+          "name": "alertas",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.fazendas": {
+      "name": "fazendas",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "usuario_id": {
+          "name": "usuario_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "nome": {
+          "name": "nome",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "municipio": {
+          "name": "municipio",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "uf": {
+          "name": "uf",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.talhoes": {
+      "name": "talhoes",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "fazenda_id": {
+          "name": "fazenda_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "nome": {
+          "name": "nome",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "cultura": {
+          "name": "cultura",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.users": {
+      "name": "users",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "nome": {
+          "name": "nome",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "cpf": {
+          "name": "cpf",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "senha": {
+          "name": "senha",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "cidade": {
+          "name": "cidade",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "estado": {
+          "name": "estado",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "telefone": {
+          "name": "telefone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "role": {
+          "name": "role",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'PRODUTOR'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "users_cpf_unique": {
+          "name": "users_cpf_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "cpf"
+          ]
+        },
+        "users_email_unique": {
+          "name": "users_email_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "email"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {
+    "public.metodo_calc_roteado": {
+      "name": "metodo_calc_roteado",
+      "schema": "public",
+      "values": [
+        "SMP",
+        "POLINOMIAL"
+      ]
+    },
+    "public.modo_al_sat": {
+      "name": "modo_al_sat",
+      "schema": "public",
+      "values": [
+        "direto",
+        "calculado"
+      ]
+    },
+    "public.modo_aplicacao": {
+      "name": "modo_aplicacao",
+      "schema": "public",
+      "values": [
+        "INCORPORADO",
+        "SUPERFICIAL"
+      ]
+    },
+    "public.sistema_efetivo": {
+      "name": "sistema_efetivo",
+      "schema": "public",
+      "values": [
+        "CONVENCIONAL",
+        "PD_IMPLANTACAO",
+        "PD_CONSOLIDADO",
+        "PD_COM_RESTRICAO"
+      ]
+    },
+    "public.sistema_manejo": {
+      "name": "sistema_manejo",
+      "schema": "public",
+      "values": [
+        "CONVENCIONAL",
+        "PD_IMPLANTACAO",
+        "PD_CONSOLIDADO"
+      ]
+    }
+  },
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

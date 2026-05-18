@@ -72,6 +72,8 @@ export type EntradaMonitoramento10_20 = z.infer<typeof Monitoramento10_20Schema>
 
 export const CalagemSchema = z
   .object({
+    modo: z.enum(["simplificado", "avancado"]).optional().default("avancado"),
+    identificacao: z.string().optional(),
     sistema_manejo: SISTEMA_MANEJO_SCHEMA,
     primeira_calagem: z.boolean(),
     pH_agua: phSchema,
@@ -94,6 +96,10 @@ export const CalagemSchema = z
     monitoramento: Monitoramento10_20Schema.optional(),
   })
   .superRefine((entrada, ctx) => {
+    if (entrada.modo === "simplificado") {
+      return;
+    }
+
     const metodo =
       entrada.SMP > 6.3
         ? MetodoCalcRoteado.POLINOMIAL
@@ -177,6 +183,7 @@ export const CalagemSchema = z
   });
 
 export type EntradaCalagem = z.infer<typeof CalagemSchema>;
+export type InputCalagem = z.input<typeof CalagemSchema>;
 
 export interface ResultadoCalagem {
   aplicar_calcario: boolean;
