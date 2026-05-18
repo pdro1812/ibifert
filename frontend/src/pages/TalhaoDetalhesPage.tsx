@@ -6,7 +6,6 @@ import {
   FlaskConical, 
   History, 
   Info, 
-  LayoutDashboard, 
   Tractor,
   TrendingUp,
   AlertCircle,
