@@ -2,6 +2,7 @@ import {
   AcaoRequerida,
   EntradaCalagem,
   EntradaMonitoramento10_20,
+  InputCalagem,
   MetodoCalcRoteado,
   ModoAplicacao,
   ResultadoCalagem,
@@ -22,6 +23,7 @@ import { tabelaSmpLookup } from "./tabelaSmp";
 import {
   MSG_AVALIACAO_AGRONOMICA,
   MSG_LIMITE_SUPERFICIAL_PD,
+  MSG_MODO_SIMPLIFICADO,
   MSG_NOTA_REAPLICACAO,
   MSG_SEM_NECESSIDADE_CALAGEM,
   MSG_SEM_REINICIO_PD,
@@ -56,13 +58,14 @@ function criarResultadoNaoAplicar(params: {
 }
 
 export function executarMotorCalagem(
-  entradaRecebida: EntradaCalagem
+  entradaRecebida: InputCalagem
 ): ResultadoCalagem {
   const entrada = validarEntrada(entradaRecebida);
   const campos_necessarios = determinarCamposNecessarios(entrada);
   const alertas: string[] = [];
 
   const {
+    modo,
     sistema_manejo,
     primeira_calagem,
     pH_agua,
@@ -71,7 +74,16 @@ export function executarMotorCalagem(
     opcao_superficial_campo_natural,
   } = entrada;
 
-  const metodo_calc_roteado = rotearMetodoCalagem(SMP);
+  if (modo === "simplificado") {
+    alertas.push(MSG_MODO_SIMPLIFICADO);
+  }
+
+  // No modo simplificado, forçamos o roteamento para SMP se MO/Al_trocavel não estiverem presentes
+  const metodo_calc_roteado =
+    modo === "simplificado"
+      ? MetodoCalcRoteado.SMP
+      : rotearMetodoCalagem(SMP);
+
   const calcular_tambem_sat_bases =
     !primeira_calagem && metodo_calc_roteado === MetodoCalcRoteado.SMP;
 
@@ -109,6 +121,7 @@ export function executarMotorCalagem(
     const Al_sat_resolvido = resolverAlSat(entrada);
 
     if (
+      entrada.modo === "avancado" &&
       entrada.V_atual !== undefined &&
       entrada.V_atual >= 65.0 &&
       Al_sat_resolvido !== undefined &&

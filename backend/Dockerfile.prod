@@ -24,9 +24,11 @@ COPY package*.json ./
 # Instala SOMENTE as dependências necessárias para rodar, ignorando devDependencies
 RUN npm ci --only=production
 
-# Copia o código compilado da Fase 1 (Supondo que seu TS compila para uma pasta /dist)
-# Se o seu tsc compila para /build, mude abaixo
+# Copia o código compilado da Fase 1
 COPY --from=builder /app/dist ./dist
+# Copia a pasta de migrações do Drizzle
+COPY --from=builder /app/drizzle ./drizzle
+COPY --from=builder /app/drizzle.config.ts ./drizzle.config.ts
 
 # ==========================================
 # SEGURANÇA: Muda para um usuário sem privilégios de root
