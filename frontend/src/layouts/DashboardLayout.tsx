@@ -6,13 +6,15 @@ import {
   LogOut,
   Map,
   User,
+  CheckCircle2,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 const NAV_ITEMS = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Propriedades', end: true },
-  { to: '/dashboard/nova-analise', icon: FlaskConical, label: 'Nova Análise' },
+  { to: '/dashboard/nova-analise', icon: FlaskConical, label: 'Inserção Rápida' },
   { to: '/monitoramento', icon: Map, label: 'Monitoramento' },
+  { to: '/validacao', icon: CheckCircle2, label: 'Validação' },
 ];
 
 /**

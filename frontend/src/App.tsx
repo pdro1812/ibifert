@@ -12,6 +12,7 @@ import { RegisterPage } from './pages/RegisterPage';
 import { FazendasPage } from './pages/FazendasPage';
 import { NovaAnalisePage } from './pages/NovaAnalisePage';
 import { HistoricoAnalisesPage } from './pages/HistoricoAnalisesPage';
+import { TalhaoDetalhesPage } from './pages/TalhaoDetalhesPage';
 import { ValidacaoAgronomicaPage } from './pages/ValidacaoAgronomicaPage';
 
 
@@ -39,6 +40,7 @@ export default function App() {
           <Route element={<ProtectedRoute />}>
             <Route element={<DashboardLayout />}>
               <Route path="/dashboard" element={<FazendasPage />} />
+              <Route path="/dashboard/talhao/:id" element={<TalhaoDetalhesPage />} />
               <Route path="/dashboard/nova-analise" element={<NovaAnalisePage />} />
             </Route>
           </Route>

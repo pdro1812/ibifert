@@ -104,3 +104,30 @@ fazendasRouter.delete('/talhoes/:id', async (req, res) => {
     res.status(500).json({ error: 'Erro ao deletar talhão.' });
   }
 });
+
+// GET /api/fazendas/talhoes/:id  →  busca detalhes de um talhão
+fazendasRouter.get('/talhoes/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { getTalhaoById } = require('../database/fazendas');
+    const talhao = await getTalhaoById(id);
+    if (!talhao) return res.status(404).json({ error: 'Talhão não encontrado.' });
+    res.json(talhao);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao buscar talhão.' });
+  }
+});
+
+// GET /api/fazendas/talhoes/:id/analises  →  busca histórico de análises de um talhão
+fazendasRouter.get('/talhoes/:id/analises', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { getAnalisesByTalhao } = require('../database/fazendas');
+    const rows = await getAnalisesByTalhao(id);
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao buscar análises do talhão.' });
+  }
+});

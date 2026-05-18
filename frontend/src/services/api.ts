@@ -160,4 +160,24 @@ export async function deleteTalhaoApi(id: string) {
   const res = await api.delete(`/fazendas/talhoes/${id}`);
   return res.data;
 }
+
+export async function getTalhao(id: string) {
+  const res = await api.get(`/fazendas/talhoes/${id}`);
+  return res.data;
+}
+
+export async function getAnalisesByTalhao(id: string) {
+  const res = await api.get(`/fazendas/talhoes/${id}/analises`);
+  return res.data;
+}
+
+export async function postAnalisesBulk(data: {
+  talhao_id: string;
+  uf: string;
+  cidade: string;
+  amostras: any[];
+}) {
+  const res = await api.post('/analises/bulk', data);
+  return res.data;
+}
  
