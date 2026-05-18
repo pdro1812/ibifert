@@ -21,6 +21,12 @@ interface Talhao {
   id: string;
   nome: string;
   cultura: string;
+  ultimaAnalise?: {
+    id: string;
+    criado_em: string;
+    NC_ajustada: number | null;
+    aplicar_calcario: boolean | null;
+  } | null;
 }
 
 interface Fazenda {
@@ -224,6 +230,7 @@ export function FazendasPage() {
                     {fazenda.talhoes.map((talhao) => (
                       <div
                         key={talhao.id}
+                        onClick={() => navigate(`/dashboard/talhao/${talhao.id}`)}
                         className="group relative cursor-pointer rounded-xl border border-stone-100 p-4 transition-all hover:border-green-200 hover:shadow-md"
                       >
                         <div className="mb-2 flex items-start justify-between">
@@ -233,12 +240,30 @@ export function FazendasPage() {
                           </span>
                         </div>
                         <h4 className="font-bold text-stone-800">{talhao.nome}</h4>
-                        <p className="mt-2 text-xs text-stone-500">Sem análises recentes</p>
+                        {talhao.ultimaAnalise ? (
+                          <div className="mt-2 space-y-1">
+                            <p className="text-[10px] font-bold uppercase text-stone-400">Último Diagnóstico</p>
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-medium text-stone-600">
+                                {talhao.ultimaAnalise.aplicar_calcario ? (
+                                  <span className="text-green-600 font-bold">{talhao.ultimaAnalise.NC_ajustada?.toFixed(2)} t/ha</span>
+                                ) : (
+                                  <span className="text-stone-400">Não aplicar</span>
+                                )}
+                              </span>
+                              <span className="text-[10px] text-stone-400">
+                                {new Date(talhao.ultimaAnalise.criado_em).toLocaleDateString()}
+                              </span>
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="mt-2 text-xs text-stone-500">Sem análises recentes</p>
+                        )}
                         <button
-                          onClick={() => handleDeletarTalhao(fazenda.id, talhao.id)}
-                          className="mt-2 text-xs font-semibold text-red-400 hover:text-red-600"
+                          onClick={(e) => { e.stopPropagation(); handleDeletarTalhao(fazenda.id, talhao.id); }}
+                          className="mt-3 text-[10px] font-bold uppercase tracking-wider text-red-300 transition-colors hover:text-red-500"
                         >
-                          Remover
+                          Remover Talhão
                         </button>
                       </div>
                     ))}

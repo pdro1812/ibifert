@@ -59,6 +59,7 @@ export const sistemasEfetivosEnum = pgEnum('sistema_efetivo', [
 export const analises = pgTable('analises', {
   id:         uuid('id').primaryKey().defaultRandom(),
   usuario_id: uuid('usuario_id'),
+  talhao_id:  uuid('talhao_id'),
   criado_em:  timestamp('criado_em').notNull().defaultNow(),
 
   uf:            text('uf').notNull(),
