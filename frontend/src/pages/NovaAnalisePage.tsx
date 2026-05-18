@@ -73,7 +73,7 @@ export function NovaAnalisePage() {
         setFazendas(data);
         if (data.length > 0) {
           if (stateTalhaoId) {
-            const fazendaDesteTalhao = data.find(f => f.talhoes.some(t => t.id === stateTalhaoId));
+            const fazendaDesteTalhao = data.find((f: Fazenda) => f.talhoes.some((t: Talhao) => t.id === stateTalhaoId));
             if (fazendaDesteTalhao) {
               setFazendaId(fazendaDesteTalhao.id);
               setTalhaoId(stateTalhaoId);
