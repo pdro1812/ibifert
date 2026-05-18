@@ -31,7 +31,7 @@ export type Monitoramento10_20 = z.infer<typeof MonitoramentoSchema>;
 
 export const CalagemSchema = z
   .object({
-    modo: z.enum(['simplificado', 'avancado']).optional().default('avancado'),
+    modo: z.enum(['simplificado', 'avancado']),
     sistema_manejo: SistemaManejoSchema,
     primeira_calagem: z.boolean(),
     pH_agua: numeroObrigatorio('Informe o pH em água.')
