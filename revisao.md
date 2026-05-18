@@ -1,32 +1,38 @@
 Documentação do Motor de Calagem — IbIFerti (Culturas de Grãos)
 1. Como o Sistema Coleta os Dados (Interface Inteligente)
-Para não confundir o usuário com campos desnecessários, o aplicativo oculta informações que não são úteis para aquele cenário específico
+Para não confundir o usuário com campos desnecessários, o aplicativo oculta informações que não são úteis para aquele cenário específico. O sistema oferece dois modos de operação:
+Modo Simplificado: Focado na rapidez, utiliza apenas pH e SMP para o cálculo via Tabela e assume que é uma primeira calagem, ocultando campos avançados.
+Modo Avançado: Permite o uso total do motor agronômico, incluindo correções para solos específicos (Polinomial, Saturação por Bases, etc).
+
 Campos sempre solicitados (para todos os casos):
 Sistema de Manejo (Convencional, Implantação de PD, ou PD Consolidado)
-É a primeira calagem da área? (Sim ou Não)
 pH em água
 Índice SMP
 PRNT do Calcário (%)
-Campos solicitados apenas em situações específicas:
-Matéria Orgânica (MO) e Alumínio (Al): Só aparecem se o Índice SMP for maior que 6,3. Neste caso, o manual exige o uso da equação polinomial, que precisa desses dois dados.
-Saturação por Alumínio (m%): Só é solicitada no Plantio Direto Consolidado se o pH for menor que 5,5. É usada para verificar a "trava de não-aplicação" (solo tamponado). O produtor pode informar o "m%" direto do laudo ou o sistema calcula automaticamente se ele informar o Alumínio e a CTC.
-Saturação por Bases (V%) e CTC: Só aparecem se for uma área de reaplicação e o SMP for menor ou igual a 6,3. O sistema usa esses dados para mostrar o método de Saturação por Bases como uma segunda opinião (referência), deixando o técnico decidir.
+Identificação (Nome da amostra para o histórico)
+
+Campos solicitados apenas em situações específicas (Modo Avançado):
+É a primeira calagem da área? (Sim ou Não): No modo simplificado é sempre "Sim".
+Matéria Orgânica (MO) e Alumínio (Al): Só aparecem se o Índice SMP for maior que 6,3. Neste caso, o manual exige o uso da equação polinomial.
+Saturação por Alumínio (m%): Só é solicitada no Plantio Direto Consolidado se o pH for menor que 5,5. O produtor pode informar o "m%" direto ou o sistema calcula se ele informar o Alumínio e a CTC.
+Saturação por Bases (V%) e CTC: Aparecem em casos de reaplicação ou quando necessários para calcular a saturação por Alumínio.
 
 2. Como o Sistema Toma a Decisão (Gatilhos de Aplicação)
 O aplicativo não pergunta qual método o usuário quer usar; ele roteia a recomendação automaticamente seguindo o Manual de 2016.
 Escolha do Método Principal:
-Se SMP <= 6,3: O sistema usa a Tabela SMP (buscando o valor para pH alvo 6,0, padrão para grãos).
-Se SMP > 6,3: O sistema usa a Equação Polinomial (pois o SMP subestima a acidez em solos de baixo tamponamento).
+Se SMP <= 6,3: O sistema usa a Tabela SMP (buscando o valor para pH alvo 6,0).
+Se SMP > 6,3: No modo Avançado, o sistema usa a Equação Polinomial. No modo Simplificado, ele segue usando a Tabela SMP mas emite um alerta de que o ideal seria o uso de dados avançados.
 Quando o sistema diz "NÃO APLICAR":
 Em qualquer sistema: Se o pH em água for => 5,5, o app avisa que não há necessidade de calagem e encerra o fluxo.
-No PD Consolidado (Trava do Manual): Se o pH for < 5,5, mas a Saturação por Bases (V) => 65% e a saturação por Alumínio (m) for < 10%, o sistema entende que o solo está bem tamponado e zera a recomendação.
+No PD Consolidado (Trava do Manual): Se o pH for < 5,5, mas no modo avançado for detectado que a Saturação por Bases (V) => 65% e a saturação por Alumínio (m) for < 10%, o sistema entende que o solo está bem tamponado e zera a recomendação.
 
 3. Fatores de Correção e Limites (Travas de Segurança)
 Após calcular a dose base (seja por Tabela SMP ou Polinomial), o sistema aplica as regras de manejo:
 Convencional: Aplica 100% da dose calculada (incorporada a 20cm).
 Plantio Direto Consolidado: Multiplica a dose calculada por 0,25 (1/4 da dose base).
-Limite Máximo no PD Consolidado: Se a dose final (já multiplicada por 0,25) passar de 5 t/ha, o sistema trava o resultado em 5,0 t/ha e emite um alerta informando que a aplicação superficial excedeu o limite seguro e exigirá reaplicação futura.
-Implantação de PD (Campo Natural): Se o produtor optar por aplicação superficial em campo natural (e o SMP for > 5,5), o sistema multiplica a dose da tabela por 0,5 (metade da dose, e não 1/4).
+Limite Máximo no PD Consolidado: Se a dose final (já multiplicada por 0,25) passar de 5 t/ha, o sistema trava o resultado em 5,0 t/ha e gera um alerta.
+Implantação de PD (Campo Natural): Se o produtor optar por aplicação superficial em campo natural (e o SMP for > 5,5), o sistema multiplica a dose da tabela por 0,5 (metade da dose).
+Monitoramento 10-20cm: Se houver restrição na camada profunda (detectada via monitoramento), o sistema recomenda o reinício do sistema com incorporação total (fator 1.0).
 Correção de PRNT: A última etapa do sistema é sempre aplicar a fórmula do PRNT real do produto comercial: Dose Final = Dose Calculada * (100 / PRNT).
 
 4. Exemplos Práticos para Conferência Manual (Testes do Sistema)
@@ -74,5 +80,3 @@ Dados informados na tela: Sistema = Implantação PD, Primeira Calagem = Sim, PR
 Passo 1 (Tabela): Para SMP 5,8 visando pH 6,0, a Tabela indica 4,2 t/ha.
 Passo 2 (Fator da Regra): Em campo natural com aplicação superficial, e com SMP > 5,5, o manual determina aplicar metade da dose (fator 0,5), ao invés de incorporar 100%.
 Resultado do Sistema: 4,2 * 0,5 = 2,1 t/ha aplicados em superfície.
-
-

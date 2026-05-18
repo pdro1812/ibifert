@@ -31,7 +31,7 @@ export function PublicLayout() {
               to="/validacao"
               className="text-sm font-semibold text-stone-600 transition-colors hover:text-green-600"
             >
-              Validação Agronômica
+              Validação Profe
             </Link>
             <Link
               to="/monitoramento"
