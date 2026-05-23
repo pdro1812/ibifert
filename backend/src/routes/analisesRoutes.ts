@@ -111,7 +111,8 @@ analisesRoutes.post('/bulk', verificarToken, async (req: AuthRequest, res) => {
 // GET /api/analises/historico
 analisesRoutes.get('/historico', verificarToken, async (req: AuthRequest, res) => {
   try {
-    const registros = await listarAnalises(req.userId);
+    const isAdmin = req.userRole === 'ADMIN';
+    const registros = await listarAnalises(isAdmin ? undefined : req.userId);
     res.status(200).json({ sucesso: true, dados: registros });
   } catch (error: any) {
     res.status(500).json({

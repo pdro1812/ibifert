@@ -2,19 +2,23 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import {
   FlaskConical,
   Leaf,
-  LayoutDashboard,
   LogOut,
   Map,
   User,
   CheckCircle2,
+  Users,
+  BarChart3,
+  Home,
+  Database,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 const NAV_ITEMS = [
-  { to: '/dashboard', icon: LayoutDashboard, label: 'Propriedades', end: true },
+  { to: '/dashboard', icon: Home, label: 'Propriedades', end: true },
   { to: '/dashboard/nova-analise', icon: FlaskConical, label: 'Inserção Rápida' },
   { to: '/monitoramento', icon: Map, label: 'Monitoramento' },
   { to: '/validacao', icon: CheckCircle2, label: 'Validação' },
+  { to: '/historico', icon: Database, label: 'Histórico' },
 ];
 
 /**
@@ -29,6 +33,17 @@ export function DashboardLayout() {
     logout();
     navigate('/login', { replace: true });
   };
+
+  // Filtragem dinâmica do menu baseada no perfil
+  const isAdmin = user?.role === 'ADMIN';
+  
+  const visibleNavItems = isAdmin 
+    ? [
+        { to: '/admin', icon: BarChart3, label: 'Visão Geral', end: true },
+        { to: '/admin/usuarios', icon: Users, label: 'Usuários' },
+        { to: '/admin/analises', icon: Database, label: 'Amostras' },
+      ]
+    : NAV_ITEMS;
 
   return (
     <div className="flex min-h-screen bg-[#F4F6F0]">
@@ -47,7 +62,7 @@ export function DashboardLayout() {
 
         {/* Navigation */}
         <nav className="flex-1 space-y-1 p-4">
-          {NAV_ITEMS.map(({ to, icon: Icon, label, end }) => (
+          {visibleNavItems.map(({ to, icon: Icon, label, end }) => (
             <NavLink
               key={to}
               to={to}
@@ -104,7 +119,6 @@ export function DashboardLayout() {
       {/* ── Main content ──────────────────────────────────────────────── */}
       <main className="flex flex-1 flex-col pt-16 md:pt-0">
         <div className="flex flex-grow items-start justify-center p-4 md:p-8">
-          {/* Each dashboard page renders here */}
           <Outlet />
         </div>
       </main>

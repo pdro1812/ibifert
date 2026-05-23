@@ -9,6 +9,10 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 
+// ── Enums — Users ─────────────────────────────────────────────────────────────
+
+export const rolesEnum = pgEnum('user_role', ['ADMIN', 'PRODUTOR']);
+
 // ── Users ─────────────────────────────────────────────────────────────────────
 
 export const users = pgTable('users', {
@@ -20,7 +24,7 @@ export const users = pgTable('users', {
   cidade:    text('cidade').notNull(),
   estado:    text('estado').notNull(),
   telefone:  text('telefone'),
-  role:      text('role').notNull().default('PRODUTOR'),
+  role:      rolesEnum('role').notNull().default('PRODUTOR'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
