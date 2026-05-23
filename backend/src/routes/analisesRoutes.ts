@@ -2,6 +2,9 @@ import { Router } from 'express';
 import { executarMotorCalagem } from '../services/motorCalagem';
 import { validarEntrada } from '../services/calculadoraCalagem';
 import { CalagemValidationError } from '../schemas/calagemSchema';
+import { eq, count, sql, inArray } from 'drizzle-orm';
+import { db } from '../database/db';
+import { analises } from '../database/schema';
 import { salvarAnalise, listarAnalises, salvarLoteAnalises } from '../database/analises';
 import { verificarToken, AuthRequest } from '../middlewares/authMiddleware';
 
@@ -105,6 +108,101 @@ analisesRoutes.post('/bulk', verificarToken, async (req: AuthRequest, res) => {
       mensagem: 'Erro ao processar lote de análises.',
       detalhes: error?.message,
     });
+  }
+});
+
+// GET /api/analises/regional-stats
+analisesRoutes.get('/regional-stats', async (req: AuthRequest, res) => {
+  try {
+    const { uf, cidade } = req.query;
+
+    const CIDADES_ALTO_JACUI = [
+      'Ibiruba', 
+      'XV de Novembro', 
+      'Selbach', 
+      'Tapera', 
+      'Espumoso', 
+      'Alto Alegre', 
+      'Campos Borges', 
+      'Fortaleza dos Valos'
+    ];
+
+    let whereClause = sql`1=1`;
+    if (uf) whereClause = sql`${analises.uf} = ${uf}`;
+    
+    if (uf && cidade) {
+      if (cidade === 'ALTO_JACUI') {
+        whereClause = sql`${analises.uf} = ${uf} AND ${analises.cidade} IN (${sql.join(CIDADES_ALTO_JACUI.map(c => sql`${c}`), sql`, `)})`;
+      } else {
+        whereClause = sql`${analises.uf} = ${uf} AND ${analises.cidade} = ${cidade}`;
+      }
+    }
+
+    // 1. Médias Gerais
+    const [medias] = await db
+      .select({
+        ph_medio: sql`AVG(${analises.pH_agua})`,
+        nc_medio: sql`AVG(${analises.NC_ajustada})`,
+        total: count(analises.id),
+        precisaram_calagem: sql`COUNT(CASE WHEN ${analises.aplicar_calcario} = true THEN 1 END)`,
+      })
+      .from(analises)
+      .where(whereClause);
+
+    // 2. Distribuição por Sistema de Manejo
+    const sistemas = await db
+      .select({
+        name: analises.sistema_manejo,
+        value: count(analises.id),
+      })
+      .from(analises)
+      .where(whereClause)
+      .groupBy(analises.sistema_manejo);
+
+    // 3. Problemas de Monitoramento (Alertas de campo)
+    const [monitoramento] = await db
+      .select({
+        compactacao: sql`COUNT(CASE WHEN ${analises.monitoramento_compactacao_restringindo} = true THEN 1 END)`,
+        fosforo_baixo: sql`COUNT(CASE WHEN ${analises.monitoramento_disponibilidade_P_abaixo} = true THEN 1 END)`,
+        produtividade_baixa: sql`COUNT(CASE WHEN ${analises.monitoramento_produtividade_abaixo_media} = true THEN 1 END)`,
+      })
+      .from(analises)
+      .where(whereClause);
+
+    // 4. Lista de Cidades Disponíveis (para o filtro)
+    const cidadesRaw = await db
+      .select({
+        uf: analises.uf,
+        cidade: analises.cidade,
+      })
+      .from(analises)
+      .groupBy(analises.uf, analises.cidade)
+      .orderBy(analises.uf, analises.cidade);
+
+    // Injetar a região Alto Jacuí
+    const cidades = [...cidadesRaw];
+    if (uf === 'RS' || !uf) {
+       cidades.push({ uf: 'RS', cidade: 'ALTO_JACUI' });
+    }
+
+    res.status(200).json({
+      medias: {
+        ph: Number(medias.ph_medio || 0).toFixed(1),
+        nc: Number(medias.nc_medio || 0).toFixed(2),
+        total: Number(medias.total || 0),
+        taxa_aplicacao: medias.total ? (Number(medias.precisaram_calagem) / Number(medias.total) * 100).toFixed(0) : 0,
+      },
+      sistemas,
+      monitoramento: [
+        { label: 'Compactação de Solo', valor: Number(monitoramento.compactacao || 0) },
+        { label: 'Fósforo Abaixo do Crítico', valor: Number(monitoramento.fosforo_baixo || 0) },
+        { label: 'Baixa Produtividade', valor: Number(monitoramento.produtividade_baixa || 0) },
+      ],
+      filtros: cidades,
+    });
+  } catch (error: any) {
+    console.error('[analises] Erro ao buscar stats regionais:', error);
+    res.status(500).json({ erro: 'Erro ao processar dados regionais' });
   }
 });
 

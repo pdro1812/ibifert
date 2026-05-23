@@ -42,6 +42,7 @@ export function DashboardLayout() {
         { to: '/admin', icon: BarChart3, label: 'Visão Geral', end: true },
         { to: '/admin/usuarios', icon: Users, label: 'Usuários' },
         { to: '/admin/analises', icon: Database, label: 'Amostras' },
+        { to: '/monitoramento', icon: Map, label: 'Monitoramento' },
       ]
     : NAV_ITEMS;
 
