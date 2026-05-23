@@ -25,8 +25,8 @@ interface AuthContextData {
   user: User | null;
   isLoggedIn: boolean;
   isLoading: boolean;
-  login: (email: string, senha: string) => Promise<void>;
-  cadastrar: (data: RegisterData) => Promise<void>;
+  login: (email: string, senha: string) => Promise<User>;
+  cadastrar: (data: RegisterData) => Promise<User>;
   logout: () => void;
 }
 
@@ -75,6 +75,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     // Atualiza o estado global da aplicação
     setUser(usuario);
+    return usuario;
   };
 
   const cadastrar = async (data: RegisterData) => {
@@ -90,6 +91,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     // Atualiza o estado global da aplicação
     setUser(usuario);
+    return usuario;
   };
 
   const logout = () => {

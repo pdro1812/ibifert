@@ -38,13 +38,19 @@ export function LoginPage() {
   const onSubmit = async ({ email, senha }: LoginFormValues) => {
     setApiError(null);
     try {
-      await login(email, senha);
+      const user = await login(email, senha);
 
       // Handle pending analysis redirect saved before auth
       const pendente = sessionStorage.getItem('analisePendente');
       if (pendente) {
         sessionStorage.removeItem('analisePendente');
         navigate('/dashboard/nova-analise', { replace: true });
+        return;
+      }
+
+      // Se for Admin e estiver tentando ir para o dashboard (default), manda para /admin
+      if (user.role === 'ADMIN' && from === '/dashboard') {
+        navigate('/admin', { replace: true });
         return;
       }
 
