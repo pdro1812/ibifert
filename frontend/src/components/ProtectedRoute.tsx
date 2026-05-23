@@ -10,12 +10,14 @@ import { useAuth } from '../contexts/AuthContext';
  *     <Route path="/dashboard" element={<DashboardPage />} />
  *   </Route>
  */
-export function ProtectedRoute() {
-  const { isLoggedIn, isLoading } = useAuth();
+interface ProtectedRouteProps {
+  roles?: string[];
+}
+
+export function ProtectedRoute({ roles }: ProtectedRouteProps) {
+  const { user, isLoggedIn, isLoading } = useAuth();
   const location = useLocation();
 
-  // Wait for localStorage rehydration before decid
-  // ing
   if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#F4F6F0]">
@@ -26,6 +28,11 @@ export function ProtectedRoute() {
 
   if (!isLoggedIn) {
     return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  if (roles && user && !roles.includes(user.role)) {
+    // Se o usuário não tem o papel necessário, redireciona para a home ou dashboard
+    return <Navigate to="/" replace />;
   }
 
   return <Outlet />;

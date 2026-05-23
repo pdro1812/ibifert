@@ -4,6 +4,7 @@ import cors from 'cors';
 import { authRoutes }    from './routes/authRoutes';
 import { analisesRoutes } from './routes/analisesRoutes';
 import { fazendasRouter } from './routes/fazendasRoutes';
+import { adminRoutes }    from './routes/adminRoutes';
 
 
 const app = express();
@@ -17,6 +18,7 @@ app.get('/', (_req, res) => {
 app.use('/api/auth',     authRoutes);
 app.use('/api/analises', analisesRoutes);
 app.use('/api/fazendas', fazendasRouter);
+app.use('/api/admin',    adminRoutes);
 
 
 app.listen(3000, () => {

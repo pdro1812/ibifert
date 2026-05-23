@@ -151,10 +151,9 @@ export async function listarAnalises(usuario_id?: string) {
     })
     .from(analises);
 
-  // Removido temporariamente o filtro por usuario_id para mostrar tudo conforme solicitado
-  // if (usuario_id) {
-  //   query = query.where(eq(analises.usuario_id, usuario_id)) as any;
-  // }
+  if (usuario_id) {
+    query = query.where(eq(analises.usuario_id, usuario_id)) as any;
+  }
 
   return query.orderBy(desc(analises.criado_em)).limit(100);
 }
