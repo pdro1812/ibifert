@@ -1,29 +1,32 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import {
   FlaskConical,
-  Leaf,
   LogOut,
-  Map,
   User,
-  CheckCircle2,
   Users,
   BarChart3,
   Home,
   Database,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { Navbar } from '../components/Navbar';
 
-const NAV_ITEMS = [
+// Itens específicos do Painel (que não estão no menu superior)
+const PRODUTOR_SIDEBAR_ITEMS = [
   { to: '/dashboard', icon: Home, label: 'Propriedades', end: true },
   { to: '/dashboard/nova-analise', icon: FlaskConical, label: 'Inserção Rápida' },
-  { to: '/monitoramento', icon: Map, label: 'Monitoramento' },
-  { to: '/validacao', icon: CheckCircle2, label: 'Validação' },
   { to: '/historico', icon: Database, label: 'Histórico' },
+];
+
+const ADMIN_SIDEBAR_ITEMS = [
+  { to: '/admin', icon: BarChart3, label: 'Visão Geral', end: true },
+  { to: '/admin/usuarios', icon: Users, label: 'Usuários' },
+  { to: '/admin/analises', icon: Database, label: 'Amostras' },
 ];
 
 /**
  * Persistent shell for all authenticated pages.
- * Renders a sidebar on desktop and a top bar on mobile.
+ * Renders a shared Navbar at the top and a sidebar for dashboard-specific links.
  */
 export function DashboardLayout() {
   const { user, logout } = useAuth();
@@ -34,95 +37,70 @@ export function DashboardLayout() {
     navigate('/login', { replace: true });
   };
 
-  // Filtragem dinâmica do menu baseada no perfil
   const isAdmin = user?.role === 'ADMIN';
-  
-  const visibleNavItems = isAdmin 
-    ? [
-        { to: '/admin', icon: BarChart3, label: 'Visão Geral', end: true },
-        { to: '/admin/usuarios', icon: Users, label: 'Usuários' },
-        { to: '/admin/analises', icon: Database, label: 'Amostras' },
-        { to: '/monitoramento', icon: Map, label: 'Monitoramento' },
-      ]
-    : NAV_ITEMS;
+  const sidebarItems = isAdmin ? ADMIN_SIDEBAR_ITEMS : PRODUTOR_SIDEBAR_ITEMS;
 
   return (
-    <div className="flex min-h-screen bg-[#F4F6F0]">
-      {/* ── Sidebar (desktop) ─────────────────────────────────────────── */}
-      <aside className="hidden w-64 flex-col border-r border-stone-200 bg-white shadow-sm md:flex">
-        {/* Logo */}
-        <NavLink
-          to="/"
-          className="flex h-20 items-center gap-3 border-b border-stone-100 px-6"
-        >
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-green-400 to-green-600 shadow">
-            <Leaf className="text-white" size={18} />
-          </div>
-          <span className="text-lg font-bold tracking-tight text-stone-800">Ibiferti</span>
-        </NavLink>
+    <div className="flex min-h-screen flex-col bg-[#F4F6F0]">
+      {/* ── Top Navigation (Shared) ─────────────────────────────────── */}
+      <Navbar />
 
-        {/* Navigation */}
-        <nav className="flex-1 space-y-1 p-4">
-          {visibleNavItems.map(({ to, icon: Icon, label, end }) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={end}
-              className={({ isActive }) =>
-                `flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition-all ${
-                  isActive
-                    ? 'bg-green-50 text-green-700'
-                    : 'text-stone-600 hover:bg-stone-50 hover:text-stone-900'
-                }`
-              }
+      <div className="flex flex-1">
+        {/* ── Sidebar (desktop) ─────────────────────────────────────────── */}
+        <aside className="hidden w-64 flex-col border-r border-stone-200 bg-white shadow-sm md:flex">
+          {/* Navigation */}
+          <nav className="flex-1 space-y-1 p-4">
+            {sidebarItems.map(({ to, icon: Icon, label, end }) => (
+              <NavLink
+                key={to}
+                to={to}
+                end={end}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition-all ${
+                    isActive
+                      ? 'bg-green-50 text-green-700'
+                      : 'text-stone-600 hover:bg-stone-50 hover:text-stone-900'
+                  }`
+                }
+              >
+                <Icon size={18} />
+                {label}
+              </NavLink>
+            ))}
+          </nav>
+
+          {/* User info + logout */}
+          <div className="border-t border-stone-100 p-4">
+            <div className="flex items-center gap-3 rounded-xl p-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-stone-100">
+                <User size={16} className="text-stone-500" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold text-stone-800">
+                  {user?.nome ?? '—'}
+                </p>
+                <p className="truncate text-xs text-stone-400">{user?.email}</p>
+              </div>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="mt-2 flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-red-500 transition-colors hover:bg-red-50"
             >
-              <Icon size={18} />
-              {label}
-            </NavLink>
-          ))}
-        </nav>
-
-        {/* User info + logout */}
-        <div className="border-t border-stone-100 p-4">
-          <div className="flex items-center gap-3 rounded-xl p-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-stone-100">
-              <User size={16} className="text-stone-500" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold text-stone-800">
-                {user?.nome ?? '—'}
-              </p>
-              <p className="truncate text-xs text-stone-400">{user?.email}</p>
-            </div>
+              <LogOut size={18} /> Sair
+            </button>
           </div>
-          <button
-            onClick={handleLogout}
-            className="mt-2 flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-red-500 transition-colors hover:bg-red-50"
-          >
-            <LogOut size={18} /> Sair
-          </button>
-        </div>
-      </aside>
+        </aside>
 
-      {/* ── Mobile top bar ────────────────────────────────────────────── */}
-      <div className="fixed inset-x-0 top-0 z-50 flex h-16 items-center justify-between border-b border-stone-200 bg-white px-4 shadow-sm md:hidden">
-        <NavLink to="/" className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-green-400 to-green-600">
-            <Leaf className="text-white" size={14} />
+        {/* ── Mobile context bar (opcional, já temos o Navbar) ──────────── */}
+        {/* Podemos simplificar ou manter um bar de contexto se necessário */}
+
+        {/* ── Main content ──────────────────────────────────────────────── */}
+        <main className="flex flex-1 flex-col overflow-y-auto">
+          <div className="flex flex-grow items-start justify-center p-4 md:p-8">
+            <Outlet />
           </div>
-          <span className="font-bold text-stone-800">Ibiferti</span>
-        </NavLink>
-        <button onClick={handleLogout} className="text-red-500">
-          <LogOut size={20} />
-        </button>
+        </main>
       </div>
-
-      {/* ── Main content ──────────────────────────────────────────────── */}
-      <main className="flex flex-1 flex-col pt-16 md:pt-0">
-        <div className="flex flex-grow items-start justify-center p-4 md:p-8">
-          <Outlet />
-        </div>
-      </main>
     </div>
   );
 }

@@ -7,6 +7,7 @@ import { FlaskConical, MapPin, Plus, Tractor } from 'lucide-react';
 import { ibgeService } from '../services/ibge';
 import type { Estado, Municipio } from '../services/ibge';
 import { Modal } from '../components/Modal';
+import { useAuth } from '../contexts/AuthContext';
 import {
   getFazendas,
   postFazenda,
@@ -46,6 +47,7 @@ const CULTURAS_GRAOS = [
 
 export function FazendasPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const [fazendas, setFazendas] = useState<Fazenda[]>([]);
   const [loading, setLoading] = useState(true);
@@ -60,11 +62,17 @@ export function FazendasPage() {
   // ── Carrega dados iniciais ──────────────────────────────────────────────────
 
   useEffect(() => {
+    // Se for admin, redireciona para a visão geral
+    if (user?.role === 'ADMIN') {
+      navigate('/admin', { replace: true });
+      return;
+    }
+
     getFazendas()
       .then(setFazendas)
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, []);
+  }, [user, navigate]);
 
   useEffect(() => {
     ibgeService.getEstados().then(setEstados);
