@@ -2,7 +2,7 @@ export const MSG_SEM_NECESSIDADE_CALAGEM =
   "pH acima do limiar — não há necessidade de calagem no momento";
 
 export const MSG_TRAVA_PD_CONSOLIDADO =
-  "pH abaixo de 5,5 mas saturação por bases >= 65% e Al_sat < 10%: calagem não recomendada neste momento";
+  "Embora o pH em água esteja abaixo de 5,5, a Saturação por Bases (V) está em nível adequado (>= 65%) e a Saturação por Alumínio (m) está baixa (< 10%). Nestas condições de tamponamento, a calagem não é recomendada para o Sistema de Plantio Direto Consolidado.";
 
 export const MSG_LIMITE_SUPERFICIAL_PD =
   "Dose calculada excede o limite de 5 t/ha para aplicação superficial. A correção completa poderá requerer reaplicação futura.";
