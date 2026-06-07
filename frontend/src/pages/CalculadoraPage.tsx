@@ -326,7 +326,7 @@ export function CalculadoraPage() {
                   className="peer sr-only"
                 />
                 <span className="rounded-lg px-6 py-2 text-sm font-bold text-stone-500 transition-all peer-checked:bg-stone-900 peer-checked:text-white">
-                  Simplificado
+                  Cálculo Rápido
                 </span>
               </label>
               <label className="relative flex cursor-pointer items-center">
@@ -337,7 +337,7 @@ export function CalculadoraPage() {
                   className="peer sr-only"
                 />
                 <span className="rounded-lg px-6 py-2 text-sm font-bold text-stone-500 transition-all peer-checked:bg-stone-900 peer-checked:text-white">
-                  Avançado
+                  Cálculo Técnico
                 </span>
               </label>
             </div>
@@ -894,6 +894,24 @@ export function CalculadoraPage() {
                   </div>
                 ))}
               </div>
+
+              {isSimplificado && (
+                <div className="rounded-xl border border-stone-200 bg-white/40 p-4 shadow-sm">
+                  <p className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-stone-500">
+                    <Info size={14} /> Premissas do Cálculo Rápido
+                  </p>
+                  <ul className="space-y-1 text-[11px] text-stone-500">
+                    <li>• Considerada primeira calagem da área.</li>
+                    <li>• Sem restrições na camada de 10-20 cm.</li>
+                    <li>• pH alvo padrão: 6,0 (Grãos).</li>
+                    {smpValor !== undefined && smpValor > 6.3 && (
+                      <li className="font-bold text-orange-600">
+                        • Solo requer dados de MO/Al para maior precisão.
+                      </li>
+                    )}
+                  </ul>
+                </div>
+              )}
 
               {resultado.profundidade_cm ? (
                 <div className="rounded-xl border border-stone-200 bg-white/80 p-4 text-sm text-stone-700 shadow-sm">

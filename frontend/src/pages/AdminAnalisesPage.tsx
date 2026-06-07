@@ -3,12 +3,9 @@ import {
   FlaskConical,
   Search,
   MapPin,
-  Calendar,
-  User,
   UserCheck,
   MousePointer2,
   Loader2,
-  Filter,
 } from 'lucide-react';
 import { api } from '../services/api';
 import { ModalDetalhesAnalise } from '../components/ModalDetalhesAnalise';

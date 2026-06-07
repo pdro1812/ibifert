@@ -75,7 +75,11 @@ export function executarMotorCalagem(
   } = entrada;
 
   if (modo === "simplificado") {
-    alertas.push(MSG_MODO_SIMPLIFICADO);
+    if (SMP > 6.3) {
+      alertas.push("Modo Rápido: Este solo requer Matéria Orgânica e Alumínio para um cálculo preciso. O valor exibido é uma estimativa baseada na tabela SMP.");
+    } else {
+      alertas.push(MSG_MODO_SIMPLIFICADO);
+    }
   }
 
   // No modo simplificado, forçamos o roteamento para SMP se MO/Al_trocavel não estiverem presentes

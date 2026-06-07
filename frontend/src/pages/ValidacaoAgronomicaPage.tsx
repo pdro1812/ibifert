@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Play, CheckCircle2, AlertCircle, ChevronRight } from 'lucide-react';
+import { Play, AlertCircle, ChevronRight } from 'lucide-react';
 import { api, calcularCalagem } from '../services/api';
 import type { CalagemResultado, EntradaCalagem } from '../schemas/calagemSchema';
 import { detectarRestricaoMonitoramento } from '../schemas/calagemSchema';
