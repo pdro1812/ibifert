@@ -31,6 +31,7 @@ router.post('/calcular', (req, res) => {
       case 'CONVENCIONAL':
         result = obtemDoseConvencional(ph_0_20, smp_0_20, ph_referencia, prnt);
         break;
+      case 'PD_IMPLANTACAO':
       case 'DIRETO_IMPLANTACAO':
         result = obtemDoseDiretoImplantacao(ph_0_20, smp_0_20, ph_referencia, prnt);
         break;
