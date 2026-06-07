@@ -17,4 +17,4 @@ export const MSG_SEM_REINICIO_PD =
   "Critérios de restrição do PD_COM_RESTRICAO não atendidos; não há indicação de reiniciar o sistema de plantio direto.";
 
 export const MSG_MODO_SIMPLIFICADO =
-  "Cálculo realizado no modo simplificado com dados reduzidos. Para maior precisão agronômica, utilize o modo Avançado.";
+  "Cálculo realizado no modo Rápido com dados reduzidos. Para maior precisão agronômica, utilize o modo Técnico.";

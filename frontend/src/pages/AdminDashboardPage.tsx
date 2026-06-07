@@ -162,7 +162,7 @@ export function AdminDashboardPage() {
                   paddingAngle={5}
                   dataKey="value"
                 >
-                  {dataPie.map((entry, index) => (
+                  {dataPie.map((_entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>

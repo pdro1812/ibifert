@@ -1,5 +1,5 @@
 import { Link, NavLink } from 'react-router-dom';
-import { Leaf, LogOut, User as UserIcon } from 'lucide-react';
+import { Leaf, LogOut } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 export function Navbar() {
