@@ -35,6 +35,14 @@ export function Navbar() {
             Validação Profe
           </NavLink>
           <NavLink
+            to="/validacao-sql"
+            className={({ isActive }) => 
+              `text-sm font-bold transition-all hover:text-green-600 ${isActive ? 'text-green-600' : ''}`
+            }
+          >
+            Validação SQL
+          </NavLink>
+          <NavLink
             to="/monitoramento"
             className={({ isActive }) => 
               `text-sm font-bold transition-all hover:text-green-600 ${isActive ? 'text-green-600' : ''}`
