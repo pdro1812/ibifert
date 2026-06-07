@@ -9,10 +9,10 @@ type Exemplo = {
   titulo: string;
   dados: EntradaCalagem;
   esperado: string;
+  observacao?: string;
 };
 
 const EXEMPLOS: Exemplo[] = [
-  // ... (EXEMPLOS remains the same)
   {
     id: 1,
     titulo: 'Exemplo 1: Cálculo normal no PD Consolidado',
@@ -40,6 +40,7 @@ const EXEMPLOS: Exemplo[] = [
       Al_sat: 20,
     },
     esperado: 'Limite superficial, trava a recomendação em 5,0 t/ha e gera um alerta.',
+    observacao: 'Trava Máxima de 5 Toneladas: Trata da aplicação do limite agronômico rígido para a calagem superficial, em que o cálculo deve ser limitado ao teto de 5,0 t/ha para evitar problemas de supercalagem na microcamada superior do solo. O Motor Original aplica esta trava de segurança.',
   },
   {
     id: 3,
@@ -55,6 +56,7 @@ const EXEMPLOS: Exemplo[] = [
       Al_trocavel: 0.5,
     },
     esperado: 'Recomenda 2,31 t/ha incorporado a 20 cm.',
+    observacao: 'Roteamento para a Equação Polinomial: Aborda a diferença na precisão dos resultados devido à escolha do método matemático, onde o backend executa a equação contínua e dinâmica para o índice SMP, enquanto o SQL realiza apenas uma busca estática na tabela padrão de correspondência. O Motor Original é mais preciso.',
   },
   {
     id: 4,
@@ -71,6 +73,7 @@ const EXEMPLOS: Exemplo[] = [
       CTC_pH7: 10,
     },
     esperado: 'O solo está bem tamponado, zera a dose (0,0 t/ha) e emite mensagem de que não é recomendada.',
+    observacao: 'Trava de Não-Aplicação no PD Consolidado: Destaca a regra de tomada de decisão que bloqueia e zera a recomendação de calagem quando os indicadores químicos (como a saturação de bases e o alumínio) apontam que o solo já está quimicamente equilibrado e tamponado. O Motor Original implementa esta trava.',
   },
   {
     id: 5,
@@ -100,6 +103,7 @@ const EXEMPLOS: Exemplo[] = [
       opcao_superficial_campo_natural: true,
     },
     esperado: '2,1 t/ha aplicados em superfície.',
+    observacao: 'Implantação de PD com Superficial em Campo Natural: Analisa a necessidade de reduzir a dose calculada pela metade (fator 0.5) pelo fato de a aplicação superficial sem incorporação corrigir apenas a camada de 0 a 10 cm de profundidade do solo, em vez dos 20 cm padrão. O Motor Original aplica o fator 0.5 conforme o manual.',
   },
 ];
 
@@ -275,6 +279,44 @@ export function ValidacaoAgronomicaPage() {
                         </div>
                       </div>
                     ) : <p className="text-xs text-stone-400 italic">Aguardando...</p>}
+                  </div>
+                </div>
+              )}
+
+              {/* Mensagens e Diferenças */}
+              {(resultadoOriginal || resultadoSql) && (
+                <div className="grid grid-cols-1 gap-4">
+                  {exemploAtivo.observacao && (
+                    <div className="rounded-2xl border border-blue-200 bg-blue-50/50 p-6 shadow-sm">
+                      <div className="flex items-center gap-2 mb-3">
+                        <AlertCircle size={18} className="text-blue-600" />
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-blue-800">Nota Técnica de Comparação</h4>
+                      </div>
+                      <p className="text-xs leading-relaxed text-blue-900 italic">
+                        {exemploAtivo.observacao}
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="rounded-2xl bg-white p-6 shadow-sm border border-stone-100">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-stone-400 mb-4">Parecer Comparativo</h4>
+                    <div className="space-y-4 text-sm leading-relaxed">
+                      <div className="flex gap-3">
+                        <ChevronRight size={16} className="text-green-500 shrink-0 mt-0.5" />
+                        <p><span className="font-bold text-stone-700">SQL:</span> {resultadoSql?.msg}</p>
+                      </div>
+                      {resultadoOriginal?.alertas && resultadoOriginal.alertas.length > 0 && (
+                        <div className="flex gap-3">
+                          <ChevronRight size={16} className="text-blue-500 shrink-0 mt-0.5" />
+                          <div>
+                            <span className="font-bold text-stone-700">Original (Alertas):</span>
+                            <ul className="list-disc pl-5 mt-1 space-y-1 text-xs text-stone-500">
+                              {resultadoOriginal.alertas.map((a, i) => <li key={i}>{a}</li>)}
+                            </ul>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
