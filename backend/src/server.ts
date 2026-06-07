@@ -5,6 +5,7 @@ import { authRoutes }    from './routes/authRoutes';
 import { analisesRoutes } from './routes/analisesRoutes';
 import { fazendasRouter } from './routes/fazendasRoutes';
 import { adminRoutes }    from './routes/adminRoutes';
+import { standaloneRoutes } from './routes/standaloneRoutes';
 
 
 const app = express();
@@ -19,6 +20,7 @@ app.use('/api/auth',     authRoutes);
 app.use('/api/analises', analisesRoutes);
 app.use('/api/fazendas', fazendasRouter);
 app.use('/api/admin',    adminRoutes);
+app.use('/api/standalone', standaloneRoutes);
 
 
 app.listen(3000, () => {
