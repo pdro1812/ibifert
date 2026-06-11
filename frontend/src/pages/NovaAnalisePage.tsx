@@ -21,6 +21,7 @@ interface Fazenda {
 
 interface LinhaAmostra {
   id: string;
+  talhao_id: string;
   identificacao: string;
   ph: string;
   smp: string;
@@ -31,7 +32,7 @@ interface LinhaAmostra {
   al_sat: string;
 }
 
-const CAMPOS_NUMERICOS: Array<{ key: keyof Omit<LinhaAmostra, 'id' | 'identificacao'>; label: string; placeholder: string }> = [
+const CAMPOS_NUMERICOS: Array<{ key: keyof Omit<LinhaAmostra, 'id' | 'identificacao' | 'talhao_id'>; label: string; placeholder: string }> = [
   { key: 'ph',          label: 'pH',         placeholder: '5.2' },
   { key: 'smp',         label: 'SMP',        placeholder: '5.5' },
   { key: 'mo',          label: 'MO (%)',     placeholder: '2.5' },
@@ -51,7 +52,6 @@ export function NovaAnalisePage() {
   // ── Data state ────────────────────────────────────────────────────────────
   const [fazendas, setFazendas] = useState<Fazenda[]>([]);
   const [fazendaId, setFazendaId] = useState('');
-  const [talhaoId, setTalhaoId] = useState('');
   const [loading, setLoading] = useState(true);
   const [processando, setProcessando] = useState(false);
   const [sucesso, setSucesso] = useState(false);
@@ -63,7 +63,7 @@ export function NovaAnalisePage() {
 
   // ── Amostras ──────────────────────────────────────────────────────────────
   const [linhas, setLinhas] = useState<LinhaAmostra[]>([
-    { id: '1', identificacao: 'Amostra 1', ph: '', smp: '', mo: '', al_trocavel: '', v_atual: '', ctc: '', al_sat: '' },
+    { id: '1', talhao_id: '', identificacao: 'Amostra 1', ph: '', smp: '', mo: '', al_trocavel: '', v_atual: '', ctc: '', al_sat: '' },
   ]);
 
   // ── Carregamento Inicial ──────────────────────────────────────────────────
@@ -76,7 +76,7 @@ export function NovaAnalisePage() {
             const fazendaDesteTalhao = data.find((f: Fazenda) => f.talhoes.some((t: Talhao) => t.id === stateTalhaoId));
             if (fazendaDesteTalhao) {
               setFazendaId(fazendaDesteTalhao.id);
-              setTalhaoId(stateTalhaoId);
+              setLinhas([{ id: '1', talhao_id: stateTalhaoId, identificacao: 'Amostra 1', ph: '', smp: '', mo: '', al_trocavel: '', v_atual: '', ctc: '', al_sat: '' }]);
               return;
             }
           }
@@ -96,7 +96,7 @@ export function NovaAnalisePage() {
     const novoId = Math.random().toString(36).substr(2, 9);
     setLinhas((prev) => [
       ...prev,
-      { id: novoId, identificacao: `Amostra ${prev.length + 1}`, ph: '', smp: '', mo: '', al_trocavel: '', v_atual: '', ctc: '', al_sat: '' },
+      { id: novoId, talhao_id: prev[prev.length - 1]?.talhao_id || '', identificacao: `Amostra ${prev.length + 1}`, ph: '', smp: '', mo: '', al_trocavel: '', v_atual: '', ctc: '', al_sat: '' },
     ]);
   };
 
@@ -112,25 +112,24 @@ export function NovaAnalisePage() {
   };
 
   const handleSalvarTudo = async () => {
-    if (!talhaoId || !fazendaSelecionada) {
-      alert('Selecione uma fazenda e um talhão para prosseguir.');
+    if (!fazendaSelecionada) {
+      alert('Selecione uma fazenda para prosseguir.');
       return;
     }
 
-    const amostrasValidas = linhas.filter(l => l.ph && l.smp);
+    const amostrasValidas = linhas.filter(l => l.ph && l.smp && l.talhao_id);
 
     if (amostrasValidas.length === 0) {
-      alert('Preencha pelo menos o pH e o SMP de uma amostra.');
+      alert('Preencha pelo menos o pH, o SMP e selecione o talhão de uma amostra.');
       return;
     }
     
     setProcessando(true);
     try {
-      const payload = {
-        talhao_id: talhaoId,
-        uf: fazendaSelecionada.uf,
-        cidade: fazendaSelecionada.municipio,
-        amostras: amostrasValidas.map(l => ({
+      // Agrupar amostras por talhao_id
+      const amostrasPorTalhao = amostrasValidas.reduce((acc, l) => {
+        if (!acc[l.talhao_id]) acc[l.talhao_id] = [];
+        acc[l.talhao_id].push({
           modo: 'avancado',
           sistema_manejo: sistemaManejo,
           primeira_calagem: primeiraCalagem,
@@ -143,12 +142,24 @@ export function NovaAnalisePage() {
           V_atual: l.v_atual ? Number(l.v_atual) : undefined,
           CTC_pH7: l.ctc ? Number(l.ctc) : undefined,
           Al_sat: l.al_sat ? Number(l.al_sat) : undefined,
-        }))
-      };
+        });
+        return acc;
+      }, {} as Record<string, any[]>);
 
-      await postAnalisesBulk(payload);
+      // Disparar requisições em paralelo
+      await Promise.all(
+        Object.entries(amostrasPorTalhao).map(([tId, amostras]) => 
+          postAnalisesBulk({
+            talhao_id: tId,
+            uf: fazendaSelecionada.uf,
+            cidade: fazendaSelecionada.municipio,
+            amostras
+          })
+        )
+      );
+
       setSucesso(true);
-      setTimeout(() => navigate(`/dashboard/talhao/${talhaoId}`), 2000);
+      setTimeout(() => navigate('/dashboard'), 2000);
     } catch (err) {
       console.error(err);
       alert('Erro ao processar e salvar análises.');
@@ -183,7 +194,7 @@ export function NovaAnalisePage() {
           )}
         </div>
         <p className="mt-1 text-stone-400">
-          Cadastre múltiplas amostras de solo de uma só vez para o mesmo talhão.
+          Cadastre múltiplas amostras de solo de uma só vez para diferentes talhões.
         </p>
       </div>
 
@@ -195,29 +206,16 @@ export function NovaAnalisePage() {
             <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-stone-500">
               <MapPin size={16} /> Localização
             </h3>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4">
               <div>
                 <label className="text-xs font-bold text-stone-600">Fazenda</label>
                 <select 
                   value={fazendaId}
-                  onChange={(e) => { setFazendaId(e.target.value); setTalhaoId(''); }}
+                  onChange={(e) => { setFazendaId(e.target.value); }}
                   className="mt-1 w-full rounded-xl border border-stone-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-green-500 shadow-sm"
                 >
                   {fazendas.map((f) => (
                     <option key={f.id} value={f.id}>{f.nome}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="text-xs font-bold text-stone-600">Talhão</label>
-                <select 
-                  value={talhaoId}
-                  onChange={(e) => setTalhaoId(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-stone-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-green-500 shadow-sm"
-                >
-                  <option value="">Selecione o talhão...</option>
-                  {talhoesDisponiveis.map((t) => (
-                    <option key={t.id} value={t.id}>{t.nome} ({t.cultura})</option>
                   ))}
                 </select>
               </div>
@@ -274,6 +272,7 @@ export function NovaAnalisePage() {
                 <tr>
                   <th className="w-12 px-4 py-4 text-center">#</th>
                   <th className="min-w-[150px] px-4 py-4">ID Amostra / Gleba</th>
+                  <th className="min-w-[150px] px-4 py-4">Talhão</th>
                   {CAMPOS_NUMERICOS.map(({ key, label }) => (
                     <th key={key} className="w-24 px-2 py-4 text-center">{label}</th>
                   ))}
@@ -294,6 +293,18 @@ export function NovaAnalisePage() {
                         placeholder="Ex: Ponto 01"
                         className="w-full rounded-lg border border-transparent px-3 py-2 text-sm font-semibold text-stone-700 outline-none focus:border-stone-200 focus:bg-stone-50 transition-all"
                       />
+                    </td>
+                    <td className="px-2 py-2">
+                      <select
+                        value={linha.talhao_id}
+                        onChange={(e) => atualizarCampo(linha.id, 'talhao_id', e.target.value)}
+                        className="w-full rounded-lg border border-transparent bg-transparent px-2 py-2 text-sm outline-none focus:border-stone-200 focus:bg-white transition-all"
+                      >
+                        <option value="">Selecione...</option>
+                        {talhoesDisponiveis.map((t) => (
+                          <option key={t.id} value={t.id}>{t.nome}</option>
+                        ))}
+                      </select>
                     </td>
                     {CAMPOS_NUMERICOS.map(({ key, placeholder }) => (
                       <td key={key} className="px-1 py-2">
@@ -354,7 +365,7 @@ export function NovaAnalisePage() {
             </button>
             <button
               onClick={handleSalvarTudo}
-              disabled={processando || !talhaoId}
+              disabled={processando || !fazendaId}
               className="flex items-center gap-2 rounded-xl bg-stone-900 px-10 py-3.5 font-bold text-white shadow-lg transition-all hover:bg-stone-800 disabled:bg-stone-300 active:scale-[0.98]"
             >
               {processando ? (
