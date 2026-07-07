@@ -24,7 +24,15 @@ export function Navbar() {
               `text-sm font-bold transition-all hover:text-green-600 ${isActive ? 'text-green-600' : ''}`
             }
           >
-            Calculadora
+            Calagem
+          </NavLink>
+          <NavLink
+            to="/adubacao"
+            className={({ isActive }) => 
+              `text-sm font-bold transition-all hover:text-green-600 ${isActive ? 'text-green-600' : ''}`
+            }
+          >
+            Adubação
           </NavLink>
           <NavLink
             to="/validacao"

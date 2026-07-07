@@ -7,6 +7,7 @@ import {
   text,
   timestamp,
   uuid,
+  jsonb,
 } from 'drizzle-orm/pg-core';
 
 // ── Enums — Users ─────────────────────────────────────────────────────────────
@@ -125,4 +126,71 @@ export const talhoes = pgTable('talhoes', {
   nome:       text('nome').notNull(),
   cultura:    text('cultura').notNull(),
   criado_em:  timestamp('criado_em').notNull().defaultNow(),
+});
+
+// ── Enums — Adubacao ──────────────────────────────────────────────────────────
+
+export const culturasEnum = pgEnum('cultura', [
+  'aveia_branca', 'aveia_preta', 'canola', 'centeio', 'cevada',
+  'ervilha', 'ervilhaca', 'feijao', 'girassol', 'milho',
+  'milho_pipoca', 'nabo_forrageiro', 'soja', 'sorgo', 'trigo', 'triticale'
+]);
+
+export const metodosExtratoresEnum = pgEnum('metodo_extrator', ['Mehlich-1', 'Mehlich-3']);
+
+export const sistemasCultivoAdubacaoEnum = pgEnum('sistema_cultivo_adubacao', ['Convencional', 'Plantio Direto']);
+
+export const tiposCorrecaoEnum = pgEnum('tipo_correcao', ['Gradual', 'Total']);
+
+export const culturasAntecedentesEnum = pgEnum('cultura_antecedente', [
+  'Leguminosa', 'Gramínea', 'Consorciação ou Pousio'
+]);
+
+export const numCultivoEnum = pgEnum('num_cultivo', ['1', '2']);
+
+export const finalidadesCevadaEnum = pgEnum('finalidade_cevada', [
+  'cervejeira_malte_unico', 'malte_especial', 'outra'
+]);
+
+// ── Analises Adubacao ─────────────────────────────────────────────────────────
+
+export const analisesAdubacao = pgTable('analises_adubacao', {
+  id:         uuid('id').primaryKey().defaultRandom(),
+  usuario_id: uuid('usuario_id'),
+  talhao_id:  uuid('talhao_id'),
+  criado_em:  timestamp('criado_em').notNull().defaultNow(),
+
+  uf:            text('uf').notNull(),
+  cidade:        text('cidade').notNull(),
+  identificacao: text('identificacao'),
+
+  // Grupo A - Solo
+  argila:      real('argila').notNull(),
+  MO:          real('MO').notNull(),
+  CTC_pH7:     real('CTC_pH7').notNull(),
+  P:           real('P').notNull(),
+  metodo_P:    metodosExtratoresEnum('metodo_P').notNull(),
+  K:           real('K').notNull(),
+  metodo_K:    metodosExtratoresEnum('metodo_K').notNull(),
+  Ca:          real('Ca').notNull(),
+  Mg:          real('Mg').notNull(),
+  S:           real('S'),
+  Cu:          real('Cu'),
+  Zn:          real('Zn'),
+  B:           real('B'),
+  Mn:          real('Mn'),
+  pH_agua:     real('pH_agua'),
+
+  // Grupo B - Cultura e Manejo
+  cultura:              culturasEnum('cultura').notNull(),
+  num_cultivo:          numCultivoEnum('num_cultivo').notNull(),
+  rendimento_esperado:  real('rendimento_esperado').notNull(),
+  cultura_antecedente:  culturasAntecedentesEnum('cultura_antecedente'),
+  sistema_cultivo:      sistemasCultivoAdubacaoEnum('sistema_cultivo').notNull(),
+  tipo_correcao:        tiposCorrecaoEnum('tipo_correcao').notNull(),
+  densidade_plantas:    integer('densidade_plantas'),
+  finalidade_cevada:    finalidadesCevadaEnum('finalidade_cevada'),
+
+  // Resultados / Output
+  recomendacao_json: jsonb('recomendacao_json'),
 });
