@@ -3,6 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import { authRoutes }    from './routes/authRoutes';
 import { analisesRoutes } from './routes/analisesRoutes';
+import { adubacaoRoutes } from './routes/adubacaoRoutes';
 import { fazendasRouter } from './routes/fazendasRoutes';
 import { adminRoutes }    from './routes/adminRoutes';
 import { standaloneRoutes } from './routes/standaloneRoutes';
@@ -18,6 +19,7 @@ app.get('/', (_req, res) => {
 
 app.use('/api/auth',     authRoutes);
 app.use('/api/analises', analisesRoutes);
+app.use('/api/adubacao', adubacaoRoutes);
 app.use('/api/fazendas', fazendasRouter);
 app.use('/api/admin',    adminRoutes);
 app.use('/api/standalone', standaloneRoutes);

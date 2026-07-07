@@ -11,6 +11,8 @@ import {
   rotearMetodoCalagem,
 } from '../schemas/calagemSchema';
 
+import type { EntradaAdubacao } from '../schemas/adubacaoSchema';
+
 export const api = axios.create({
   baseURL: '/api',
   timeout: 10000,
@@ -181,3 +183,19 @@ export async function postAnalisesBulk(data: {
   return res.data;
 }
  
+// --- Adubação ---
+
+export async function calcularAdubacao(dados: EntradaAdubacao) {
+  const res = await api.post('/adubacao/calcular', dados);
+  return res.data;
+}
+
+export async function getAnalisesAdubacao() {
+  const res = await api.get('/adubacao');
+  return res.data;
+}
+
+export async function getAnaliseAdubacaoId(id: string) {
+  const res = await api.get(`/adubacao/${id}`);
+  return res.data;
+}

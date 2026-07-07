@@ -6,6 +6,7 @@ import { DashboardLayout } from './layouts/DashboardLayout';
 
 // Pages
 import { CalculadoraPage } from './pages/CalculadoraPage';
+import { AdubacaoPage } from './pages/AdubacaoPage';
 import { MonitoramentoPage } from './pages/MonitoramentoPage';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
@@ -31,6 +32,7 @@ export default function App() {
           {/* ── Public routes (PublicLayout wraps all) ─────────────────── */}
           <Route element={<PublicLayout />}>
             <Route path="/" element={<CalculadoraPage />} />
+            <Route path="/adubacao" element={<AdubacaoPage />} />
             <Route path="/monitoramento" element={<MonitoramentoPage />} />
             <Route path="/validacao" element={<ValidacaoAgronomicaPage />} />
             <Route path="/login" element={<LoginPage />} />
