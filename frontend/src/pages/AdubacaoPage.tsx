@@ -98,7 +98,7 @@ export function AdubacaoPage() {
       nome: 'Soja (Manutenção, Solo Alto)',
       dados: {
         argila: 45, MO: 3.0, CTC_pH7: 12.0, P: 25, K: 120,
-        Ca: 5, Mg: 2, S: 15,
+        Ca: 5, Mg: 2, S: 15, Cu: 1.5, Zn: 2.0, B: 0.5, Mn: 10, pH_agua: 6.0,
         cultura: 'soja' as const, num_cultivo: '1' as const, rendimento_esperado: 4.5,
       }
     },
@@ -106,16 +106,16 @@ export function AdubacaoPage() {
       nome: 'Milho (Correção Total, MB)',
       dados: {
         argila: 30, MO: 1.5, CTC_pH7: 8.0, P: 2.0, K: 15.0,
-        Ca: 1.0, Mg: 0.2,
+        Ca: 1.0, Mg: 0.2, S: 4.0, Cu: 0.8, Zn: 1.0, B: 0.2, Mn: 5.0, pH_agua: 5.2,
         cultura: 'milho' as const, num_cultivo: '1' as const, rendimento_esperado: 8.0,
-        cultura_antecedente: 'Gramínea' as const, tipo_correcao: 'Total' as const
+        cultura_antecedente: 'Gramínea' as const, tipo_correcao: 'Total' as const, densidade_plantas: 70000
       }
     },
     {
       nome: 'Cevada Cervejeira (Solo Baixo)',
       dados: {
         argila: 35, MO: 2.0, CTC_pH7: 10.0, P: 8.0, K: 40.0,
-        Ca: 3.0, Mg: 1.0, S: 5.0,
+        Ca: 3.0, Mg: 1.0, S: 5.0, Cu: 1.2, Zn: 1.5, B: 0.4, Mn: 8.0, pH_agua: 5.8,
         cultura: 'cevada' as const, num_cultivo: '1' as const, rendimento_esperado: 4.0,
         cultura_antecedente: 'Gramínea' as const, finalidade_cevada: 'cervejeira_malte_unico' as const
       }

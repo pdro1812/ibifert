@@ -15,6 +15,16 @@ function formatarNumero(valor: number | undefined, casas = 2, sufixo = ''): stri
   return `${valor.toFixed(casas).replace('.', ',')}${sufixo}`;
 }
 
+function sanitizeText(text: string): string {
+  if (!text) return '';
+  return text
+    .replace(/₂/g, '2')
+    .replace(/₅/g, '5')
+    .replace(/²/g, '2')
+    .replace(/⁻/g, '-')
+    .replace(/³/g, '3');
+}
+
 export function gerarPDFRelatorioAdubacao({
   dadosEntrada,
   resultado,
@@ -73,9 +83,9 @@ export function gerarPDFRelatorioAdubacao({
     body: [
       ['Argila', `${formatarNumero(dadosEntrada.argila, 1, '%')}`],
       ['Matéria Orgânica (M.O.)', `${formatarNumero(dadosEntrada.MO, 1, '%')}`],
-      ['CTC a pH 7.0', `${formatarNumero(dadosEntrada.CTC_pH7, 1, ' cmolc/dm³')}`],
-      ['Fósforo (P) / Método', `${formatarNumero(dadosEntrada.P, 1, ' mg/dm³')} (${dadosEntrada.metodo_P})`],
-      ['Potássio (K) / Método', `${formatarNumero(dadosEntrada.K, 1, ' mg/dm³')} (${dadosEntrada.metodo_K})`],
+      ['CTC a pH 7.0', sanitizeText(`${formatarNumero(dadosEntrada.CTC_pH7, 1, ' cmolc/dm³')}`)],
+      ['Fósforo (P) / Método', sanitizeText(`${formatarNumero(dadosEntrada.P, 1, ' mg/dm³')} (${dadosEntrada.metodo_P})`)],
+      ['Potássio (K) / Método', sanitizeText(`${formatarNumero(dadosEntrada.K, 1, ' mg/dm³')} (${dadosEntrada.metodo_K})`)],
     ],
     theme: 'grid',
     headStyles: { fillColor: [41, 37, 36], textColor: [255, 255, 255] },
@@ -107,9 +117,9 @@ export function gerarPDFRelatorioAdubacao({
     startY: finalY,
     head: [['Nutriente', 'Dose Total (kg/ha)', 'Tipo / Aplicação']],
     body: [
-      ['Nitrogênio (N)', formatarNumero(resultado.recomendacao.n.dose_total_kg_ha, 0), resultado.recomendacao.n.tipo],
-      ['Fósforo (P₂O₅)', formatarNumero(resultado.recomendacao.p2o5.dose_total_kg_ha, 0), resultado.recomendacao.p2o5.tipo_adubacao],
-      ['Potássio (K₂O)', formatarNumero(resultado.recomendacao.k2o.dose_total_kg_ha, 0), `Semeadura: ${formatarNumero(resultado.recomendacao.k2o.k2o_semeadura_kg_ha, 0)} | Cobertura/Lanço: ${formatarNumero(resultado.recomendacao.k2o.k2o_complementar_kg_ha, 0)}`],
+      ['Nitrogênio (N)', formatarNumero(resultado.recomendacao.n.dose_total_kg_ha, 0), sanitizeText(resultado.recomendacao.n.tipo)],
+      ['Fósforo (P2O5)', formatarNumero(resultado.recomendacao.p2o5.dose_total_kg_ha, 0), sanitizeText(resultado.recomendacao.p2o5.tipo_adubacao)],
+      ['Potássio (K2O)', formatarNumero(resultado.recomendacao.k2o.dose_total_kg_ha, 0), sanitizeText(`Semeadura: ${formatarNumero(resultado.recomendacao.k2o.k2o_semeadura_kg_ha, 0)} | Cobertura/Lanço: ${formatarNumero(resultado.recomendacao.k2o.k2o_complementar_kg_ha, 0)}`)],
     ],
     theme: 'grid',
     headStyles: { fillColor: [22, 163, 74], textColor: [255, 255, 255] },
@@ -123,9 +133,10 @@ export function gerarPDFRelatorioAdubacao({
     autoTable(doc, {
       startY: finalY,
       head: [['Alertas e Observações Técnicas']],
-      body: resultado.alertas.map((a: any) => [`[${a.nivel}] ${a.mensagem}`]),
+      body: resultado.alertas.map((a: any) => [`[${a.nivel}] ${sanitizeText(a.mensagem)}`]),
       theme: 'grid',
       headStyles: { fillColor: [234, 179, 8], textColor: [255, 255, 255] },
+      styles: { overflow: 'linebreak', cellWidth: 'wrap' },
     });
   }
 
