@@ -6,6 +6,8 @@ import {
   UserCheck,
   MousePointer2,
   Loader2,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { api } from '../services/api';
 import { ModalDetalhesAnalise } from '../components/ModalDetalhesAnalise';
@@ -43,6 +45,9 @@ export function AdminAnalisesPage() {
   const [filtro, setFiltro] = useState<'TODAS' | 'LOGADOS' | 'CONVIDADOS'>('TODAS');
   const [selectedAnalise, setSelectedAnalise] = useState<GlobalAnalise | null>(null);
 
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [currentPage, setCurrentPage] = useState(1);
+
   useEffect(() => {
     api.get('/admin/analises')
       .then((res) => setAnalises(res.data))
@@ -63,6 +68,15 @@ export function AdminAnalisesPage() {
 
     return matchesSearch && matchesFilter;
   });
+
+  // Volta para a página 1 sempre que a busca ou filtro mudar
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [busca, filtro]);
+
+  const totalPages = Math.ceil(filteredAnalises.length / itemsPerPage) || 1;
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedAnalises = filteredAnalises.slice(startIndex, startIndex + itemsPerPage);
 
   if (loading) {
     return (
@@ -116,7 +130,7 @@ export function AdminAnalisesPage() {
 
       {/* Grid de Amostras */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredAnalises.map((a) => (
+        {paginatedAnalises.map((a) => (
           <div 
             key={a.id} 
             onClick={() => setSelectedAnalise(a)}
@@ -183,10 +197,54 @@ export function AdminAnalisesPage() {
         ))}
       </div>
 
-      {filteredAnalises.length === 0 && (
+      {paginatedAnalises.length === 0 && (
         <div className="rounded-3xl border-2 border-dashed border-stone-200 p-20 text-center">
           <FlaskConical className="mx-auto h-12 w-12 text-stone-200 mb-4" />
           <p className="text-stone-400 font-medium">Nenhuma amostra encontrada com estes filtros.</p>
+        </div>
+      )}
+
+      {/* Paginação */}
+      {filteredAnalises.length > 0 && (
+        <div className="flex flex-col md:flex-row items-center justify-between gap-4 mt-8 pt-6 border-t border-stone-200">
+          <div className="flex items-center gap-2 text-sm text-stone-500">
+            <span>Exibir</span>
+            <select 
+              value={itemsPerPage} 
+              onChange={(e) => {
+                setItemsPerPage(Number(e.target.value));
+                setCurrentPage(1);
+              }}
+              className="rounded-lg border border-stone-200 bg-white px-2 py-1 outline-none focus:border-green-500 text-stone-700"
+            >
+              <option value={10}>10</option>
+              <option value={30}>30</option>
+              <option value={50}>50</option>
+            </select>
+            <span>por página</span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+              className="p-2 rounded-lg border border-stone-200 bg-white text-stone-500 hover:bg-stone-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <ChevronLeft size={16} />
+            </button>
+            
+            <span className="text-sm text-stone-600 font-medium px-2">
+              Página {currentPage} de {totalPages}
+            </span>
+
+            <button
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+              disabled={currentPage === totalPages}
+              className="p-2 rounded-lg border border-stone-200 bg-white text-stone-500 hover:bg-stone-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
         </div>
       )}
 

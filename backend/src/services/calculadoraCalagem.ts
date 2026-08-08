@@ -102,9 +102,6 @@ export function determinarCamposNecessarios(
   adicionar("SMP", entrada.SMP === undefined);
   adicionar("PRNT", entrada.PRNT === undefined);
 
-  if (entrada.modo === "simplificado") {
-    return campos;
-  }
 
   if (entrada.SMP !== undefined) {
     const metodo = rotearMetodoCalagem(entrada.SMP);

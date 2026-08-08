@@ -1,0 +1,101 @@
+"filename", "language", "YAML", "Markdown", "JSON", "HTML", "MS SQL", "TypeScript", "JSON with Comments", "Docker", "TypeScript JSX", "XML", "PostCSS", "JavaScript", "Properties", "comment", "blank", "total"
+"/Users/pedroottoni/ibiferti/.github/workflows/main.yml", "YAML", 52, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 62
+"/Users/pedroottoni/ibiferti/README.md", "Markdown", 0, 33, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 12, 45
+"/Users/pedroottoni/ibiferti/adubacao.md", "Markdown", 0, 949, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 212, 1161
+"/Users/pedroottoni/ibiferti/auditoria_adubacao.html", "HTML", 0, 0, 0, 744, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 82, 834
+"/Users/pedroottoni/ibiferti/backend/Dockerfile", "Docker", 0, 0, 0, 0, 0, 0, 0, 7, 0, 0, 0, 0, 0, 0, 0, 7
+"/Users/pedroottoni/ibiferti/backend/drizzle.config.ts", "TypeScript", 0, 0, 0, 0, 0, 10, 0, 0, 0, 0, 0, 0, 0, 0, 1, 11
+"/Users/pedroottoni/ibiferti/backend/drizzle/0000_concerned_chameleon.sql", "MS SQL", 0, 0, 0, 0, 58, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 60
+"/Users/pedroottoni/ibiferti/backend/drizzle/0001_smart_spacker_dave.sql", "MS SQL", 0, 0, 0, 0, 16, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 18
+"/Users/pedroottoni/ibiferti/backend/drizzle/0002_dear_thanos.sql", "MS SQL", 0, 0, 0, 0, 43, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 44
+"/Users/pedroottoni/ibiferti/backend/drizzle/meta/0000_snapshot.json", "JSON", 0, 0, 398, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 398
+"/Users/pedroottoni/ibiferti/backend/drizzle/meta/0001_snapshot.json", "JSON", 0, 0, 500, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 500
+"/Users/pedroottoni/ibiferti/backend/drizzle/meta/0002_snapshot.json", "JSON", 0, 0, 790, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 790
+"/Users/pedroottoni/ibiferti/backend/drizzle/meta/_journal.json", "JSON", 0, 0, 27, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 27
+"/Users/pedroottoni/ibiferti/backend/package-lock.json", "JSON", 0, 0, 9004, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 9005
+"/Users/pedroottoni/ibiferti/backend/package.json", "JSON", 0, 0, 49, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 50
+"/Users/pedroottoni/ibiferti/backend/src/database/adubacao.ts", "TypeScript", 0, 0, 0, 0, 0, 30, 0, 0, 0, 0, 0, 0, 0, 0, 7, 37
+"/Users/pedroottoni/ibiferti/backend/src/database/analises.ts", "TypeScript", 0, 0, 0, 0, 0, 139, 0, 0, 0, 0, 0, 0, 0, 2, 19, 160
+"/Users/pedroottoni/ibiferti/backend/src/database/db.ts", "TypeScript", 0, 0, 0, 0, 0, 7, 0, 0, 0, 0, 0, 0, 0, 0, 2, 9
+"/Users/pedroottoni/ibiferti/backend/src/database/fazendas.ts", "TypeScript", 0, 0, 0, 0, 0, 90, 0, 0, 0, 0, 0, 0, 0, 4, 15, 109
+"/Users/pedroottoni/ibiferti/backend/src/database/schema.ts", "TypeScript", 0, 0, 0, 0, 0, 150, 0, 0, 0, 0, 0, 0, 0, 11, 35, 196
+"/Users/pedroottoni/ibiferti/backend/src/middlewares/authMiddleware.ts", "TypeScript", 0, 0, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0, 1, 6, 39
+"/Users/pedroottoni/ibiferti/backend/src/routes/adminRoutes.ts", "TypeScript", 0, 0, 0, 0, 0, 151, 0, 0, 0, 0, 0, 0, 0, 13, 18, 182
+"/Users/pedroottoni/ibiferti/backend/src/routes/adubacaoRoutes.ts", "TypeScript", 0, 0, 0, 0, 0, 93, 0, 0, 0, 0, 0, 0, 0, 10, 14, 117
+"/Users/pedroottoni/ibiferti/backend/src/routes/analisesRoutes.ts", "TypeScript", 0, 0, 0, 0, 0, 186, 0, 0, 0, 0, 0, 0, 0, 11, 27, 224
+"/Users/pedroottoni/ibiferti/backend/src/routes/authRoutes.ts", "TypeScript", 0, 0, 0, 0, 0, 75, 0, 0, 0, 0, 0, 0, 0, 3, 16, 94
+"/Users/pedroottoni/ibiferti/backend/src/routes/fazendasRoutes.ts", "TypeScript", 0, 0, 0, 0, 0, 104, 0, 0, 0, 0, 0, 0, 0, 11, 18, 133
+"/Users/pedroottoni/ibiferti/backend/src/routes/standaloneRoutes.ts", "TypeScript", 0, 0, 0, 0, 0, 61, 0, 0, 0, 0, 0, 0, 0, 0, 7, 68
+"/Users/pedroottoni/ibiferti/backend/src/schemas/adubacaoSchema.ts", "TypeScript", 0, 0, 0, 0, 0, 74, 0, 0, 0, 0, 0, 0, 0, 6, 6, 86
+"/Users/pedroottoni/ibiferti/backend/src/schemas/authSchema.ts", "TypeScript", 0, 0, 0, 0, 0, 16, 0, 0, 0, 0, 0, 0, 0, 0, 3, 19
+"/Users/pedroottoni/ibiferti/backend/src/schemas/calagemSchema.ts", "TypeScript", 0, 0, 0, 0, 0, 184, 0, 0, 0, 0, 0, 0, 0, 0, 38, 222
+"/Users/pedroottoni/ibiferti/backend/src/server.ts", "TypeScript", 0, 0, 0, 0, 0, 24, 0, 0, 0, 0, 0, 0, 0, 0, 6, 30
+"/Users/pedroottoni/ibiferti/backend/src/services/calculadoraAdubacao.ts", "TypeScript", 0, 0, 0, 0, 0, 9, 0, 0, 0, 0, 0, 0, 0, 0, 2, 11
+"/Users/pedroottoni/ibiferti/backend/src/services/calculadoraCalagem.ts", "TypeScript", 0, 0, 0, 0, 0, 121, 0, 0, 0, 0, 0, 0, 0, 0, 28, 149
+"/Users/pedroottoni/ibiferti/backend/src/services/motorAdubacao.ts", "TypeScript", 0, 0, 0, 0, 0, 152, 0, 0, 0, 0, 0, 0, 0, 13, 23, 188
+"/Users/pedroottoni/ibiferti/backend/src/services/motorCalagem.ts", "TypeScript", 0, 0, 0, 0, 0, 250, 0, 0, 0, 0, 0, 0, 0, 1, 28, 279
+"/Users/pedroottoni/ibiferti/backend/src/services/motorStandalone.ts", "TypeScript", 0, 0, 0, 0, 0, 124, 0, 0, 0, 0, 0, 0, 0, 13, 20, 157
+"/Users/pedroottoni/ibiferti/backend/src/services/tabelaSmp.ts", "TypeScript", 0, 0, 0, 0, 0, 43, 0, 0, 0, 0, 0, 0, 0, 19, 8, 70
+"/Users/pedroottoni/ibiferti/backend/src/services/tabelasAdubacaoGraos.ts", "TypeScript", 0, 0, 0, 0, 0, 244, 0, 0, 0, 0, 0, 0, 0, 8, 24, 276
+"/Users/pedroottoni/ibiferti/backend/src/services/warnings.ts", "TypeScript", 0, 0, 0, 0, 0, 14, 0, 0, 0, 0, 0, 0, 0, 0, 7, 21
+"/Users/pedroottoni/ibiferti/backend/src/services/warningsAdubacao.ts", "TypeScript", 0, 0, 0, 0, 0, 65, 0, 0, 0, 0, 0, 0, 0, 4, 9, 78
+"/Users/pedroottoni/ibiferti/backend/src/utils/adubacao.test.ts", "TypeScript", 0, 0, 0, 0, 0, 58, 0, 0, 0, 0, 0, 0, 0, 0, 11, 69
+"/Users/pedroottoni/ibiferti/backend/src/utils/calagem.test.ts", "TypeScript", 0, 0, 0, 0, 0, 277, 0, 0, 0, 0, 0, 0, 0, 0, 43, 320
+"/Users/pedroottoni/ibiferti/backend/test_insert.ts", "TypeScript", 0, 0, 0, 0, 0, 40, 0, 0, 0, 0, 0, 0, 0, 0, 1, 41
+"/Users/pedroottoni/ibiferti/backend/tsconfig.json", "JSON with Comments", 0, 0, 0, 0, 0, 0, 15, 0, 0, 0, 0, 0, 0, 0, 0, 15
+"/Users/pedroottoni/ibiferti/docker-compose.prod.yml", "YAML", 50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 5, 58
+"/Users/pedroottoni/ibiferti/docker-compose.yml", "YAML", 37, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 40
+"/Users/pedroottoni/ibiferti/extracao_funcoes_sql.md", "Markdown", 0, 164, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 35, 199
+"/Users/pedroottoni/ibiferti/frontend/Dockerfile", "Docker", 0, 0, 0, 0, 0, 0, 0, 7, 0, 0, 0, 0, 0, 4, 5, 16
+"/Users/pedroottoni/ibiferti/frontend/README.md", "Markdown", 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 74
+"/Users/pedroottoni/ibiferti/frontend/eslint.config.js", "JavaScript", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 22, 0, 0, 2, 24
+"/Users/pedroottoni/ibiferti/frontend/index.html", "HTML", 0, 0, 0, 13, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 14
+"/Users/pedroottoni/ibiferti/frontend/nginx.conf", "Properties", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 29, 5, 6, 40
+"/Users/pedroottoni/ibiferti/frontend/package-lock.json", "JSON", 0, 0, 4670, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 4671
+"/Users/pedroottoni/ibiferti/frontend/package.json", "JSON", 0, 0, 44, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 45
+"/Users/pedroottoni/ibiferti/frontend/public/favicon.svg", "XML", 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1
+"/Users/pedroottoni/ibiferti/frontend/public/favicon2.svg", "XML", 0, 0, 0, 0, 0, 0, 0, 0, 0, 11, 0, 0, 0, 0, 3, 14
+"/Users/pedroottoni/ibiferti/frontend/public/icons.svg", "XML", 0, 0, 0, 0, 0, 0, 0, 0, 0, 24, 0, 0, 0, 0, 1, 25
+"/Users/pedroottoni/ibiferti/frontend/src/App.css", "PostCSS", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1
+"/Users/pedroottoni/ibiferti/frontend/src/App.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 0, 0, 54, 0, 0, 0, 0, 10, 8, 72
+"/Users/pedroottoni/ibiferti/frontend/src/assets/react.svg", "XML", 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1
+"/Users/pedroottoni/ibiferti/frontend/src/assets/vite.svg", "XML", 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 2
+"/Users/pedroottoni/ibiferti/frontend/src/components/Modal.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 0, 0, 28, 0, 0, 0, 0, 0, 3, 31
+"/Users/pedroottoni/ibiferti/frontend/src/components/ModalDetalhesAnalise.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 0, 0, 161, 0, 0, 0, 0, 5, 12, 178
+"/Users/pedroottoni/ibiferti/frontend/src/components/Navbar.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 0, 0, 86, 0, 0, 0, 0, 3, 5, 94
+"/Users/pedroottoni/ibiferti/frontend/src/components/ProtectedRoute.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 0, 0, 23, 0, 0, 0, 0, 10, 6, 39
+"/Users/pedroottoni/ibiferti/frontend/src/contexts/AuthContext.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 0, 0, 86, 0, 0, 0, 0, 18, 29, 133
+"/Users/pedroottoni/ibiferti/frontend/src/index.css", "PostCSS", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1
+"/Users/pedroottoni/ibiferti/frontend/src/layouts/DashboardLayout.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 0, 0, 84, 0, 0, 0, 0, 12, 11, 107
+"/Users/pedroottoni/ibiferti/frontend/src/layouts/PublicLayout.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 0, 0, 12, 0, 0, 0, 0, 5, 3, 20
+"/Users/pedroottoni/ibiferti/frontend/src/main.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 0, 0, 9, 0, 0, 0, 0, 0, 1, 10
+"/Users/pedroottoni/ibiferti/frontend/src/pages/AdminAnalisesPage.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 0, 0, 172, 0, 0, 0, 0, 9, 21, 202
+"/Users/pedroottoni/ibiferti/frontend/src/pages/AdminDashboardPage.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 0, 0, 210, 0, 0, 0, 0, 8, 19, 237
+"/Users/pedroottoni/ibiferti/frontend/src/pages/AdminUsersPage.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 0, 0, 343, 0, 0, 0, 0, 4, 24, 371
+"/Users/pedroottoni/ibiferti/frontend/src/pages/AdubacaoPage.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 0, 0, 348, 0, 0, 0, 0, 2, 34, 384
+"/Users/pedroottoni/ibiferti/frontend/src/pages/CalculadoraPage.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 0, 0, 896, 0, 0, 0, 0, 40, 66, 1002
+"/Users/pedroottoni/ibiferti/frontend/src/pages/FazendasPage.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 0, 0, 349, 0, 0, 0, 0, 11, 29, 389
+"/Users/pedroottoni/ibiferti/frontend/src/pages/HistoricoAnalisesPage.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 0, 0, 243, 0, 0, 0, 0, 17, 29, 289
+"/Users/pedroottoni/ibiferti/frontend/src/pages/LoginPage.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 0, 0, 124, 0, 0, 0, 0, 11, 17, 152
+"/Users/pedroottoni/ibiferti/frontend/src/pages/MonitoramentoPage.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 0, 0, 254, 0, 0, 0, 0, 8, 23, 285
+"/Users/pedroottoni/ibiferti/frontend/src/pages/NovaAnalisePage.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 0, 0, 338, 0, 0, 0, 0, 16, 32, 386
+"/Users/pedroottoni/ibiferti/frontend/src/pages/RegisterPage.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 0, 0, 227, 0, 0, 0, 0, 16, 22, 265
+"/Users/pedroottoni/ibiferti/frontend/src/pages/TalhaoDetalhesPage.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 0, 0, 184, 0, 0, 0, 0, 34, 19, 237
+"/Users/pedroottoni/ibiferti/frontend/src/pages/ValidacaoAgronomicaPage.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 0, 0, 307, 0, 0, 0, 0, 8, 22, 337
+"/Users/pedroottoni/ibiferti/frontend/src/schemas/adubacaoSchema.ts", "TypeScript", 0, 0, 0, 0, 0, 74, 0, 0, 0, 0, 0, 0, 0, 6, 6, 86
+"/Users/pedroottoni/ibiferti/frontend/src/schemas/calagemSchema.ts", "TypeScript", 0, 0, 0, 0, 0, 207, 0, 0, 0, 0, 0, 0, 0, 0, 30, 237
+"/Users/pedroottoni/ibiferti/frontend/src/services/api.ts", "TypeScript", 0, 0, 0, 0, 0, 161, 0, 0, 0, 0, 0, 0, 0, 6, 34, 201
+"/Users/pedroottoni/ibiferti/frontend/src/services/ibge.ts", "TypeScript", 0, 0, 0, 0, 0, 23, 0, 0, 0, 0, 0, 0, 0, 0, 3, 26
+"/Users/pedroottoni/ibiferti/frontend/src/services/pdfGenerator.ts", "TypeScript", 0, 0, 0, 0, 0, 372, 0, 0, 0, 0, 0, 0, 0, 0, 41, 413
+"/Users/pedroottoni/ibiferti/frontend/src/services/pdfGeneratorAdubacao.ts", "TypeScript", 0, 0, 0, 0, 0, 122, 0, 0, 0, 0, 0, 0, 0, 6, 21, 149
+"/Users/pedroottoni/ibiferti/frontend/tailwind.config.js", "JavaScript", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 0, 1, 0, 11
+"/Users/pedroottoni/ibiferti/frontend/tsconfig.app.json", "JSON", 0, 0, 21, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 3, 26
+"/Users/pedroottoni/ibiferti/frontend/tsconfig.json", "JSON with Comments", 0, 0, 0, 0, 0, 0, 7, 0, 0, 0, 0, 0, 0, 0, 1, 8
+"/Users/pedroottoni/ibiferti/frontend/tsconfig.node.json", "JSON", 0, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 3, 25
+"/Users/pedroottoni/ibiferti/frontend/vite.config.ts", "TypeScript", 0, 0, 0, 0, 0, 22, 0, 0, 0, 0, 0, 0, 0, 2, 1, 25
+"/Users/pedroottoni/ibiferti/package-lock.json", "JSON", 0, 0, 937, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 938
+"/Users/pedroottoni/ibiferti/package.json", "JSON", 0, 0, 15, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 16
+"/Users/pedroottoni/ibiferti/plano_implementacao_adubacao.md", "Markdown", 0, 57, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 18, 75
+"/Users/pedroottoni/ibiferti/regras_calagem_graos_v2.md", "Markdown", 0, 489, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 150, 639
+"/Users/pedroottoni/ibiferti/revisao.md", "Markdown", 0, 71, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 12, 83
+"Total", "-", 139, 1823, 16475, 757, 117, 3804, 22, 14, 4538, 38, 2, 32, 29, 426, 1599, 29815

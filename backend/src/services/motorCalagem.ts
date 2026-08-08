@@ -23,7 +23,6 @@ import { tabelaSmpLookup } from "./tabelaSmp";
 import {
   MSG_AVALIACAO_AGRONOMICA,
   MSG_LIMITE_SUPERFICIAL_PD,
-  MSG_MODO_SIMPLIFICADO,
   MSG_NOTA_REAPLICACAO,
   MSG_SEM_NECESSIDADE_CALAGEM,
   MSG_SEM_REINICIO_PD,
@@ -65,7 +64,6 @@ export function executarMotorCalagem(
   const alertas: string[] = [];
 
   const {
-    modo,
     sistema_manejo,
     primeira_calagem,
     pH_agua,
@@ -74,19 +72,7 @@ export function executarMotorCalagem(
     opcao_superficial_campo_natural,
   } = entrada;
 
-  if (modo === "simplificado") {
-    if (SMP > 6.3) {
-      alertas.push("Modo Rápido: Este solo requer Matéria Orgânica e Alumínio para um cálculo preciso. O valor exibido é uma estimativa baseada na tabela SMP.");
-    } else {
-      alertas.push(MSG_MODO_SIMPLIFICADO);
-    }
-  }
-
-  // No modo simplificado, forçamos o roteamento para SMP se MO/Al_trocavel não estiverem presentes
-  const metodo_calc_roteado =
-    modo === "simplificado"
-      ? MetodoCalcRoteado.SMP
-      : rotearMetodoCalagem(SMP);
+  const metodo_calc_roteado = rotearMetodoCalagem(SMP);
 
   const calcular_tambem_sat_bases =
     !primeira_calagem && metodo_calc_roteado === MetodoCalcRoteado.SMP;
@@ -125,8 +111,7 @@ export function executarMotorCalagem(
     const Al_sat_resolvido = resolverAlSat(entrada);
 
     if (
-      entrada.modo === "avancado" &&
-      entrada.V_atual !== undefined &&
+      pH_agua >= 5.5 && entrada.V_atual !== undefined &&
       entrada.V_atual >= 65.0 &&
       Al_sat_resolvido !== undefined &&
       Al_sat_resolvido < 10.0

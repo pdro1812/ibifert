@@ -278,7 +278,7 @@ export function AdubacaoPage() {
                   <SelectPadrao label="Cultura Antecedente *" name="cultura_antecedente" register={register} error={errors.cultura_antecedente} placeholder="Selecione..." options={[
                     { value: 'Leguminosa', label: 'Leguminosa (Ex: Soja)' },
                     { value: 'Gramínea', label: 'Gramínea (Ex: Milho, Trigo)' },
-                    { value: 'Consorciação ou Pousio', label: 'Consorciação ou Pousio' }
+                    ...(watchCultura === 'milho' ? [{ value: 'Consorciação ou Pousio', label: 'Consorciação ou Pousio' }] : [])
                   ]} />
                 </div>
               )}
