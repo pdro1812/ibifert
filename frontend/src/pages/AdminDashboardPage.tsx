@@ -9,6 +9,7 @@ import {
   Settings,
   Loader2,
   UserPlus,
+  Sprout,
 } from 'lucide-react';
 import {
   BarChart,
@@ -43,6 +44,9 @@ interface AdminStats {
     convidados: number;
     porUF: Array<{ uf: string; quantidade: number }>;
     porSistema: Array<{ sistema: string; quantidade: number }>;
+  };
+  adubacao: {
+    total: number;
   };
 }
 
@@ -92,7 +96,7 @@ export function AdminDashboardPage() {
       </div>
 
       {/* Cards */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-5">
         <StatCard 
           title="Total de Usuários" 
           value={stats.usuarios.total} 
@@ -104,6 +108,12 @@ export function AdminDashboardPage() {
           value={stats.analises.total} 
           icon={FlaskConical} 
           color="bg-green-500" 
+        />
+        <StatCard 
+          title="Total de Adubação" 
+          value={stats.adubacao.total} 
+          icon={Sprout} 
+          color="bg-emerald-500" 
         />
         <StatCard 
           title="Usuários Logados" 

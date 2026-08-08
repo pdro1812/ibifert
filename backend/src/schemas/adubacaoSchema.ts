@@ -14,6 +14,7 @@ export const NumCultivoSchema = z.enum(['1', '2']);
 export const FinalidadeCevadaSchema = z.enum(['cervejeira_malte_unico', 'malte_especial', 'outra']);
 
 export const AdubacaoSchema = z.object({
+  identificacao: z.string().optional(),
   // Grupo A - Solo
   argila: z.number({ required_error: "Argila é obrigatória" }).min(0).max(99, "Argila deve ser <= 99%"),
   MO: z.number({ required_error: "Matéria Orgânica é obrigatória" }).positive().max(20, "MO deve ser <= 20%"),

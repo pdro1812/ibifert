@@ -3,12 +3,14 @@ import { useForm, useWatch } from 'react-hook-form';
 import type { FieldError, FieldPath, UseFormRegister } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
-  AlertCircle, ArrowRight, CheckCircle2, Leaf, ShieldCheck, Sprout, FileDown, Beaker
+  AlertCircle, ArrowRight, CheckCircle2, Leaf, ShieldCheck, Sprout, FileDown, Beaker, Save
 } from 'lucide-react';
 
 import { AdubacaoSchema, type EntradaAdubacao } from '../schemas/adubacaoSchema';
-import { calcularAdubacao } from '../services/api';
+import { calcularAdubacao, salvarAdubacao } from '../services/api';
 import { gerarPDFRelatorioAdubacao } from '../services/pdfGeneratorAdubacao';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 
 const CampoNumerico = ({
   label, name, register, error, dica, min, max, step = '0.1', placeholder
@@ -63,12 +65,17 @@ export function AdubacaoPage() {
   const [resultado, setResultado] = useState<any | null>(null);
   const [loading, setLoading] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
+  const [salvo, setSalvo] = useState(false);
+
+  const navigate = useNavigate();
+  const { isLoggedIn } = useAuth();
 
   const {
     register,
     handleSubmit,
     control,
     reset,
+    getValues,
     formState: { errors },
   } = useForm<EntradaAdubacao>({
     resolver: zodResolver(AdubacaoSchema),
@@ -80,6 +87,28 @@ export function AdubacaoPage() {
       num_cultivo: '1'
     },
   });
+
+  const handleTentarSalvar = async () => {
+    if (!resultado) return;
+    
+    if (!isLoggedIn) {
+      sessionStorage.setItem('adubacaoPendente', JSON.stringify({ dados: getValues(), resultado }));
+      navigate('/login');
+      return;
+    }
+
+    try {
+      await salvarAdubacao({
+        dadosForm: getValues(),
+        resultado: resultado.recomendacao ? resultado : resultado.resultado // ajusta de acordo com o retorno
+      });
+      setSalvo(true);
+      setTimeout(() => setSalvo(false), 3000);
+    } catch (error) {
+      console.error('Erro ao salvar adubação:', error);
+      alert('Erro ao salvar adubação. Tente novamente.');
+    }
+  };
 
   const aplicarCenario = (dados: Partial<EntradaAdubacao>) => {
     reset({
@@ -191,8 +220,22 @@ export function AdubacaoPage() {
         <div className="lg:col-span-7">
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 rounded-3xl border border-stone-200 bg-white p-6 shadow-sm sm:p-8">
             
-            {/* GRUPO A: SOLO */}
+            {/* IDENTIFICAÇÃO E GRUPO A: SOLO */}
             <div className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-1 mb-4">
+                <div className="space-y-1">
+                  <label className="flex items-center gap-1 text-xs font-semibold text-stone-600">
+                    Identificação da Amostra/Gleba (Opcional)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Ex: Talhão 1 - Lado Sul"
+                    className="w-full rounded-xl border border-stone-200 bg-stone-50/50 px-4 py-2.5 text-sm outline-none transition-all focus:border-green-500 focus:bg-white focus:ring-4 focus:ring-green-500/10"
+                    {...register('identificacao')}
+                  />
+                </div>
+              </div>
+
               <div className="flex items-center gap-2 border-b border-stone-100 pb-2">
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-stone-100 text-stone-500">
                   <Leaf size={18} />
@@ -356,19 +399,32 @@ export function AdubacaoPage() {
                 </div>
               )}
 
-              <button
-                type="button"
-                onClick={() => {
-                  gerarPDFRelatorioAdubacao({
-                    dadosEntrada: resultado.dadosEntrada,
-                    resultado: resultado
-                  });
-                }}
-                className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl border border-stone-200 bg-white px-6 py-3 font-bold text-stone-600 shadow-sm transition-all hover:bg-stone-50 hover:text-green-600"
-              >
-                <FileDown size={20} />
-                Baixar Relatório (PDF)
-              </button>
+              <div className="mt-6 grid grid-cols-2 gap-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    gerarPDFRelatorioAdubacao({
+                      dadosEntrada: resultado.dadosEntrada,
+                      resultado: resultado
+                    });
+                  }}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-stone-200 bg-white px-6 py-3 font-bold text-stone-600 shadow-sm transition-all hover:bg-stone-50 hover:text-green-600"
+                >
+                  <FileDown size={20} />
+                  PDF
+                </button>
+                <button
+                  type="button"
+                  onClick={handleTentarSalvar}
+                  className={`flex w-full items-center justify-center gap-2 rounded-xl px-6 py-3 font-bold shadow-sm transition-all ${
+                    salvo
+                      ? 'bg-green-500 text-white'
+                      : 'border border-stone-200 bg-white text-stone-600 hover:bg-stone-50 hover:text-green-600'
+                  }`}
+                >
+                  {salvo ? <><CheckCircle2 size={20} /> Salvo!</> : <><Save size={20} /> Salvar</>}
+                </button>
+              </div>
             </div>
           ) : (
             <div className="flex h-full min-h-[400px] flex-col items-center justify-center rounded-3xl border border-dashed border-stone-300 bg-stone-50 p-8 text-center text-stone-500">

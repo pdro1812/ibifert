@@ -94,50 +94,101 @@ export function ModalDetalhesAnalise({ analise, onClose }: ModalDetalhesAnaliseP
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <MetricCard label="pH em Água" value={analise.pH_agua?.toFixed(1)} />
-              <MetricCard label="Índice SMP" value={analise.SMP?.toFixed(1)} />
               <MetricCard label="M.O. (%)" value={analise.MO?.toFixed(1)} />
-              <MetricCard label="Al Trocável" value={analise.Al_trocavel?.toFixed(2)} />
               <MetricCard label="CTC pH 7.0" value={analise.CTC_pH7?.toFixed(2)} />
-              <MetricCard label="V Atual (%)" value={analise.V_atual?.toFixed(1)} />
-              <MetricCard label="Al Sat (%)" value={analise.Al_sat?.toFixed(1)} />
-              <MetricCard label="PRNT (%)" value={analise.PRNT} />
+              
+              {analise.tipo === 'CALAGEM' ? (
+                <>
+                  <MetricCard label="Índice SMP" value={analise.SMP?.toFixed(1)} />
+                  <MetricCard label="Al Trocável" value={analise.Al_trocavel?.toFixed(2)} />
+                  <MetricCard label="V Atual (%)" value={analise.V_atual?.toFixed(1)} />
+                  <MetricCard label="Al Sat (%)" value={analise.Al_sat?.toFixed(1)} />
+                  <MetricCard label="PRNT (%)" value={analise.PRNT} />
+                </>
+              ) : (
+                <>
+                  <MetricCard label="Fósforo (mg/dm³)" value={analise.recomendacao_json?.dadosEntrada?.P?.toFixed(1)} />
+                  <MetricCard label="Potássio (mg/dm³)" value={analise.recomendacao_json?.dadosEntrada?.K?.toFixed(1)} />
+                </>
+              )}
             </div>
           </section>
 
-          {/* Sessão: Resultado da Calagem */}
-          <section className="space-y-4">
-            <div className="flex items-center gap-2 text-stone-400">
-              <ClipboardList size={16} />
-              <h3 className="text-xs font-bold uppercase tracking-widest">Resultado do Cálculo</h3>
-            </div>
-            <div className="rounded-2xl bg-green-50 border border-green-100 p-5">
-              <div className="flex items-center justify-between mb-4">
-                <span className="text-xs font-bold text-green-600 uppercase">Recomendação Final</span>
-                <span className="px-2 py-1 bg-green-600 text-white text-[10px] font-black rounded-lg uppercase">
-                  {analise.metodo_calc_roteado}
-                </span>
+          {/* Sessão: Resultado */}
+          {analise.tipo === 'CALAGEM' ? (
+            <section className="space-y-4">
+              <div className="flex items-center gap-2 text-stone-400">
+                <ClipboardList size={16} />
+                <h3 className="text-xs font-bold uppercase tracking-widest">Resultado da Calagem</h3>
               </div>
-              <div className="flex items-end gap-1">
-                <span className="text-4xl font-black text-green-700 leading-none">
-                  {analise.NC_ajustada?.toFixed(2) || '0.00'}
-                </span>
-                <span className="text-lg font-bold text-green-500 mb-1">t/ha</span>
-              </div>
-              <div className="grid grid-cols-2 gap-4 mt-6">
-                <div className="space-y-1">
-                  <p className="text-[10px] text-green-600 font-bold uppercase">Sistema</p>
-                  <p className="text-sm font-bold text-stone-700">{analise.sistema_manejo.replace('_', ' ')}</p>
+              <div className="rounded-2xl bg-green-50 border border-green-100 p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <span className="text-xs font-bold text-green-600 uppercase">Recomendação Final</span>
+                  <span className="px-2 py-1 bg-green-600 text-white text-[10px] font-black rounded-lg uppercase">
+                    {analise.metodo_calc_roteado}
+                  </span>
                 </div>
-                <div className="space-y-1 text-right">
-                  <p className="text-[10px] text-green-600 font-bold uppercase">Aplicação</p>
-                  <p className="text-sm font-bold text-stone-700">{analise.modo_aplicacao} ({analise.profundidade_cm}cm)</p>
+                <div className="flex items-end gap-1">
+                  <span className="text-4xl font-black text-green-700 leading-none">
+                    {analise.NC_ajustada?.toFixed(2) || '0.00'}
+                  </span>
+                  <span className="text-lg font-bold text-green-500 mb-1">t/ha</span>
+                </div>
+                <div className="grid grid-cols-2 gap-4 mt-6">
+                  <div className="space-y-1">
+                    <p className="text-[10px] text-green-600 font-bold uppercase">Sistema</p>
+                    <p className="text-sm font-bold text-stone-700">{analise.sistema_manejo?.replace('_', ' ')}</p>
+                  </div>
+                  <div className="space-y-1 text-right">
+                    <p className="text-[10px] text-green-600 font-bold uppercase">Aplicação</p>
+                    <p className="text-sm font-bold text-stone-700">{analise.modo_aplicacao} ({analise.profundidade_cm}cm)</p>
+                  </div>
                 </div>
               </div>
-            </div>
-          </section>
+            </section>
+          ) : (
+            <section className="space-y-4">
+              <div className="flex items-center gap-2 text-stone-400">
+                <ClipboardList size={16} />
+                <h3 className="text-xs font-bold uppercase tracking-widest">Resultado da Adubação</h3>
+              </div>
+              <div className="rounded-2xl bg-emerald-50 border border-emerald-100 p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <span className="text-xs font-bold text-emerald-600 uppercase">Recomendação Final</span>
+                  <span className="px-2 py-1 bg-emerald-600 text-white text-[10px] font-black rounded-lg uppercase">
+                    {analise.cultura?.replace('_', ' ')}
+                  </span>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                  <div className="bg-white p-3 rounded-xl border border-emerald-100">
+                    <span className="text-[10px] font-bold text-stone-500 uppercase">Fósforo (P₂O₅)</span>
+                    <div className="flex items-end gap-1 mt-1">
+                      <span className="text-2xl font-black text-stone-700">{analise.recomendacao_json?.recomendacao?.p2o5?.dose_total_kg_ha ?? '0'}</span>
+                      <span className="text-xs font-bold text-stone-400 mb-1">kg/ha</span>
+                    </div>
+                  </div>
+                  <div className="bg-white p-3 rounded-xl border border-emerald-100">
+                    <span className="text-[10px] font-bold text-stone-500 uppercase">Potássio (K₂O)</span>
+                    <div className="flex items-end gap-1 mt-1">
+                      <span className="text-2xl font-black text-stone-700">{analise.recomendacao_json?.recomendacao?.k2o?.dose_total_kg_ha ?? '0'}</span>
+                      <span className="text-xs font-bold text-stone-400 mb-1">kg/ha</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-emerald-100">
+                  <div className="space-y-1">
+                    <p className="text-[10px] text-emerald-600 font-bold uppercase">Sistema de Cultivo</p>
+                    <p className="text-sm font-bold text-stone-700">{analise.sistema_cultivo}</p>
+                  </div>
+                </div>
+              </div>
+            </section>
+          )}
 
           {/* Alertas */}
-          {analise.alertas && analise.alertas.length > 0 && (
+          {analise.tipo === 'CALAGEM' && analise.alertas && analise.alertas.length > 0 && (
             <section className="space-y-3">
               <div className="flex items-center gap-2 text-amber-500">
                 <AlertTriangle size={16} />
