@@ -138,6 +138,7 @@ export async function listarAnalises(usuario_id?: string) {
       uf:                  analises.uf,
       cidade:              analises.cidade,
       identificacao:       analises.identificacao,
+      talhao_id:           analises.talhao_id,
       sistema_manejo:      analises.sistema_manejo,
       primeira_calagem:    analises.primeira_calagem,
       pH_agua:             analises.pH_agua,

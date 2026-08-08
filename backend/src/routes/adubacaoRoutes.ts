@@ -90,6 +90,78 @@ adubacaoRoutes.post('/salvar', verificarToken, async (req: AuthRequest, res) => 
   }
 });
 
+// Endpoint para processar lote (bulk) de adubações
+adubacaoRoutes.post('/bulk', verificarToken, async (req: AuthRequest, res) => {
+  try {
+    const { talhao_id, amostras } = req.body;
+    const usuario_id = req.userId;
+
+    if (!Array.isArray(amostras)) {
+      return res.status(400).json({ error: 'Amostras devem ser um array' });
+    }
+
+    const resultadosProcessados = [];
+    
+    for (const amostra of amostras) {
+      try {
+        const dadosComTalhao = { ...amostra, talhao_id };
+        const entradaValidada = AdubacaoSchema.parse(dadosComTalhao);
+        const resultado = executarMotorAdubacao(entradaValidada);
+        
+        const payloadBanco = {
+          usuario_id: usuario_id,
+          talhao_id: talhao_id,
+          uf: entradaValidada.uf || 'RS',
+          cidade: entradaValidada.cidade || 'Não informada',
+          identificacao: entradaValidada.identificacao || 'Análise Adubação',
+          
+          argila: entradaValidada.argila,
+          MO: entradaValidada.MO,
+          CTC_pH7: entradaValidada.CTC_pH7,
+          P: entradaValidada.P,
+          metodo_P: entradaValidada.metodo_P,
+          K: entradaValidada.K,
+          metodo_K: entradaValidada.metodo_K,
+          Ca: entradaValidada.Ca,
+          Mg: entradaValidada.Mg,
+          S: entradaValidada.S ?? undefined,
+          Cu: entradaValidada.Cu ?? undefined,
+          Zn: entradaValidada.Zn ?? undefined,
+          B: entradaValidada.B ?? undefined,
+          Mn: entradaValidada.Mn ?? undefined,
+          pH_agua: entradaValidada.pH_agua ?? undefined,
+
+          cultura: entradaValidada.cultura,
+          num_cultivo: entradaValidada.num_cultivo,
+          rendimento_esperado: entradaValidada.rendimento_esperado,
+          cultura_antecedente: entradaValidada.cultura_antecedente ?? undefined,
+          sistema_cultivo: entradaValidada.sistema_cultivo,
+          tipo_correcao: entradaValidada.tipo_correcao,
+          densidade_plantas: entradaValidada.densidade_plantas ?? undefined,
+          finalidade_cevada: entradaValidada.finalidade_cevada ?? undefined,
+
+          recomendacao_json: resultado,
+        };
+
+        const analiseSalva = await criarAnaliseAdubacao(payloadBanco as any);
+        resultadosProcessados.push({ sucesso: true, id: analiseSalva.id, identificacao: amostra.identificacao });
+      } catch (err: any) {
+        console.error(`Erro ao processar amostra ${amostra.identificacao}:`, err);
+        resultadosProcessados.push({ sucesso: false, identificacao: amostra.identificacao, erro: err.message });
+      }
+    }
+
+    res.status(200).json({
+      message: 'Processamento em lote concluído',
+      total: amostras.length,
+      resultados: resultadosProcessados
+    });
+
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Endpoint para listar as análises do usuário logado
 adubacaoRoutes.get('/', verificarToken, async (req: AuthRequest, res) => {
   try {
