@@ -21,64 +21,11 @@ adubacaoRoutes.post('/calcular', async (req: AuthRequest, res) => {
     // 2. Calcular
     const resultado = executarMotorAdubacao(entradaValidada);
 
-    // Se o usuário não estiver logado, não tem problema no MVP se a rota não usar verificarToken obrigatório
-    // Porém, vamos tentar ler o header se houver
-    let usuario_id = null;
-    const authHeader = req.headers.authorization;
-    if (authHeader) {
-      // Usar a mesma lógica do analisesRoutes
-      const jwt = require('jsonwebtoken');
-      const token = authHeader.split(' ')[1];
-      try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret_dev');
-        usuario_id = (decoded as any).userId;
-      } catch (e) {
-        // ignora se token invalido na rota pública
-      }
-    }
-
-    // 3. Persistir
-    const payloadBanco = {
-      usuario_id: usuario_id || undefined,
-      talhao_id: dadosForm.talhao_id || undefined,
-      uf: dadosForm.uf || 'RS',
-      cidade: dadosForm.cidade || 'Não informada',
-      identificacao: dadosForm.identificacao || 'Análise Adubação',
-      
-      argila: entradaValidada.argila,
-      MO: entradaValidada.MO,
-      CTC_pH7: entradaValidada.CTC_pH7,
-      P: entradaValidada.P,
-      metodo_P: entradaValidada.metodo_P,
-      K: entradaValidada.K,
-      metodo_K: entradaValidada.metodo_K,
-      Ca: entradaValidada.Ca,
-      Mg: entradaValidada.Mg,
-      S: entradaValidada.S ?? undefined,
-      Cu: entradaValidada.Cu ?? undefined,
-      Zn: entradaValidada.Zn ?? undefined,
-      B: entradaValidada.B ?? undefined,
-      Mn: entradaValidada.Mn ?? undefined,
-      pH_agua: entradaValidada.pH_agua ?? undefined,
-
-      cultura: entradaValidada.cultura,
-      num_cultivo: entradaValidada.num_cultivo,
-      rendimento_esperado: entradaValidada.rendimento_esperado,
-      cultura_antecedente: entradaValidada.cultura_antecedente ?? undefined,
-      sistema_cultivo: entradaValidada.sistema_cultivo,
-      tipo_correcao: entradaValidada.tipo_correcao,
-      densidade_plantas: entradaValidada.densidade_plantas ?? undefined,
-      finalidade_cevada: entradaValidada.finalidade_cevada ?? undefined,
-
-      recomendacao_json: resultado,
-    };
-
-    const analiseSalva = await criarAnaliseAdubacao(payloadBanco as any);
-
-    res.status(201).json({
-      message: 'Adubação processada e salva com sucesso.',
-      data: analiseSalva,
-      resultado: resultado
+    // 3. Retornar apenas o resultado do cálculo
+    res.status(200).json({
+      message: 'Adubação calculada com sucesso.',
+      resultado: resultado,
+      dadosEntrada: entradaValidada // útil para o frontend mandar pro salvar
     });
   } catch (error: any) {
     if (error.name === 'ZodError') {
@@ -86,6 +33,60 @@ adubacaoRoutes.post('/calcular', async (req: AuthRequest, res) => {
     } else {
       res.status(500).json({ error: error.message });
     }
+  }
+});
+
+// Endpoint exclusivo para salvar o resultado da adubação no banco
+adubacaoRoutes.post('/salvar', verificarToken, async (req: AuthRequest, res) => {
+  try {
+    const { dadosForm, resultado } = req.body;
+    
+    // Como verificarToken está ativo, garantimos req.userId
+    const usuario_id = req.userId;
+
+    const payloadBanco = {
+      usuario_id: usuario_id,
+      talhao_id: dadosForm.talhao_id || undefined,
+      uf: dadosForm.uf || 'RS',
+      cidade: dadosForm.cidade || 'Não informada',
+      identificacao: dadosForm.identificacao || 'Análise Adubação',
+      
+      argila: dadosForm.argila,
+      MO: dadosForm.MO,
+      CTC_pH7: dadosForm.CTC_pH7,
+      P: dadosForm.P,
+      metodo_P: dadosForm.metodo_P,
+      K: dadosForm.K,
+      metodo_K: dadosForm.metodo_K,
+      Ca: dadosForm.Ca,
+      Mg: dadosForm.Mg,
+      S: dadosForm.S ?? undefined,
+      Cu: dadosForm.Cu ?? undefined,
+      Zn: dadosForm.Zn ?? undefined,
+      B: dadosForm.B ?? undefined,
+      Mn: dadosForm.Mn ?? undefined,
+      pH_agua: dadosForm.pH_agua ?? undefined,
+
+      cultura: dadosForm.cultura,
+      num_cultivo: dadosForm.num_cultivo,
+      rendimento_esperado: dadosForm.rendimento_esperado,
+      cultura_antecedente: dadosForm.cultura_antecedente ?? undefined,
+      sistema_cultivo: dadosForm.sistema_cultivo,
+      tipo_correcao: dadosForm.tipo_correcao,
+      densidade_plantas: dadosForm.densidade_plantas ?? undefined,
+      finalidade_cevada: dadosForm.finalidade_cevada ?? undefined,
+
+      recomendacao_json: resultado,
+    };
+
+    const analiseSalva = await criarAnaliseAdubacao(payloadBanco as any);
+
+    res.status(201).json({
+      message: 'Adubação salva com sucesso.',
+      data: analiseSalva
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
   }
 });
 

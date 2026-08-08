@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { count, eq, isNull, isNotNull, sql, desc, inArray } from 'drizzle-orm';
 import { db } from '../database/db';
-import { users, analises, fazendas, talhoes } from '../database/schema';
+import { users, analises, fazendas, talhoes, analisesAdubacao } from '../database/schema';
 import { verificarToken, verificarRole, AuthRequest } from '../middlewares/authMiddleware';
 
 export const adminRoutes = Router();
@@ -18,6 +18,9 @@ adminRoutes.get('/stats', async (req: AuthRequest, res) => {
     const [totalAnalises] = await db.select({ value: count() }).from(analises);
     const [loggedAnalises] = await db.select({ value: count() }).from(analises).where(isNotNull(analises.usuario_id));
     const [guestAnalises] = await db.select({ value: count() }).from(analises).where(isNull(analises.usuario_id));
+
+    // Total de Adubação
+    const [totalAdubacao] = await db.select({ value: count() }).from(analisesAdubacao);
 
     // 3. Amostras por UF
     const analisesPorUF = await db
@@ -61,6 +64,9 @@ adminRoutes.get('/stats', async (req: AuthRequest, res) => {
         convidados: guestAnalises.value,
         porUF: analisesPorUF,
         porSistema: analisesPorSistema,
+      },
+      adubacao: {
+        total: totalAdubacao.value
       }
     });
   } catch (error: any) {
@@ -101,9 +107,8 @@ adminRoutes.get('/users', async (req, res) => {
 // Listar todas as análises do sistema (Logados + Convidados)
 adminRoutes.get('/analises', async (req, res) => {
   try {
-    const todasAnalises = await db
+    const todasCalagem = await db
       .select({
-        // Selecionando explicitamente as colunas para evitar o erro de sintaxe do Drizzle
         id: analises.id,
         criado_em: analises.criado_em,
         uf: analises.uf,
@@ -132,7 +137,35 @@ adminRoutes.get('/analises', async (req, res) => {
       .leftJoin(users, eq(analises.usuario_id, users.id))
       .orderBy(desc(analises.criado_em));
 
-    res.status(200).json(todasAnalises);
+    const todasAdubacao = await db
+      .select({
+        id: analisesAdubacao.id,
+        criado_em: analisesAdubacao.criado_em,
+        uf: analisesAdubacao.uf,
+        cidade: analisesAdubacao.cidade,
+        identificacao: analisesAdubacao.identificacao,
+        cultura: analisesAdubacao.cultura,
+        sistema_cultivo: analisesAdubacao.sistema_cultivo,
+        pH_agua: analisesAdubacao.pH_agua,
+        MO: analisesAdubacao.MO,
+        CTC_pH7: analisesAdubacao.CTC_pH7,
+        usuario_id: analisesAdubacao.usuario_id,
+        usuario_nome: users.nome,
+        usuario_email: users.email,
+        recomendacao_json: analisesAdubacao.recomendacao_json,
+      })
+      .from(analisesAdubacao)
+      .leftJoin(users, eq(analisesAdubacao.usuario_id, users.id))
+      .orderBy(desc(analisesAdubacao.criado_em));
+
+    const unified = [
+      ...todasCalagem.map(a => ({ ...a, tipo: 'CALAGEM' })),
+      ...todasAdubacao.map(a => ({ ...a, tipo: 'ADUBACAO' }))
+    ];
+
+    unified.sort((a, b) => new Date(b.criado_em).getTime() - new Date(a.criado_em).getTime());
+
+    res.status(200).json(unified);
   } catch (error: any) {
     console.error('[admin] Erro ao listar análises:', error);
     res.status(500).json({ erro: 'Erro ao listar todas as análises', detalhes: error.message });

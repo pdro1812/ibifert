@@ -201,6 +201,11 @@ export async function calcularAdubacao(dados: EntradaAdubacao) {
   return res.data;
 }
 
+export async function salvarAdubacao(payload: { dadosForm: EntradaAdubacao, resultado: any }) {
+  const res = await api.post('/adubacao/salvar', payload);
+  return res.data;
+}
+
 export async function getAnalisesAdubacao() {
   const res = await api.get('/adubacao');
   return res.data;

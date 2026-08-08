@@ -18,20 +18,30 @@ interface GlobalAnalise {
   uf: string;
   cidade: string;
   identificacao: string | null;
-  sistema_manejo: string;
-  primeira_calagem: boolean;
-  PRNT: number;
-  pH_agua: number;
-  SMP: number;
+  tipo: 'CALAGEM' | 'ADUBACAO';
+  
+  // Específicos de Calagem
+  sistema_manejo?: string;
+  primeira_calagem?: boolean;
+  PRNT?: number;
+  NC_ajustada?: number | null;
+  metodo_calc_roteado?: string | null;
+  modo_aplicacao?: string | null;
+  profundidade_cm?: number | null;
+  
+  // Específicos de Adubação
+  cultura?: string;
+  sistema_cultivo?: string;
+  recomendacao_json?: any;
+
+  // Comuns
+  pH_agua?: number;
+  SMP?: number;
   MO?: number | null;
   Al_trocavel?: number | null;
   V_atual?: number | null;
   CTC_pH7?: number | null;
   Al_sat?: number | null;
-  NC_ajustada: number | null;
-  metodo_calc_roteado: string | null;
-  modo_aplicacao: string | null;
-  profundidade_cm: number | null;
   alertas?: string[] | null;
   usuario_id: string | null;
   usuario_nome: string | null;
@@ -42,7 +52,8 @@ export function AdminAnalisesPage() {
   const [analises, setAnalises] = useState<GlobalAnalise[]>([]);
   const [loading, setLoading] = useState(true);
   const [busca, setBusca] = useState('');
-  const [filtro, setFiltro] = useState<'TODAS' | 'LOGADOS' | 'CONVIDADOS'>('TODAS');
+  const [filtroUser, setFiltroUser] = useState<'TODAS' | 'LOGADOS' | 'CONVIDADOS'>('TODAS');
+  const [filtroTipo, setFiltroTipo] = useState<'TODOS' | 'CALAGEM' | 'ADUBACAO'>('TODOS');
   const [selectedAnalise, setSelectedAnalise] = useState<GlobalAnalise | null>(null);
 
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -61,18 +72,21 @@ export function AdminAnalisesPage() {
       (a.usuario_nome ?? '').toLowerCase().includes(busca.toLowerCase()) ||
       (a.identificacao ?? '').toLowerCase().includes(busca.toLowerCase());
     
-    const matchesFilter = 
-      filtro === 'TODAS' || 
-      (filtro === 'LOGADOS' && a.usuario_id !== null) || 
-      (filtro === 'CONVIDADOS' && a.usuario_id === null);
+    const matchesUser = 
+      filtroUser === 'TODAS' || 
+      (filtroUser === 'LOGADOS' && a.usuario_id !== null) || 
+      (filtroUser === 'CONVIDADOS' && a.usuario_id === null);
 
-    return matchesSearch && matchesFilter;
+    const matchesTipo = 
+      filtroTipo === 'TODOS' || a.tipo === filtroTipo;
+
+    return matchesSearch && matchesUser && matchesTipo;
   });
 
   // Volta para a página 1 sempre que a busca ou filtro mudar
   useEffect(() => {
     setCurrentPage(1);
-  }, [busca, filtro]);
+  }, [busca, filtroUser, filtroTipo]);
 
   const totalPages = Math.ceil(filteredAnalises.length / itemsPerPage) || 1;
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -110,20 +124,38 @@ export function AdminAnalisesPage() {
           </div>
 
           {/* Filtros Rápidos */}
-          <div className="flex bg-stone-100 p-1 rounded-xl border border-stone-200">
-            {(['TODAS', 'LOGADOS', 'CONVIDADOS'] as const).map(f => (
-              <button
-                key={f}
-                onClick={() => setFiltro(f)}
-                className={`px-3 py-1.5 text-[10px] font-bold uppercase rounded-lg transition-all ${
-                  filtro === f 
-                    ? 'bg-white text-green-700 shadow-sm' 
-                    : 'text-stone-400 hover:text-stone-600'
-                }`}
-              >
-                {f}
-              </button>
-            ))}
+          <div className="flex gap-2">
+            <div className="flex bg-stone-100 p-1 rounded-xl border border-stone-200">
+              {(['TODOS', 'CALAGEM', 'ADUBACAO'] as const).map(f => (
+                <button
+                  key={f}
+                  onClick={() => setFiltroTipo(f)}
+                  className={`px-3 py-1.5 text-[10px] font-bold uppercase rounded-lg transition-all ${
+                    filtroTipo === f 
+                      ? 'bg-white text-green-700 shadow-sm' 
+                      : 'text-stone-400 hover:text-stone-600'
+                  }`}
+                >
+                  {f}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex bg-stone-100 p-1 rounded-xl border border-stone-200">
+              {(['TODAS', 'LOGADOS', 'CONVIDADOS'] as const).map(f => (
+                <button
+                  key={f}
+                  onClick={() => setFiltroUser(f)}
+                  className={`px-3 py-1.5 text-[10px] font-bold uppercase rounded-lg transition-all ${
+                    filtroUser === f 
+                      ? 'bg-white text-green-700 shadow-sm' 
+                      : 'text-stone-400 hover:text-stone-600'
+                  }`}
+                >
+                  {f}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -180,17 +212,38 @@ export function AdminAnalisesPage() {
 
             {/* Resultado Final */}
             <div className="mt-4 pt-4 border-t border-stone-50 flex items-center justify-between">
-              <div className="flex flex-col">
-                <span className="text-[9px] text-stone-400 font-bold uppercase tracking-wider">Sistema</span>
-                <span className="text-[10px] font-semibold text-stone-600 uppercase">{a.sistema_manejo.replace('_', ' ')}</span>
-              </div>
-              <div className="text-right">
-                <span className="text-[9px] text-stone-400 font-bold uppercase tracking-wider block">Dose NC</span>
-                <span className="text-lg font-black text-green-700">
-                  {a.NC_ajustada?.toFixed(2) || '0.00'}
-                  <span className="text-[10px] font-normal text-green-500 ml-0.5">t/ha</span>
-                </span>
-              </div>
+              {a.tipo === 'CALAGEM' ? (
+                <>
+                  <div className="flex flex-col">
+                    <span className="text-[9px] text-stone-400 font-bold uppercase tracking-wider">Sistema</span>
+                    <span className="text-[10px] font-semibold text-stone-600 uppercase">
+                      {a.sistema_manejo?.replace('_', ' ') || 'N/A'}
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[9px] text-stone-400 font-bold uppercase tracking-wider block">Dose NC</span>
+                    <span className="text-lg font-black text-green-700">
+                      {a.NC_ajustada?.toFixed(2) || '0.00'}
+                      <span className="text-[10px] font-normal text-green-500 ml-0.5">t/ha</span>
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex flex-col">
+                    <span className="text-[9px] text-stone-400 font-bold uppercase tracking-wider">Cultura</span>
+                    <span className="text-[10px] font-semibold text-stone-600 uppercase">
+                      {a.cultura?.replace('_', ' ') || 'N/A'}
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[9px] text-stone-400 font-bold uppercase tracking-wider block">Tipo</span>
+                    <span className="text-sm font-black text-emerald-700">
+                      ADUBAÇÃO
+                    </span>
+                  </div>
+                </>
+              )}
             </div>
 
           </div>
