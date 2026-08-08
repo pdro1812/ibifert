@@ -11,6 +11,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { api } from '../services/api';
+import { ModalDetalhesAnalise } from '../components/ModalDetalhesAnalise';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -20,16 +21,24 @@ interface AnaliseResumo {
   uf: string;
   cidade: string;
   identificacao: string | null;
-  sistema_manejo: 'CONVENCIONAL' | 'PD_IMPLANTACAO' | 'PD_CONSOLIDADO';
-  primeira_calagem: boolean;
-  pH_agua: number;
-  SMP: number;
-  PRNT: number;
-  aplicar_calcario: boolean | null;
-  NC_ajustada: number | null;
-  metodo_calc_roteado: 'SMP' | 'POLINOMIAL' | null;
-  modo_aplicacao: 'INCORPORADO' | 'SUPERFICIAL' | null;
-  profundidade_cm: number | null;
+  tipo: 'CALAGEM' | 'ADUBACAO';
+  
+  // Calagem
+  sistema_manejo?: string;
+  primeira_calagem?: boolean;
+  pH_agua?: number;
+  SMP?: number;
+  PRNT?: number;
+  aplicar_calcario?: boolean | null;
+  NC_ajustada?: number | null;
+  metodo_calc_roteado?: string | null;
+  modo_aplicacao?: string | null;
+  profundidade_cm?: number | null;
+
+  // Adubacao
+  cultura?: string;
+  sistema_cultivo?: string;
+  recomendacao_json?: any;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -62,11 +71,13 @@ export function HistoricoAnalisesPage() {
   const [loading, setLoading]   = useState(true);
   const [erro, setErro]         = useState<string | null>(null);
   const [busca, setBusca]       = useState('');
+  const [filtroTipo, setFiltroTipo] = useState<'TODOS' | 'CALAGEM' | 'ADUBACAO'>('TODOS');
   const [pagina, setPagina]     = useState(1);
   const [ordenacao, setOrdenacao] = useState<{ campo: keyof AnaliseResumo; dir: 'asc' | 'desc' }>({
     campo: 'criado_em',
     dir: 'desc',
   });
+  const [selectedAnalise, setSelectedAnalise] = useState<AnaliseResumo | null>(null);
 
   useEffect(() => {
     api.get('/analises/historico')
@@ -78,12 +89,17 @@ export function HistoricoAnalisesPage() {
   // ── Filtro + ordenação ───────────────────────────────────────────────────
   const filtradas = analises.filter((a) => {
     const termo = busca.toLowerCase();
-    return (
+    const matchesSearch = 
       a.cidade?.toLowerCase().includes(termo) ||
       a.uf?.toLowerCase().includes(termo) ||
       (a.identificacao ?? '').toLowerCase().includes(termo) ||
-      SISTEMA_LABEL[a.sistema_manejo]?.toLowerCase().includes(termo)
-    );
+      (a.sistema_manejo && SISTEMA_LABEL[a.sistema_manejo]?.toLowerCase().includes(termo)) ||
+      (a.cultura ?? '').toLowerCase().includes(termo) ||
+      (a.sistema_cultivo ?? '').toLowerCase().includes(termo);
+
+    const matchesTipo = filtroTipo === 'TODOS' || a.tipo === filtroTipo;
+
+    return matchesSearch && matchesTipo;
   });
 
   const ordenadas = [...filtradas].sort((a, b) => {
@@ -127,7 +143,7 @@ export function HistoricoAnalisesPage() {
     <div className="mx-auto w-full max-w-7xl space-y-6 p-6">
 
       {/* Cabeçalho */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-green-400 to-green-600 shadow">
             <FlaskConical size={20} className="text-white" />
@@ -140,16 +156,35 @@ export function HistoricoAnalisesPage() {
           </div>
         </div>
 
-        {/* Busca */}
-        <div className="relative w-full max-w-xs">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
-          <input
-            type="text"
-            placeholder="Buscar por cidade, talhão..."
-            value={busca}
-            onChange={(e) => { setBusca(e.target.value); setPagina(1); }}
-            className="w-full rounded-xl border border-stone-200 bg-stone-50 py-2.5 pl-9 pr-4 text-sm outline-none focus:border-green-500 focus:bg-white"
-          />
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Filtros Rápidos */}
+          <div className="flex bg-stone-100 p-1 rounded-xl border border-stone-200">
+            {(['TODOS', 'CALAGEM', 'ADUBACAO'] as const).map(f => (
+              <button
+                key={f}
+                onClick={() => { setFiltroTipo(f); setPagina(1); }}
+                className={`px-3 py-1.5 text-[10px] font-bold uppercase rounded-lg transition-all ${
+                  filtroTipo === f 
+                    ? 'bg-white text-green-700 shadow-sm' 
+                    : 'text-stone-400 hover:text-stone-600'
+                }`}
+              >
+                {f}
+              </button>
+            ))}
+          </div>
+
+          {/* Busca */}
+          <div className="relative w-full max-w-xs">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
+            <input
+              type="text"
+              placeholder="Buscar por cidade, talhão..."
+              value={busca}
+              onChange={(e) => { setBusca(e.target.value); setPagina(1); }}
+              className="w-full rounded-xl border border-stone-200 bg-stone-50 py-2.5 pl-9 pr-4 text-sm outline-none focus:border-green-500 focus:bg-white"
+            />
+          </div>
         </div>
       </div>
 
@@ -176,22 +211,35 @@ export function HistoricoAnalisesPage() {
               <thead className="border-b border-stone-100 bg-stone-50">
                 <tr>
                   <ThOrdenavel campo="criado_em">Data</ThOrdenavel>
+                  <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-stone-500">Tipo</th>
                   <ThOrdenavel campo="cidade">Localização</ThOrdenavel>
                   <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-stone-500">Talhão</th>
-                  <ThOrdenavel campo="sistema_manejo">Sistema</ThOrdenavel>
-                  <ThOrdenavel campo="pH_agua">pH / SMP</ThOrdenavel>
-                  <ThOrdenavel campo="NC_ajustada">Dose</ThOrdenavel>
-                  <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-stone-500">Método</th>
-                  <ThOrdenavel campo="aplicar_calcario">Resultado</ThOrdenavel>
+                  <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-stone-500">Sistema / Cultura</th>
+                  <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-stone-500">pH / SMP</th>
+                  <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-stone-500">Recomendação</th>
+                  <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-stone-500">Detalhes</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-stone-50">
                 {slice.map((a) => (
-                  <tr key={a.id} className="transition-colors hover:bg-stone-50/70">
+                  <tr 
+                    key={a.id} 
+                    onClick={() => setSelectedAnalise(a)}
+                    className="transition-colors hover:bg-stone-50/70 cursor-pointer"
+                  >
 
                     {/* Data */}
                     <td className="whitespace-nowrap px-4 py-3 text-xs text-stone-500">
                       {formatarData(a.criado_em)}
+                    </td>
+
+                    {/* Tipo */}
+                    <td className="px-4 py-3">
+                      {a.tipo === 'CALAGEM' ? (
+                        <span className="rounded-full bg-green-100 text-green-700 px-2 py-1 text-[10px] font-bold uppercase">Calagem</span>
+                      ) : (
+                        <span className="rounded-full bg-emerald-100 text-emerald-700 px-2 py-1 text-[10px] font-bold uppercase">Adubação</span>
+                      )}
                     </td>
 
                     {/* Localização */}
@@ -207,49 +255,73 @@ export function HistoricoAnalisesPage() {
                       {a.identificacao ?? <span className="text-stone-300">—</span>}
                     </td>
 
-                    {/* Sistema */}
+                    {/* Sistema / Cultura */}
                     <td className="px-4 py-3">
-                      <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${SISTEMA_COLOR[a.sistema_manejo]}`}>
-                        {SISTEMA_LABEL[a.sistema_manejo]}
-                      </span>
-                    </td>
-
-                    {/* pH / SMP */}
-                    <td className="px-4 py-3 text-stone-700">
-                      <span className="font-medium">{a.pH_agua?.toFixed(1)}</span>
-                      <span className="mx-1 text-stone-300">/</span>
-                      <span className="text-stone-500">{a.SMP?.toFixed(1)}</span>
-                    </td>
-
-                    {/* Dose */}
-                    <td className="px-4 py-3">
-                      {a.NC_ajustada != null ? (
-                        <span className="font-bold text-green-700">
-                          {a.NC_ajustada.toFixed(2)}
-                          <span className="ml-1 text-xs font-normal text-green-500">t/ha</span>
+                      {a.tipo === 'CALAGEM' && a.sistema_manejo ? (
+                        <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${SISTEMA_COLOR[a.sistema_manejo] || 'bg-stone-100'}`}>
+                          {SISTEMA_LABEL[a.sistema_manejo] || a.sistema_manejo}
+                        </span>
+                      ) : a.tipo === 'ADUBACAO' ? (
+                        <span className="text-stone-700 font-medium text-xs">
+                          {a.cultura?.replace('_', ' ')}
                         </span>
                       ) : (
                         <span className="text-stone-300">—</span>
                       )}
                     </td>
 
-                    {/* Método */}
-                    <td className="px-4 py-3 text-xs text-stone-500">
-                      {a.metodo_calc_roteado ?? '—'}
+                    {/* pH / SMP */}
+                    <td className="px-4 py-3 text-stone-700">
+                      {a.pH_agua != null ? (
+                        <>
+                          <span className="font-medium">{a.pH_agua?.toFixed(1)}</span>
+                          {a.tipo === 'CALAGEM' && a.SMP != null && (
+                            <>
+                              <span className="mx-1 text-stone-300">/</span>
+                              <span className="text-stone-500">{a.SMP?.toFixed(1)}</span>
+                            </>
+                          )}
+                        </>
+                      ) : (
+                         <span className="text-stone-300">—</span>
+                      )}
                     </td>
 
-                    {/* Resultado */}
+                    {/* Recomendação */}
                     <td className="px-4 py-3">
-                      {a.aplicar_calcario === true ? (
-                        <span className="flex items-center gap-1 text-green-600">
-                          <CheckCircle2 size={14} /> Aplicar
-                        </span>
-                      ) : a.aplicar_calcario === false ? (
-                        <span className="flex items-center gap-1 text-stone-400">
-                          <XCircle size={14} /> Não aplicar
-                        </span>
+                      {a.tipo === 'CALAGEM' ? (
+                        a.NC_ajustada != null ? (
+                          <span className="font-bold text-green-700">
+                            {a.NC_ajustada.toFixed(2)}
+                            <span className="ml-1 text-xs font-normal text-green-500">t/ha</span>
+                          </span>
+                        ) : <span className="text-stone-300">—</span>
                       ) : (
-                        <span className="text-stone-300">—</span>
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-[10px] text-stone-500">
+                            P₂O₅: <strong className="text-stone-700">{a.recomendacao_json?.recomendacao?.p2o5?.dose_total_kg_ha ?? 0}</strong> kg/ha
+                          </span>
+                          <span className="text-[10px] text-stone-500">
+                            K₂O: <strong className="text-stone-700">{a.recomendacao_json?.recomendacao?.k2o?.dose_total_kg_ha ?? 0}</strong> kg/ha
+                          </span>
+                        </div>
+                      )}
+                    </td>
+
+                    {/* Detalhes / Resultado (Ex: Aplicar ou método) */}
+                    <td className="px-4 py-3 text-xs text-stone-500">
+                      {a.tipo === 'CALAGEM' ? (
+                        a.aplicar_calcario === true ? (
+                          <span className="flex items-center gap-1 text-green-600">
+                            <CheckCircle2 size={12} /> Aplicar
+                          </span>
+                        ) : a.aplicar_calcario === false ? (
+                          <span className="flex items-center gap-1 text-stone-400">
+                            <XCircle size={12} /> Não aplicar
+                          </span>
+                        ) : '—'
+                      ) : (
+                        <span className="text-[10px] uppercase text-stone-400">{a.sistema_cultivo}</span>
                       )}
                     </td>
                   </tr>
@@ -284,6 +356,12 @@ export function HistoricoAnalisesPage() {
           </div>
         </div>
       )}
+
+      {/* Modal de Detalhes */}
+      <ModalDetalhesAnalise 
+        analise={selectedAnalise as any} 
+        onClose={() => setSelectedAnalise(null)} 
+      />
     </div>
   );
 }

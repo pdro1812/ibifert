@@ -6,23 +6,29 @@ interface AnaliseDetalhes {
   uf: string;
   cidade: string;
   identificacao: string | null;
-  sistema_manejo: string;
-  primeira_calagem: boolean;
-  PRNT: number;
-  pH_agua: number;
-  SMP: number;
+  tipo?: 'CALAGEM' | 'ADUBACAO';
+  
+  sistema_manejo?: string;
+  primeira_calagem?: boolean;
+  PRNT?: number;
+  pH_agua?: number;
+  SMP?: number;
   MO?: number | null;
   Al_trocavel?: number | null;
   V_atual?: number | null;
   CTC_pH7?: number | null;
   Al_sat?: number | null;
-  NC_ajustada: number | null;
-  metodo_calc_roteado: string | null;
-  modo_aplicacao: string | null;
-  profundidade_cm: number | null;
+  NC_ajustada?: number | null;
+  metodo_calc_roteado?: string | null;
+  modo_aplicacao?: string | null;
+  profundidade_cm?: number | null;
   alertas?: string[] | null;
   usuario_nome?: string | null;
   usuario_email?: string | null;
+
+  cultura?: string;
+  sistema_cultivo?: string;
+  recomendacao_json?: any;
 }
 
 interface ModalDetalhesAnaliseProps {
