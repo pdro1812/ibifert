@@ -36,6 +36,20 @@ api.interceptors.request.use(
   }
 );
 
+api.interceptors.response.use(
+  (response) => {
+    return response;
+  },
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('@ibiferti:token');
+      localStorage.removeItem('@ibiferti:user');
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
+
 function arredondar(valor: number): number {
   return Number(valor.toFixed(2));
 }
@@ -48,20 +62,17 @@ function calcularPhMedio0_20(
 }
 
 export function sanitizarPayloadCalagem(dados: EntradaCalagem): CalagemPayload {
-  const isSimplificado = dados.modo === 'simplificado';
   const metodo = rotearMetodoCalagem(dados.SMP);
-  const primeira_calagem = isSimplificado ? true : dados.primeira_calagem;
+  const primeira_calagem = dados.primeira_calagem;
   const precisaSatBases = !primeira_calagem && metodo === 'SMP';
   const precisaAlSat =
     dados.sistema_manejo === 'PD_CONSOLIDADO' && dados.pH_agua < 5.5;
   const monitoramento = dados.monitoramento;
   const temRestricao =
-    !isSimplificado &&
     dados.sistema_manejo === 'PD_CONSOLIDADO' &&
     detectarRestricaoMonitoramento(monitoramento);
 
   const payload: CalagemPayload = {
-    modo: dados.modo ?? 'avancado',
     sistema_manejo: temRestricao ? 'PD_COM_RESTRICAO' : dados.sistema_manejo,
     primeira_calagem: primeira_calagem,
     pH_agua:
@@ -72,17 +83,17 @@ export function sanitizarPayloadCalagem(dados: EntradaCalagem): CalagemPayload {
     PRNT: dados.PRNT,
   };
 
-  if (!isSimplificado && metodo === 'POLINOMIAL') {
+  if (metodo === 'POLINOMIAL') {
     payload.MO = dados.MO;
     payload.Al_trocavel = dados.Al_trocavel;
   }
 
-  if (!isSimplificado && precisaSatBases) {
+  if (precisaSatBases) {
     payload.V_atual = dados.V_atual;
     payload.CTC_pH7 = dados.CTC_pH7;
   }
 
-  if (!isSimplificado && !temRestricao && precisaAlSat) {
+  if (!temRestricao && precisaAlSat) {
     if (!primeira_calagem && dados.V_atual !== undefined) {
       payload.V_atual = dados.V_atual;
     }

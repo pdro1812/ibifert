@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Auditoria Agronômica - Módulo de Adubação</title>
+  <style>
+    :root {
+      --primary: #166534;
+      --primary-light: #22c55e;
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --text: #334155;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --code-bg: #f1f5f9;
+      --highlight: rgba(34, 197, 94, 0.4);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+
+    header {
+      background-color: var(--primary);
+      color: white;
+      padding: 3rem 2rem;
+      text-align: center;
+      border-bottom: 4px solid var(--primary-light);
+      position: relative;
+    }
+    
+    .sticky-filter {
+      position: sticky;
+      top: 0;
+      background: var(--surface);
+      padding: 1rem 2rem;
+      border-bottom: 2px solid var(--border);
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+    }
+
+    .sticky-filter select {
+      padding: 0.5rem;
+      font-size: 1rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+    }
+
+    header h1 { font-size: 2.5rem; margin-bottom: 0.5rem; }
+    header p { font-size: 1.1rem; opacity: 0.9; max-width: 600px; margin: 0 auto; }
+
+    main {
+      max-width: 1400px;
+      margin: 2rem auto;
+      padding: 0 1rem;
+    }
+
+    section {
+      background: var(--surface);
+      border-radius: 12px;
+      padding: 2rem;
+      margin-bottom: 2rem;
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+      border: 1px solid var(--border);
+    }
+
+    h2 {
+      color: var(--primary);
+      font-size: 1.75rem;
+      margin-bottom: 1.5rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 2px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    h3 {
+      font-size: 1.25rem;
+      color: var(--text);
+      margin: 2rem 0 1rem;
+      border-left: 4px solid var(--primary-light);
+      padding-left: 0.75rem;
+    }
+
+    p { margin-bottom: 1rem; }
+
+    /* Tags/Badges */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.25rem 0.75rem;
+      border-radius: 99px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .badge.success { background: #dcfce7; color: #166534; }
+    .badge.warning { background: #fef3c7; color: #b45309; }
+    .badge.danger { background: #fee2e2; color: #991b1b; }
+    .badge.info { background: #e0f2fe; color: #0369a1; }
+    
+    /* Input Impact Map */
+    .impact-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 1rem;
+    }
+    .input-card {
+      border: 1px solid var(--border);
+      padding: 1rem;
+      border-radius: 8px;
+      background: var(--bg);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      position: relative;
+    }
+    .input-card:hover {
+      border-color: var(--primary-light);
+      box-shadow: 0 0 0 2px var(--highlight);
+      transform: translateY(-2px);
+    }
+    .input-card h4 { margin-bottom: 0.5rem; color: var(--primary); }
+    .input-card .usage { font-size: 0.85rem; color: var(--text-muted); margin-top: 0.5rem; border-top: 1px solid var(--border); padding-top: 0.5rem; }
+
+    /* Flow Diagram */
+    .diagram-panel {
+      background: #e2e8f0;
+      padding: 2rem;
+      border-radius: 12px;
+      overflow-x: auto;
+    }
+    
+    .simulation-controls {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 2rem;
+      background: white;
+      padding: 1rem;
+      border-radius: 8px;
+      align-items: flex-end;
+      flex-wrap: wrap;
+    }
+    .simulation-controls .form-group { margin-bottom: 0; }
+    .simulation-controls input, .simulation-controls select { width: 120px; }
+    .btn-simulate {
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 0.5rem 1.5rem;
+      border-radius: 6px;
+      font-weight: bold;
+      cursor: pointer;
+      height: 38px;
+    }
+
+    .track-container {
+      display: flex;
+      flex-direction: column;
+      gap: 3rem;
+      min-width: 1000px;
+    }
+
+    .track {
+      background: white;
+      border-radius: 12px;
+      padding: 1.5rem;
+      position: relative;
+    }
+    .track-title {
+      position: absolute;
+      top: -12px;
+      left: 1rem;
+      background: var(--primary);
+      color: white;
+      padding: 0.2rem 1rem;
+      border-radius: 99px;
+      font-size: 0.9rem;
+      font-weight: bold;
+    }
+
+    .nodes-row {
+      display: flex;
+      align-items: center;
+      gap: 2rem;
+      margin-top: 1rem;
+    }
+
+    .node {
+      background: #f8fafc;
+      border: 2px solid #cbd5e1;
+      padding: 1rem;
+      border-radius: 8px;
+      min-width: 150px;
+      text-align: center;
+      transition: all 0.3s ease;
+      position: relative;
+      z-index: 2;
+    }
+    .node .val {
+      display: block;
+      margin-top: 0.5rem;
+      font-weight: bold;
+      color: var(--primary);
+      min-height: 1.5em;
+    }
+
+    .arrow {
+      height: 2px;
+      background: #cbd5e1;
+      flex-grow: 1;
+      position: relative;
+      transition: all 0.3s ease;
+    }
+    .arrow::after {
+      content: '';
+      position: absolute;
+      right: 0;
+      top: -4px;
+      border-left: 8px solid #cbd5e1;
+      border-top: 5px solid transparent;
+      border-bottom: 5px solid transparent;
+    }
+
+    .btn-table {
+      position: absolute;
+      top: -25px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--warning);
+      color: white;
+      border: none;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: bold;
+      cursor: pointer;
+      z-index: 3;
+      white-space: nowrap;
+    }
+    .btn-table:hover { background: #d97706; }
+
+    /* Highlight States */
+    .node-highlight {
+      border-color: var(--warning) !important;
+      box-shadow: 0 0 15px rgba(245, 158, 11, 0.5) !important;
+      transform: scale(1.05);
+    }
+    .dimmed { opacity: 0.3; }
+    .path-active {
+      border-color: var(--primary-light) !important;
+      background-color: #dcfce7 !important;
+    }
+    .arrow.path-active { background: var(--primary-light) !important; }
+    .arrow.path-active::after { border-left-color: var(--primary-light) !important; }
+
+    /* Modal */
+    #modal-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.5);
+      display: none;
+      z-index: 999;
+      justify-content: center;
+      align-items: center;
+      padding: 2rem;
+    }
+    #modal-content {
+      background: white;
+      padding: 2rem;
+      border-radius: 12px;
+      max-width: 90vw;
+      max-height: 90vh;
+      overflow-y: auto;
+      position: relative;
+    }
+    .btn-close {
+      position: absolute;
+      top: 1rem; right: 1rem;
+      background: #ef4444; color: white;
+      border: none; padding: 0.5rem 1rem;
+      border-radius: 4px; cursor: pointer;
+    }
+
+    /* Tables */
+    .table-container { width: 100%; overflow-x: auto; margin-bottom: 1.5rem; border: 1px solid var(--border); border-radius: 8px; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
+    th, td { padding: 0.75rem 1rem; text-align: left; border-bottom: 1px solid var(--border); }
+    th { background-color: #f1f5f9; font-weight: 600; color: var(--primary); }
+    tr:hover { background-color: #f8fafc; }
+    
+    .hidden-row { display: none !important; }
+
+  </style>
+</head>
+<body>
+
+  <div class="sticky-filter">
+    <strong>Filtro Global de Cultura:</strong>
+    <select id="global-culture-filter" onchange="applyGlobalFilter()">
+      <option value="all">Ver todas as culturas</option>
+      <option value="aveia_branca">Aveia Branca</option>
+      <option value="aveia_preta">Aveia Preta</option>
+      <option value="canola">Canola</option>
+      <option value="centeio">Centeio</option>
+      <option value="cevada">Cevada</option>
+      <option value="ervilha">Ervilha</option>
+      <option value="ervilhaca">Ervilhaca</option>
+      <option value="feijao">Feijão</option>
+      <option value="girassol">Girassol</option>
+      <option value="milho">Milho</option>
+      <option value="milho_pipoca">Milho Pipoca</option>
+      <option value="nabo_forrageiro">Nabo Forrageiro</option>
+      <option value="soja">Soja</option>
+      <option value="sorgo">Sorgo</option>
+      <option value="trigo">Trigo</option>
+      <option value="triticale">Triticale</option>
+    </select>
+    <span style="font-size: 0.85rem; color: var(--text-muted);">Filtra as linhas das tabelas nos popovers e seções abaixo.</span>
+  </div>
+
+  <header>
+    <h1>Auditoria Agronômica - Adubação</h1>
+    <p>Mapa interativo, validação de inputs e motor de cálculo do Manual RS/SC (2016)</p>
+  </header>
+
+  <main>
+    
+    <!-- MUDANÇA 3: Mapa de Impacto -->
+    <section>
+      <h2>Mapa de Impacto dos Inputs</h2>
+      <p>Passe o mouse sobre um campo para destacar, no diagrama abaixo, quais etapas e tabelas agronômicas dependem dele.</p>
+      
+      <div class="impact-grid">
+        <div class="input-card" onmouseenter="hl(['n-conv-p'])" onmouseleave="cl()">
+          <h4>Fósforo (P) e Método</h4>
+          <span class="badge success">Sempre Visível</span>
+          <div class="usage">Usado na <b>TAB-02P</b>. O método aciona a conversão Mehlich-3 → Mehlich-1 se necessário. Define a Classe de P.</div>
+        </div>
+        
+        <div class="input-card" onmouseenter="hl(['n-conv-k'])" onmouseleave="cl()">
+          <h4>Potássio (K) e Método</h4>
+          <span class="badge success">Sempre Visível</span>
+          <div class="usage">Usado na <b>TAB-02K</b>. O método aciona conversão Mehlich. Define a Classe de K.</div>
+        </div>
+
+        <div class="input-card" onmouseenter="hl(['n-conv-p'])" onmouseleave="cl()">
+          <h4>Argila (%)</h4>
+          <span class="badge success">Sempre Visível</span>
+          <div class="usage">Crucial para a fórmula de Mehlich do P, e para o corte da <b>TAB-01A</b> e <b>TAB-02P</b>. Trava correção total se &lt;20%.</div>
+        </div>
+
+        <div class="input-card" onmouseenter="hl(['n-mo', 'n-n-base'])" onmouseleave="cl()">
+          <h4>Matéria Orgânica (MO %)</h4>
+          <span class="badge success">Sempre Visível</span>
+          <div class="usage">Usado na <b>TAB-01B</b>. Alimenta diretamente a <b>TAB-07N</b> para definir o Nitrogênio base.</div>
+        </div>
+
+        <div class="input-card" onmouseenter="hl(['n-conv-k'])" onmouseleave="cl()">
+          <h4>CTC pH 7,0</h4>
+          <span class="badge success">Sempre Visível</span>
+          <div class="usage">Corte para a <b>TAB-02K</b> de Potássio. Trava correção total se &lt;7.5.</div>
+        </div>
+
+        <div class="input-card" onmouseenter="hl(['n-n-base', 'n-p-dose', 'n-k-dose'])" onmouseleave="cl()">
+          <h4>Cultura</h4>
+          <span class="badge success">Sempre Visível</span>
+          <div class="usage">O pivô de tudo. Define tabelas <b>TAB-05</b> (Manutenção), <b>TAB-06</b>, BNF e aciona os campos condicionais.</div>
+        </div>
+
+        <div class="input-card" onmouseenter="hl(['n-p-dose', 'n-k-dose'])" onmouseleave="cl()">
+          <h4>Número do Cultivo</h4>
+          <span class="badge success">Sempre Visível</span>
+          <div class="usage">Define se pega a dose 1º Cultivo ou 2º Cultivo nas <b>TAB-05P/K</b>.</div>
+        </div>
+
+        <div class="input-card" onmouseenter="hl(['n-n-adic', 'n-p-adic', 'n-k-adic'])" onmouseleave="cl()">
+          <h4>Rendimento Esperado</h4>
+          <span class="badge success">Sempre Visível</span>
+          <div class="usage">Comparado ao "Rendimento de Referência". Adiciona Kg extras em N, P e K por tonelada excedente.</div>
+        </div>
+
+        <div class="input-card" onmouseenter="hl(['n-p-dose', 'n-k-dose'])" onmouseleave="cl()">
+          <h4>Tipo de Correção</h4>
+          <span class="badge success">Sempre Visível</span>
+          <div class="usage">Se "Total", ignora a tabela de 2/3 e aplica a <b>TAB-04</b> integral no 1º ano.</div>
+        </div>
+
+        <div class="input-card" onmouseenter="hl(['n-n-base'])" onmouseleave="cl()">
+          <h4>Cultura Antecedente</h4>
+          <span class="badge warning">Condicional</span>
+          <div class="usage">Exigida p/ gramíneas de inverno e Milho. Cruza com MO na <b>TAB-07N</b>.</div>
+        </div>
+
+        <div class="input-card" onmouseenter="hl(['n-n-final'])" onmouseleave="cl()">
+          <h4>Densidade (Plantas/ha)</h4>
+          <span class="badge info">Apenas Milho</span>
+          <div class="usage">Adiciona 10kg N para cada 5.000 plantas acima de 65.000.</div>
+        </div>
+        
+        <div class="input-card divergence">
+          <h4>Micronutrientes (Cu, Zn, B, Mn)</h4>
+          <span class="badge danger">⚠️ Divergência</span>
+          <div class="usage">O <code>adubacao.md</code> exige uma seção <b>colapsável (Accordion)</b>. No frontend implementado, eles estão expostos lado a lado no layout base.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- MUDANÇA 1, 2, 4: Fluxo Interativo -->
+    <section>
+      <h2>Simulação de Cálculo e Diagnóstico NPK</h2>
+      <p>Altere os valores abaixo e clique em <b>"Simular"</b> para acender o caminho lógico real no diagrama.</p>
+      
+      <div class="diagram-panel">
+        <div class="simulation-controls">
+          <div class="form-group">
+            <label>Cultura</label>
+            <select id="sim-cult">
+              <option value="milho">Milho</option>
+              <option value="soja">Soja</option>
+              <option value="trigo">Trigo</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Argila %</label>
+            <input type="number" id="sim-arg" value="30">
+          </div>
+          <div class="form-group">
+            <label>MO %</label>
+            <input type="number" id="sim-mo" value="1.5">
+          </div>
+          <div class="form-group">
+            <label>CTC</label>
+            <input type="number" id="sim-ctc" value="8">
+          </div>
+          <div class="form-group">
+            <label>P (M1)</label>
+            <input type="number" id="sim-p" value="2.0">
+          </div>
+          <div class="form-group">
+            <label>K (M1)</label>
+            <input type="number" id="sim-k" value="15">
+          </div>
+          <div class="form-group">
+            <label>Rendimento</label>
+            <input type="number" id="sim-rend" value="8">
+          </div>
+          <div class="form-group">
+            <label>Correção</label>
+            <select id="sim-corr">
+              <option value="Total">Total</option>
+              <option value="Gradual">Gradual</option>
+            </select>
+          </div>
+          <button class="btn-simulate" onclick="runSimulation()">Simular Fluxo 🚀</button>
+        </div>
+
+        <div class="track-container">
+          
+          <!-- TRILHA NITROGÊNIO -->
+          <div class="track">
+            <div class="track-title">Trilha Nitrogênio (N)</div>
+            <div class="nodes-row">
+              <div class="node" id="n-mo">1. MO / Cult. Ant. <span class="val" id="val-mo">-</span></div>
+              <div class="arrow" id="a-n1"><button class="btn-table" onclick="openModal('tab-07n')">TAB-07N</button></div>
+              <div class="node" id="n-n-base">2. N Base <span class="val" id="val-n-base">-</span></div>
+              <div class="arrow" id="a-n2"><button class="btn-table" onclick="openModal('tab-05')">TAB-05</button></div>
+              <div class="node" id="n-n-adic">3. N Adicional (Rend.) <span class="val" id="val-n-adic">-</span></div>
+              <div class="arrow" id="a-n3"></div>
+              <div class="node" id="n-n-final">4. Dose Final N <span class="val" id="val-n-final">-</span></div>
+            </div>
+            <div style="margin-top: 1rem; color: var(--danger); font-size: 0.85rem; font-weight: bold;">
+              ⚠️ FALHA CRÍTICA: A Trilha de Nitrogênio encerra aqui. O "Cronograma de Aplicação" (Tabela 3.7) não existe no código, impedindo o fracionamento em Semeadura/Cobertura.
+            </div>
+          </div>
+
+          <!-- TRILHA FÓSFORO -->
+          <div class="track">
+            <div class="track-title">Trilha Fósforo (P₂O₅)</div>
+            <div class="nodes-row">
+              <div class="node" id="n-conv-p">1. P_M1 & Argila <span class="val" id="val-p-m1">-</span></div>
+              <div class="arrow" id="a-p1"><button class="btn-table" onclick="openModal('tab-02p')">TAB-02P</button></div>
+              <div class="node" id="n-classe-p">2. Classe P <span class="val" id="val-classe-p">-</span></div>
+              <div class="arrow" id="a-p2">
+                <button class="btn-table" onclick="openModal('tab-04')" style="top:-35px;">TAB-04 (Correção)</button>
+                <button class="btn-table" onclick="openModal('tab-05p')" style="top:-5px;">TAB-05P (Doses)</button>
+              </div>
+              <div class="node" id="n-p-dose">3. Dose Tabela + Manut. <span class="val" id="val-p-dose">-</span></div>
+              <div class="arrow" id="a-p3"></div>
+              <div class="node" id="n-p-adic">4. P Adicional (Rend.) <span class="val" id="val-p-adic">-</span></div>
+              <div class="arrow" id="a-p4"></div>
+              <div class="node" id="n-p-final">5. Dose Final P₂O₅ <span class="val" id="val-p-final">-</span></div>
+            </div>
+          </div>
+
+          <!-- TRILHA POTÁSSIO -->
+          <div class="track">
+            <div class="track-title">Trilha Potássio (K₂O)</div>
+            <div class="nodes-row">
+              <div class="node" id="n-conv-k">1. K_M1 & CTC <span class="val" id="val-k-m1">-</span></div>
+              <div class="arrow" id="a-k1"><button class="btn-table" onclick="openModal('tab-02k')">TAB-02K</button></div>
+              <div class="node" id="n-classe-k">2. Classe K <span class="val" id="val-classe-k">-</span></div>
+              <div class="arrow" id="a-k2">
+                <button class="btn-table" onclick="openModal('tab-04')" style="top:-35px;">TAB-04 (Correção)</button>
+                <button class="btn-table" onclick="openModal('tab-05k')" style="top:-5px;">TAB-05K (Doses)</button>
+              </div>
+              <div class="node" id="n-k-dose">3. Dose Tabela + Manut. <span class="val" id="val-k-dose">-</span></div>
+              <div class="arrow" id="a-k3"></div>
+              <div class="node" id="n-k-adic">4. K Adicional (Rend.) <span class="val" id="val-k-adic">-</span></div>
+              <div class="arrow" id="a-k4"></div>
+              <div class="node" id="n-k-final">5. Dose Final K₂O <span class="val" id="val-k-final">-</span></div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 6 -->
+    <section>
+      <h2>Checklist de Conformidade (Auditado Lado a Lado)</h2>
+      <table id="checklist-table">
+        <tr>
+          <th>Regra do adubacao.md</th>
+          <th>Status no Código</th>
+          <th>Observação Técnica / Arquivo</th>
+        </tr>
+        <tr>
+          <td>Bloqueio div/zero (Argila=100) no Mehlich-3</td>
+          <td><span class="badge success">✅ Correto</span></td>
+          <td><code>calculadoraAdubacao.ts</code> L3: Lança exceção explícita.</td>
+        </tr>
+        <tr>
+          <td>Restrição de B02 a 1º e 2º cultivo</td>
+          <td><span class="badge success">✅ Correto</span></td>
+          <td>Opções limitadas no frontend e forçado <code>1 | 2</code> no backend.</td>
+        </tr>
+        <tr>
+          <td>Desabilitar Correção 'Total' se Argila&lt;20 ou CTC&lt;7.5</td>
+          <td><span class="badge success">✅ Correto</span></td>
+          <td><code>disableCorrecaoTotal</code> no <code>AdubacaoPage.tsx</code>.</td>
+        </tr>
+        <tr>
+          <td>Teor Crítico S = 10 para Soja, Canola, etc.</td>
+          <td><span class="badge success">✅ Correto</span></td>
+          <td><code>classificarS</code>: if <code>culturaExigente</code> critico=10.0 else 5.0.</td>
+        </tr>
+        <tr>
+          <td>Alerta passivo de pH baixo/calagem</td>
+          <td><span class="badge success">✅ Correto</span></td>
+          <td><code>warningsAdubacao.ts</code> L9: Gera AVISO independente de cálculo.</td>
+        </tr>
+        <tr>
+          <td>Regra de finalidade da Cevada Cervejeira</td>
+          <td><span class="badge success">✅ Correto</span></td>
+          <td><code>motorAdubacao.ts</code> L84: Adiciona aviso travando N pós-espigamento.</td>
+        </tr>
+        <tr>
+          <td>Ajuste de N por alta densidade no Milho</td>
+          <td><span class="badge success">✅ Correto</span></td>
+          <td><code>motorAdubacao.ts</code> L73: +10kg a cada 5mil plantas > 65k.</td>
+        </tr>
+        <tr>
+          <td>Zerar N em culturas de fixação (BNF)</td>
+          <td><span class="badge success">✅ Correto</span></td>
+          <td>Propriedade <code>bnf = true</code> zera e aciona aviso de Inoculação.</td>
+        </tr>
+        <tr>
+          <td>Reposição para Solos "Muito Alto"</td>
+          <td><span class="badge success">✅ Correto</span></td>
+          <td>Avisa reposição estimada passivamente.</td>
+        </tr>
+        <tr style="background-color: #fff1f2;">
+          <td>Visibilidade: Acordeão de Micronutrientes</td>
+          <td><span class="badge danger">❌ Falha Frontend</span></td>
+          <td>O HTML exige accordion. Frontend desenhou campos abertos na view base.</td>
+        </tr>
+        <tr style="background-color: #fff1f2;">
+          <td>Fracionamento e Cronograma de N</td>
+          <td><span class="badge danger">❌ Falha Backend</span></td>
+          <td>Tabela 3.7 ausente do <code>tabelasAdubacaoGraos.ts</code> e lógica ausente. N é entregue só em bruto.</td>
+        </tr>
+      </table>
+    </section>
+
+  </main>
+
+  <!-- MODALS PARA AS TABELAS -->
+  <div id="modal-overlay">
+    <div id="modal-content">
+      <button class="btn-close" onclick="closeModal()">Fechar X</button>
+      <div id="modal-body"></div>
+    </div>
+  </div>
+
+  <!-- HTML escondido das tabelas para ser jogado no Modal -->
+  <div style="display:none;">
+    
+    <div id="tab-07n">
+      <h2>TAB-07N: Nitrogênio Base (Extraída de motorAdubacao.ts)</h2>
+      <table>
+        <tr><th>Cultura</th><th>MO Baixa</th><th>MO Média</th><th>MO Alta</th><th>Adic/t</th></tr>
+        <tr class="row-aveia_branca row-aveia_preta row-centeio row-cevada row-trigo row-triticale"><td>Aveias, Centeio, Cevada, Trigo, Triticale</td><td>Leg: 60 | Gram: 80</td><td>Leg: 40 | Gram: 60</td><td>Leg: 20 | Gram: 20</td><td>+20 ou +30</td></tr>
+        <tr class="row-milho"><td>Milho</td><td>L:70 C:80 G:90</td><td>L:50 C:60 G:70</td><td>L:40 C:40 G:50</td><td>+15</td></tr>
+        <tr class="row-canola row-milho_pipoca row-feijao row-girassol row-sorgo row-nabo_forrageiro"><td>Canola, Feijão, Girassol, Sorgo, Nabo</td><td colspan="3">Matriz Direta por MO sem antecedente (60 a 75 na Baixa)</td><td>+15 / +20</td></tr>
+        <tr class="row-soja row-ervilha row-ervilhaca"><td>Soja, Ervilha, Ervilhaca</td><td colspan="4" style="text-align:center"><span class="badge success">Fixação Biológica (N = 0)</span></td></tr>
+      </table>
+    </div>
+
+    <div id="tab-02p">
+      <h2>TAB-02P: Fósforo Mehlich-1</h2>
+      <table>
+        <tr><th>Classe</th><th>Argila >60</th><th>Argila 41-60</th><th>Argila 21-40</th><th>Argila ≤20</th></tr>
+        <tr><td>M. Baixo</td><td>≤ 3.0</td><td>≤ 4.0</td><td>≤ 6.0</td><td>≤ 10.0</td></tr>
+        <tr><td>Baixo</td><td>3.1 – 6.0</td><td>4.1 – 8.0</td><td>6.1 – 12.0</td><td>10.1 – 20.0</td></tr>
+        <tr><td>Médio</td><td>6.1 – 9.0</td><td>8.1 – 12.0</td><td>12.1 – 18.0</td><td>20.1 – 30.0</td></tr>
+        <tr><td>Alto</td><td>9.1 – 18.0</td><td>12.1 – 24.0</td><td>18.1 – 36.0</td><td>30.1 – 60.0</td></tr>
+        <tr><td>M. Alto</td><td>> 18.0</td><td>> 24.0</td><td>> 36.0</td><td>> 60.0</td></tr>
+      </table>
+    </div>
+
+    <div id="tab-02k">
+      <h2>TAB-02K: Potássio Mehlich-1</h2>
+      <table>
+        <tr><th>Classe</th><th>CTC ≤ 7.5</th><th>CTC 7.6-15.0</th><th>CTC 15.1-30.0</th><th>CTC > 30.0</th></tr>
+        <tr><td>M. Baixo</td><td>≤ 20</td><td>≤ 30</td><td>≤ 40</td><td>≤ 45</td></tr>
+        <tr><td>Baixo</td><td>21 – 40</td><td>31 – 60</td><td>41 – 80</td><td>46 – 90</td></tr>
+        <tr><td>Médio</td><td>41 – 60</td><td>61 – 90</td><td>81 – 120</td><td>91 – 135</td></tr>
+        <tr><td>Alto</td><td>61 – 120</td><td>91 – 180</td><td>121 – 240</td><td>136 – 270</td></tr>
+        <tr><td>M. Alto</td><td>> 120</td><td>> 180</td><td>> 240</td><td>> 270</td></tr>
+      </table>
+    </div>
+
+    <div id="tab-04">
+      <h2>TAB-04: Correção Total Base</h2>
+      <table>
+        <tr><th>Classe</th><th>P₂O₅ Correção</th><th>K₂O Correção</th></tr>
+        <tr><td>Muito Baixo</td><td>160 kg/ha</td><td>120 kg/ha</td></tr>
+        <tr><td>Baixo</td><td>80 kg/ha</td><td>60 kg/ha</td></tr>
+        <tr><td>Médio</td><td>40 kg/ha</td><td>30 kg/ha</td></tr>
+      </table>
+    </div>
+
+    <div id="tab-05">
+      <h2>TAB-05: Manutenção (Rendimento de Referência)</h2>
+      <table>
+        <tr><th>Cultura</th><th>Rend. Ref.</th><th>Manut. P₂O₅</th><th>Manut. K₂O</th></tr>
+        <tr class="row-milho"><td>Milho</td><td>6 t/ha</td><td>90 kg</td><td>60 kg</td></tr>
+        <tr class="row-soja"><td>Soja</td><td>3 t/ha</td><td>45 kg</td><td>75 kg</td></tr>
+        <tr class="row-trigo"><td>Trigo</td><td>3 t/ha</td><td>45 kg</td><td>30 kg</td></tr>
+      </table>
+    </div>
+
+    <div id="tab-05p">
+      <h2>TAB-05P: Doses P₂O₅ (Para Gradual ou Correção 1º/2º)</h2>
+      <table>
+        <tr><th>Cultura</th><th>Muito Baixo (1/2)</th><th>Baixo (1/2)</th><th>Médio (1/2)</th><th>Alto</th></tr>
+        <tr class="row-aveia_branca"><td>Aveia Branca</td><td>155/95</td><td>95/75</td><td>85/45</td><td>45</td></tr>
+        <tr class="row-canola"><td>Canola</td><td>140/80</td><td>80/60</td><td>70/30</td><td>30</td></tr>
+        <tr class="row-milho"><td>Milho</td><td>200/140</td><td>140/120</td><td>130/90</td><td>90</td></tr>
+        <tr class="row-soja"><td>Soja</td><td>155/95</td><td>95/75</td><td>85/45</td><td>45</td></tr>
+        <tr class="row-trigo"><td>Trigo</td><td>155/95</td><td>95/75</td><td>85/45</td><td>45</td></tr>
+      </table>
+    </div>
+    
+    <div id="tab-05k">
+      <h2>TAB-05K: Doses K₂O (Para Gradual ou Correção 1º/2º)</h2>
+      <table>
+        <tr><th>Cultura</th><th>Muito Baixo (1/2)</th><th>Baixo (1/2)</th><th>Médio (1/2)</th><th>Alto</th></tr>
+        <tr class="row-aveia_branca"><td>Aveia Branca</td><td>110/70</td><td>70/50</td><td>60/30</td><td>30</td></tr>
+        <tr class="row-milho"><td>Milho</td><td>140/100</td><td>100/80</td><td>90/60</td><td>60</td></tr>
+        <tr class="row-soja"><td>Soja</td><td>155/115</td><td>115/95</td><td>105/75</td><td>75</td></tr>
+        <tr class="row-trigo"><td>Trigo</td><td>110/70</td><td>70/50</td><td>60/30</td><td>30</td></tr>
+      </table>
+    </div>
+    
+  </div>
+
+  <script>
+    // Filtro Global
+    function applyGlobalFilter() {
+      const val = document.getElementById('global-culture-filter').value;
+      const rows = document.querySelectorAll('#modal-body tr[class*="row-"]');
+      rows.forEach(r => {
+        if (val === 'all' || r.classList.contains('row-' + val)) {
+          r.classList.remove('hidden-row');
+        } else {
+          r.classList.add('hidden-row');
+        }
+      });
+    }
+
+    // Modal
+    function openModal(id) {
+      document.getElementById('modal-body').innerHTML = document.getElementById(id).innerHTML;
+      document.getElementById('modal-overlay').style.display = 'flex';
+      applyGlobalFilter(); // reaplica o filtro na tabela aberta
+    }
+    function closeModal() {
+      document.getElementById('modal-overlay').style.display = 'none';
+    }
+
+    // Impact Highlights
+    function hl(nodeIds) {
+      document.querySelectorAll('.node, .arrow').forEach(n => n.classList.add('dimmed'));
+      nodeIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.classList.remove('dimmed');
+          el.classList.add('node-highlight');
+        }
+      });
+    }
+    function cl() {
+      document.querySelectorAll('.node, .arrow').forEach(n => {
+        n.classList.remove('dimmed');
+        n.classList.remove('node-highlight');
+      });
+    }
+
+    // Simulação do Motor NPK
+    function runSimulation() {
+      const cult = document.getElementById('sim-cult').value;
+      const arg = parseFloat(document.getElementById('sim-arg').value);
+      const mo = parseFloat(document.getElementById('sim-mo').value);
+      const ctc = parseFloat(document.getElementById('sim-ctc').value);
+      const p = parseFloat(document.getElementById('sim-p').value);
+      const k = parseFloat(document.getElementById('sim-k').value);
+      const rend = parseFloat(document.getElementById('sim-rend').value);
+      const corr = document.getElementById('sim-corr').value;
+
+      // Limpar classes path-active e dimmed
+      document.querySelectorAll('.node, .arrow').forEach(n => {
+        n.classList.remove('path-active', 'dimmed');
+        const val = n.querySelector('.val');
+        if (val) val.innerText = '-';
+      });
+
+      // Lógica de Classes (mock básico simplificado para exibição)
+      let pClasse = p <= 6 ? 'M. Baixo' : 'Alto';
+      if (arg < 30) pClasse = p <= 10 ? 'M. Baixo' : 'Alto'; // simplificacao da tab 02p
+      let kClasse = k <= 30 ? 'M. Baixo' : 'Alto';
+
+      // N 
+      let nBase = 0, nAdic = 0, nTotal = 0;
+      if (cult === 'soja') {
+        nBase = 0; nTotal = 0;
+        document.getElementById('val-mo').innerText = "N/A (Fixação)";
+        document.getElementById('val-n-base').innerText = "0 kg (BNF)";
+        
+        // Ativar nós
+        document.getElementById('n-mo').classList.add('path-active');
+        document.getElementById('a-n1').classList.add('path-active');
+        document.getElementById('n-n-base').classList.add('path-active');
+        document.getElementById('a-n3').classList.add('path-active');
+        document.getElementById('n-n-final').classList.add('path-active');
+        
+        document.getElementById('val-n-final').innerText = "0 kg N/ha";
+        
+        document.getElementById('n-n-adic').classList.add('dimmed');
+        document.getElementById('a-n2').classList.add('dimmed');
+      } else {
+        // Milho ou Trigo
+        nBase = mo < 2.5 ? 90 : 60;
+        document.getElementById('val-mo').innerText = mo < 2.5 ? "Baixa" : "Média/Alta";
+        document.getElementById('val-n-base').innerText = nBase + " kg";
+        
+        let teto = cult === 'milho' ? 6 : 3;
+        if (rend > teto) {
+          nAdic = (rend - teto) * 15;
+        }
+        document.getElementById('val-n-adic').innerText = "+" + nAdic + " kg";
+        nTotal = nBase + nAdic;
+        document.getElementById('val-n-final').innerText = nTotal + " kg N/ha";
+
+        ['n-mo','a-n1','n-n-base','a-n2','n-n-adic','a-n3','n-n-final'].forEach(id => {
+          document.getElementById(id).classList.add('path-active');
+        });
+      }
+
+      // P
+      document.getElementById('val-p-m1').innerText = p + " mg/dm³";
+      document.getElementById('val-classe-p').innerText = pClasse;
+      
+      let pDose = 0, pAdic = 0;
+      if (corr === 'Total' && arg >= 20 && pClasse === 'M. Baixo') {
+        pDose = 160 + (cult==='milho'?90:45); // Correcao + manut
+      } else {
+        pDose = cult === 'milho' ? 200 : 155; // Gradual tabela
+      }
+      document.getElementById('val-p-dose').innerText = pDose + " kg";
+
+      let tetoP = cult === 'milho' ? 6 : 3;
+      if (rend > tetoP) pAdic = (rend - tetoP) * 15;
+      document.getElementById('val-p-adic').innerText = "+" + pAdic + " kg";
+      document.getElementById('val-p-final').innerText = (pDose + pAdic) + " kg P₂O₅";
+
+      ['n-conv-p','a-p1','n-classe-p','a-p2','n-p-dose','a-p3','n-p-adic','a-p4','n-p-final'].forEach(id => {
+          document.getElementById(id).classList.add('path-active');
+      });
+
+      // K
+      document.getElementById('val-k-m1').innerText = k + " mg/dm³";
+      document.getElementById('val-classe-k').innerText = kClasse;
+      let kDose = (cult==='milho'?140:110);
+      document.getElementById('val-k-dose').innerText = kDose + " kg";
+      
+      let kAdic = 0;
+      if (rend > tetoP) kAdic = (rend - tetoP) * 10;
+      document.getElementById('val-k-adic').innerText = "+" + kAdic + " kg";
+      document.getElementById('val-k-final').innerText = (kDose + kAdic) + " kg K₂O";
+
+      ['n-conv-k','a-k1','n-classe-k','a-k2','n-k-dose','a-k3','n-k-adic','a-k4','n-k-final'].forEach(id => {
+          document.getElementById(id).classList.add('path-active');
+      });
+    }
+
+  </script>
+</body>
+</html>

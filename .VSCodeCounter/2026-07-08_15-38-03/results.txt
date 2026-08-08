@@ -1,0 +1,163 @@
+Date : 2026-07-08 15:38:03
+Directory : /Users/pedroottoni/ibiferti
+Total : 99 files,  27790 codes, 426 comments, 1599 blanks, all 29815 lines
+
+Languages
++--------------------+------------+------------+------------+------------+------------+
+| language           | files      | code       | comment    | blank      | total      |
++--------------------+------------+------------+------------+------------+------------+
+| JSON               |         12 |     16,475 |          4 |         12 |     16,491 |
+| TypeScript JSX     |         22 |      4,538 |        247 |        435 |      5,220 |
+| TypeScript         |         36 |      3,804 |        150 |        578 |      4,532 |
+| Markdown           |          7 |      1,823 |          0 |        453 |      2,276 |
+| HTML               |          2 |        757 |          8 |         83 |        848 |
+| YAML               |          3 |        139 |          3 |         18 |        160 |
+| MS SQL             |          3 |        117 |          4 |          1 |        122 |
+| XML                |          5 |         38 |          0 |          5 |         43 |
+| JavaScript         |          2 |         32 |          1 |          2 |         35 |
+| Properties         |          1 |         29 |          5 |          6 |         40 |
+| JSON with Comments |          2 |         22 |          0 |          1 |         23 |
+| Docker             |          2 |         14 |          4 |          5 |         23 |
+| PostCSS            |          2 |          2 |          0 |          0 |          2 |
++--------------------+------------+------------+------------+------------+------------+
+
+Directories
++------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| path                                                                         | files      | code       | comment    | blank      | total      |
++------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| .                                                                            |         99 |     27,790 |        426 |      1,599 |     29,815 |
+| . (Files)                                                                    |         11 |      3,546 |         11 |        531 |      4,088 |
+| .github                                                                      |          1 |         52 |          0 |         10 |         62 |
+| .github/workflows                                                            |          1 |         52 |          0 |         10 |         62 |
+| backend                                                                      |         40 |     13,730 |        134 |        445 |     14,309 |
+| backend (Files)                                                              |          6 |      9,125 |          0 |          4 |      9,129 |
+| backend/drizzle                                                              |          7 |      1,832 |          4 |          1 |      1,837 |
+| backend/drizzle (Files)                                                      |          3 |        117 |          4 |          1 |        122 |
+| backend/drizzle/meta                                                         |          4 |      1,715 |          0 |          0 |      1,715 |
+| backend/src                                                                  |         27 |      2,773 |        130 |        440 |      3,343 |
+| backend/src (Files)                                                          |          1 |         24 |          0 |          6 |         30 |
+| backend/src/database                                                         |          5 |        416 |         17 |         78 |        511 |
+| backend/src/middlewares                                                      |          1 |         32 |          1 |          6 |         39 |
+| backend/src/routes                                                           |          6 |        670 |         48 |        100 |        818 |
+| backend/src/schemas                                                          |          3 |        274 |          6 |         47 |        327 |
+| backend/src/services                                                         |          9 |      1,022 |         58 |        149 |      1,229 |
+| backend/src/utils                                                            |          2 |        335 |          0 |         54 |        389 |
+| frontend                                                                     |         47 |     10,462 |        281 |        613 |     11,356 |
+| frontend (Files)                                                             |         12 |      4,925 |         16 |         38 |      4,979 |
+| frontend/public                                                              |          3 |         36 |          0 |          4 |         40 |
+| frontend/src                                                                 |         32 |      5,501 |        265 |        571 |      6,337 |
+| frontend/src (Files)                                                         |          4 |         65 |         10 |          9 |         84 |
+| frontend/src/assets                                                          |          2 |          2 |          0 |          1 |          3 |
+| frontend/src/components                                                      |          4 |        298 |         18 |         26 |        342 |
+| frontend/src/contexts                                                        |          1 |         86 |         18 |         29 |        133 |
+| frontend/src/layouts                                                         |          2 |         96 |         17 |         14 |        127 |
+| frontend/src/pages                                                           |         13 |      3,995 |        184 |        357 |      4,536 |
+| frontend/src/schemas                                                         |          2 |        281 |          6 |         36 |        323 |
+| frontend/src/services                                                        |          4 |        678 |         12 |         99 |        789 |
++------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+
+Files
++------------------------------------------------------------------------------+--------------------+------------+------------+------------+------------+
+| filename                                                                     | language           | code       | comment    | blank      | total      |
++------------------------------------------------------------------------------+--------------------+------------+------------+------------+------------+
+| /Users/pedroottoni/ibiferti/.github/workflows/main.yml                       | YAML               |         52 |          0 |         10 |         62 |
+| /Users/pedroottoni/ibiferti/README.md                                        | Markdown           |         33 |          0 |         12 |         45 |
+| /Users/pedroottoni/ibiferti/adubacao.md                                      | Markdown           |        949 |          0 |        212 |      1,161 |
+| /Users/pedroottoni/ibiferti/auditoria_adubacao.html                          | HTML               |        744 |          8 |         82 |        834 |
+| /Users/pedroottoni/ibiferti/backend/Dockerfile                               | Docker             |          7 |          0 |          0 |          7 |
+| /Users/pedroottoni/ibiferti/backend/drizzle.config.ts                        | TypeScript         |         10 |          0 |          1 |         11 |
+| /Users/pedroottoni/ibiferti/backend/drizzle/0000_concerned_chameleon.sql     | MS SQL             |         58 |          1 |          1 |         60 |
+| /Users/pedroottoni/ibiferti/backend/drizzle/0001_smart_spacker_dave.sql      | MS SQL             |         16 |          2 |          0 |         18 |
+| /Users/pedroottoni/ibiferti/backend/drizzle/0002_dear_thanos.sql             | MS SQL             |         43 |          1 |          0 |         44 |
+| /Users/pedroottoni/ibiferti/backend/drizzle/meta/0000_snapshot.json          | JSON               |        398 |          0 |          0 |        398 |
+| /Users/pedroottoni/ibiferti/backend/drizzle/meta/0001_snapshot.json          | JSON               |        500 |          0 |          0 |        500 |
+| /Users/pedroottoni/ibiferti/backend/drizzle/meta/0002_snapshot.json          | JSON               |        790 |          0 |          0 |        790 |
+| /Users/pedroottoni/ibiferti/backend/drizzle/meta/_journal.json               | JSON               |         27 |          0 |          0 |         27 |
+| /Users/pedroottoni/ibiferti/backend/package-lock.json                        | JSON               |      9,004 |          0 |          1 |      9,005 |
+| /Users/pedroottoni/ibiferti/backend/package.json                             | JSON               |         49 |          0 |          1 |         50 |
+| /Users/pedroottoni/ibiferti/backend/src/database/adubacao.ts                 | TypeScript         |         30 |          0 |          7 |         37 |
+| /Users/pedroottoni/ibiferti/backend/src/database/analises.ts                 | TypeScript         |        139 |          2 |         19 |        160 |
+| /Users/pedroottoni/ibiferti/backend/src/database/db.ts                       | TypeScript         |          7 |          0 |          2 |          9 |
+| /Users/pedroottoni/ibiferti/backend/src/database/fazendas.ts                 | TypeScript         |         90 |          4 |         15 |        109 |
+| /Users/pedroottoni/ibiferti/backend/src/database/schema.ts                   | TypeScript         |        150 |         11 |         35 |        196 |
+| /Users/pedroottoni/ibiferti/backend/src/middlewares/authMiddleware.ts        | TypeScript         |         32 |          1 |          6 |         39 |
+| /Users/pedroottoni/ibiferti/backend/src/routes/adminRoutes.ts                | TypeScript         |        151 |         13 |         18 |        182 |
+| /Users/pedroottoni/ibiferti/backend/src/routes/adubacaoRoutes.ts             | TypeScript         |         93 |         10 |         14 |        117 |
+| /Users/pedroottoni/ibiferti/backend/src/routes/analisesRoutes.ts             | TypeScript         |        186 |         11 |         27 |        224 |
+| /Users/pedroottoni/ibiferti/backend/src/routes/authRoutes.ts                 | TypeScript         |         75 |          3 |         16 |         94 |
+| /Users/pedroottoni/ibiferti/backend/src/routes/fazendasRoutes.ts             | TypeScript         |        104 |         11 |         18 |        133 |
+| /Users/pedroottoni/ibiferti/backend/src/routes/standaloneRoutes.ts           | TypeScript         |         61 |          0 |          7 |         68 |
+| /Users/pedroottoni/ibiferti/backend/src/schemas/adubacaoSchema.ts            | TypeScript         |         74 |          6 |          6 |         86 |
+| /Users/pedroottoni/ibiferti/backend/src/schemas/authSchema.ts                | TypeScript         |         16 |          0 |          3 |         19 |
+| /Users/pedroottoni/ibiferti/backend/src/schemas/calagemSchema.ts             | TypeScript         |        184 |          0 |         38 |        222 |
+| /Users/pedroottoni/ibiferti/backend/src/server.ts                            | TypeScript         |         24 |          0 |          6 |         30 |
+| /Users/pedroottoni/ibiferti/backend/src/services/calculadoraAdubacao.ts      | TypeScript         |          9 |          0 |          2 |         11 |
+| /Users/pedroottoni/ibiferti/backend/src/services/calculadoraCalagem.ts       | TypeScript         |        121 |          0 |         28 |        149 |
+| /Users/pedroottoni/ibiferti/backend/src/services/motorAdubacao.ts            | TypeScript         |        152 |         13 |         23 |        188 |
+| /Users/pedroottoni/ibiferti/backend/src/services/motorCalagem.ts             | TypeScript         |        250 |          1 |         28 |        279 |
+| /Users/pedroottoni/ibiferti/backend/src/services/motorStandalone.ts          | TypeScript         |        124 |         13 |         20 |        157 |
+| /Users/pedroottoni/ibiferti/backend/src/services/tabelaSmp.ts                | TypeScript         |         43 |         19 |          8 |         70 |
+| /Users/pedroottoni/ibiferti/backend/src/services/tabelasAdubacaoGraos.ts     | TypeScript         |        244 |          8 |         24 |        276 |
+| /Users/pedroottoni/ibiferti/backend/src/services/warnings.ts                 | TypeScript         |         14 |          0 |          7 |         21 |
+| /Users/pedroottoni/ibiferti/backend/src/services/warningsAdubacao.ts         | TypeScript         |         65 |          4 |          9 |         78 |
+| /Users/pedroottoni/ibiferti/backend/src/utils/adubacao.test.ts               | TypeScript         |         58 |          0 |         11 |         69 |
+| /Users/pedroottoni/ibiferti/backend/src/utils/calagem.test.ts                | TypeScript         |        277 |          0 |         43 |        320 |
+| /Users/pedroottoni/ibiferti/backend/test_insert.ts                           | TypeScript         |         40 |          0 |          1 |         41 |
+| /Users/pedroottoni/ibiferti/backend/tsconfig.json                            | JSON with Comments |         15 |          0 |          0 |         15 |
+| /Users/pedroottoni/ibiferti/docker-compose.prod.yml                          | YAML               |         50 |          3 |          5 |         58 |
+| /Users/pedroottoni/ibiferti/docker-compose.yml                               | YAML               |         37 |          0 |          3 |         40 |
+| /Users/pedroottoni/ibiferti/extracao_funcoes_sql.md                          | Markdown           |        164 |          0 |         35 |        199 |
+| /Users/pedroottoni/ibiferti/frontend/Dockerfile                              | Docker             |          7 |          4 |          5 |         16 |
+| /Users/pedroottoni/ibiferti/frontend/README.md                               | Markdown           |         60 |          0 |         14 |         74 |
+| /Users/pedroottoni/ibiferti/frontend/eslint.config.js                        | JavaScript         |         22 |          0 |          2 |         24 |
+| /Users/pedroottoni/ibiferti/frontend/index.html                              | HTML               |         13 |          0 |          1 |         14 |
+| /Users/pedroottoni/ibiferti/frontend/nginx.conf                              | Properties         |         29 |          5 |          6 |         40 |
+| /Users/pedroottoni/ibiferti/frontend/package-lock.json                       | JSON               |      4,670 |          0 |          1 |      4,671 |
+| /Users/pedroottoni/ibiferti/frontend/package.json                            | JSON               |         44 |          0 |          1 |         45 |
+| /Users/pedroottoni/ibiferti/frontend/public/favicon.svg                      | XML                |          1 |          0 |          0 |          1 |
+| /Users/pedroottoni/ibiferti/frontend/public/favicon2.svg                     | XML                |         11 |          0 |          3 |         14 |
+| /Users/pedroottoni/ibiferti/frontend/public/icons.svg                        | XML                |         24 |          0 |          1 |         25 |
+| /Users/pedroottoni/ibiferti/frontend/src/App.css                             | PostCSS            |          1 |          0 |          0 |          1 |
+| /Users/pedroottoni/ibiferti/frontend/src/App.tsx                             | TypeScript JSX     |         54 |         10 |          8 |         72 |
+| /Users/pedroottoni/ibiferti/frontend/src/assets/react.svg                    | XML                |          1 |          0 |          0 |          1 |
+| /Users/pedroottoni/ibiferti/frontend/src/assets/vite.svg                     | XML                |          1 |          0 |          1 |          2 |
+| /Users/pedroottoni/ibiferti/frontend/src/components/Modal.tsx                | TypeScript JSX     |         28 |          0 |          3 |         31 |
+| /Users/pedroottoni/ibiferti/frontend/src/components/ModalDetalhesAnalise.tsx | TypeScript JSX     |        161 |          5 |         12 |        178 |
+| /Users/pedroottoni/ibiferti/frontend/src/components/Navbar.tsx               | TypeScript JSX     |         86 |          3 |          5 |         94 |
+| /Users/pedroottoni/ibiferti/frontend/src/components/ProtectedRoute.tsx       | TypeScript JSX     |         23 |         10 |          6 |         39 |
+| /Users/pedroottoni/ibiferti/frontend/src/contexts/AuthContext.tsx            | TypeScript JSX     |         86 |         18 |         29 |        133 |
+| /Users/pedroottoni/ibiferti/frontend/src/index.css                           | PostCSS            |          1 |          0 |          0 |          1 |
+| /Users/pedroottoni/ibiferti/frontend/src/layouts/DashboardLayout.tsx         | TypeScript JSX     |         84 |         12 |         11 |        107 |
+| /Users/pedroottoni/ibiferti/frontend/src/layouts/PublicLayout.tsx            | TypeScript JSX     |         12 |          5 |          3 |         20 |
+| /Users/pedroottoni/ibiferti/frontend/src/main.tsx                            | TypeScript JSX     |          9 |          0 |          1 |         10 |
+| /Users/pedroottoni/ibiferti/frontend/src/pages/AdminAnalisesPage.tsx         | TypeScript JSX     |        172 |          9 |         21 |        202 |
+| /Users/pedroottoni/ibiferti/frontend/src/pages/AdminDashboardPage.tsx        | TypeScript JSX     |        210 |          8 |         19 |        237 |
+| /Users/pedroottoni/ibiferti/frontend/src/pages/AdminUsersPage.tsx            | TypeScript JSX     |        343 |          4 |         24 |        371 |
+| /Users/pedroottoni/ibiferti/frontend/src/pages/AdubacaoPage.tsx              | TypeScript JSX     |        348 |          2 |         34 |        384 |
+| /Users/pedroottoni/ibiferti/frontend/src/pages/CalculadoraPage.tsx           | TypeScript JSX     |        896 |         40 |         66 |      1,002 |
+| /Users/pedroottoni/ibiferti/frontend/src/pages/FazendasPage.tsx              | TypeScript JSX     |        349 |         11 |         29 |        389 |
+| /Users/pedroottoni/ibiferti/frontend/src/pages/HistoricoAnalisesPage.tsx     | TypeScript JSX     |        243 |         17 |         29 |        289 |
+| /Users/pedroottoni/ibiferti/frontend/src/pages/LoginPage.tsx                 | TypeScript JSX     |        124 |         11 |         17 |        152 |
+| /Users/pedroottoni/ibiferti/frontend/src/pages/MonitoramentoPage.tsx         | TypeScript JSX     |        254 |          8 |         23 |        285 |
+| /Users/pedroottoni/ibiferti/frontend/src/pages/NovaAnalisePage.tsx           | TypeScript JSX     |        338 |         16 |         32 |        386 |
+| /Users/pedroottoni/ibiferti/frontend/src/pages/RegisterPage.tsx              | TypeScript JSX     |        227 |         16 |         22 |        265 |
+| /Users/pedroottoni/ibiferti/frontend/src/pages/TalhaoDetalhesPage.tsx        | TypeScript JSX     |        184 |         34 |         19 |        237 |
+| /Users/pedroottoni/ibiferti/frontend/src/pages/ValidacaoAgronomicaPage.tsx   | TypeScript JSX     |        307 |          8 |         22 |        337 |
+| /Users/pedroottoni/ibiferti/frontend/src/schemas/adubacaoSchema.ts           | TypeScript         |         74 |          6 |          6 |         86 |
+| /Users/pedroottoni/ibiferti/frontend/src/schemas/calagemSchema.ts            | TypeScript         |        207 |          0 |         30 |        237 |
+| /Users/pedroottoni/ibiferti/frontend/src/services/api.ts                     | TypeScript         |        161 |          6 |         34 |        201 |
+| /Users/pedroottoni/ibiferti/frontend/src/services/ibge.ts                    | TypeScript         |         23 |          0 |          3 |         26 |
+| /Users/pedroottoni/ibiferti/frontend/src/services/pdfGenerator.ts            | TypeScript         |        372 |          0 |         41 |        413 |
+| /Users/pedroottoni/ibiferti/frontend/src/services/pdfGeneratorAdubacao.ts    | TypeScript         |        122 |          6 |         21 |        149 |
+| /Users/pedroottoni/ibiferti/frontend/tailwind.config.js                      | JavaScript         |         10 |          1 |          0 |         11 |
+| /Users/pedroottoni/ibiferti/frontend/tsconfig.app.json                       | JSON               |         21 |          2 |          3 |         26 |
+| /Users/pedroottoni/ibiferti/frontend/tsconfig.json                           | JSON with Comments |          7 |          0 |          1 |          8 |
+| /Users/pedroottoni/ibiferti/frontend/tsconfig.node.json                      | JSON               |         20 |          2 |          3 |         25 |
+| /Users/pedroottoni/ibiferti/frontend/vite.config.ts                          | TypeScript         |         22 |          2 |          1 |         25 |
+| /Users/pedroottoni/ibiferti/package-lock.json                                | JSON               |        937 |          0 |          1 |        938 |
+| /Users/pedroottoni/ibiferti/package.json                                     | JSON               |         15 |          0 |          1 |         16 |
+| /Users/pedroottoni/ibiferti/plano_implementacao_adubacao.md                  | Markdown           |         57 |          0 |         18 |         75 |
+| /Users/pedroottoni/ibiferti/regras_calagem_graos_v2.md                       | Markdown           |        489 |          0 |        150 |        639 |
+| /Users/pedroottoni/ibiferti/revisao.md                                       | Markdown           |         71 |          0 |         12 |         83 |
+| Total                                                                        |                    |     27,790 |        426 |      1,599 |     29,815 |
++------------------------------------------------------------------------------+--------------------+------------+------------+------------+------------+

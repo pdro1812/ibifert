@@ -167,43 +167,28 @@ export function CalculadoraPage() {
     resolver: zodResolver(CalagemSchema),
     shouldUnregister: true,
     defaultValues: {
-      modo: 'simplificado',
       sistema_manejo: 'CONVENCIONAL',
       primeira_calagem: true,
       opcao_superficial_campo_natural: false,
     },
   });
 
-  const modoForm           = useWatch({ control, name: 'modo' });
   const sistemaSelecionado = useWatch({ control, name: 'sistema_manejo' });
   const primeiraCalagem    = useWatch({ control, name: 'primeira_calagem' });
   const smpValor           = useWatch({ control, name: 'SMP' });
   const pHValor            = useWatch({ control, name: 'pH_agua' });
   const monitoramento      = useWatch({ control, name: 'monitoramento' });
 
-  const isSimplificado   = modoForm === 'simplificado';
-
-  // ── Efeito: Resetar campos ao alternar modo ──────────────────────────────
-  useEffect(() => {
-    if (isSimplificado) {
-      setValue('primeira_calagem', true);
-      setValue('opcao_superficial_campo_natural', false);
-      // Limpa erros de campos que não estão visíveis no simplificado
-      clearErrors(['primeira_calagem', 'V_atual', 'CTC_pH7', 'Al_sat', 'MO', 'Al_trocavel']);
-    }
-  }, [isSimplificado, setValue, clearErrors]);
-
   const temSmpInformado  = typeof smpValor === 'number';
   const temPhInformado   = typeof pHValor  === 'number';
   const metodoRoteado    = temSmpInformado ? rotearMetodoCalagem(smpValor) : null;
-  const isPolinomial     = !isSimplificado && metodoRoteado === 'POLINOMIAL';
-  const isReaplicacaoSMP = !isSimplificado && primeiraCalagem === false && metodoRoteado === 'SMP';
+  const isPolinomial     = metodoRoteado === 'POLINOMIAL';
+  const isReaplicacaoSMP = primeiraCalagem === false && metodoRoteado === 'SMP';
   const isPDConsolidado  = sistemaSelecionado === 'PD_CONSOLIDADO';
   const isPDImplantacao  = sistemaSelecionado === 'PD_IMPLANTACAO';
-  const precisaAlSat     = !isSimplificado && isPDConsolidado && temPhInformado && pHValor < 5.5;
+  const precisaAlSat     = isPDConsolidado && temPhInformado && pHValor < 5.5;
   const modoAlSatAtual   = precisaAlSat ? modoAlSat : 'direto';
   const restricao10_20   =
-    !isSimplificado &&
     isPDConsolidado &&
     monitoramentoAtivo &&
     detectarRestricaoMonitoramento(monitoramento);
@@ -311,37 +296,6 @@ export function CalculadoraPage() {
 
         <form onSubmit={handleSubmit(onSubmitValidado, onErrorNoForm)} noValidate className="space-y-8">
 
-          {/* ── Bloco: Modo de Uso ───────────────────────────────────────── */}
-          <div className="flex flex-col gap-4 rounded-2xl border border-stone-100 bg-stone-50 p-6 md:flex-row md:items-center md:justify-between">
-            <div>
-              <h3 className="text-sm font-bold uppercase tracking-wider text-stone-500">Modo de Diagnóstico</h3>
-              <p className="text-xs text-stone-400">Escolha o nível de detalhamento dos dados.</p>
-            </div>
-            <div className="flex rounded-xl bg-white p-1 shadow-sm">
-              <label className="relative flex cursor-pointer items-center">
-                <input
-                  type="radio"
-                  value="simplificado"
-                  {...register('modo')}
-                  className="peer sr-only"
-                />
-                <span className="rounded-lg px-6 py-2 text-sm font-bold text-stone-500 transition-all peer-checked:bg-stone-900 peer-checked:text-white">
-                  Cálculo Rápido
-                </span>
-              </label>
-              <label className="relative flex cursor-pointer items-center">
-                <input
-                  type="radio"
-                  value="avancado"
-                  {...register('modo')}
-                  className="peer sr-only"
-                />
-                <span className="rounded-lg px-6 py-2 text-sm font-bold text-stone-500 transition-all peer-checked:bg-stone-900 peer-checked:text-white">
-                  Cálculo Técnico
-                </span>
-              </label>
-            </div>
-          </div>
 
           {/* ── Bloco: Localização ──────────────────────────────────────── */}
           <div className="space-y-5 rounded-2xl border border-stone-100 bg-stone-50 p-6">
@@ -394,31 +348,29 @@ export function CalculadoraPage() {
               </div>
             </div>
 
-            {/* Identificação (Somente Avançado) */}
-            {!isSimplificado && (
-              <div className="space-y-1">
-                <label className="flex justify-between text-xs font-semibold text-stone-600">
-                  Identificação <span className="font-normal text-stone-400">Opcional</span>
-                </label>
-                <input
-                  type="text"
-                  placeholder="Ex: Talhão da Caixa d'água"
-                  {...register('identificacao')}
-                  className="w-full rounded-xl border border-stone-200 bg-white px-4 py-3 shadow-sm outline-none focus:border-green-500"
-                />
-              </div>
-            )}
+            {/* Identificação */}
+            <div className="space-y-1">
+              <label className="flex justify-between text-xs font-semibold text-stone-600">
+                Identificação <span className="font-normal text-stone-400">Opcional</span>
+              </label>
+              <input
+                type="text"
+                placeholder="Ex: Talhão da Caixa d'água"
+                {...register('identificacao')}
+                className="w-full rounded-xl border border-stone-200 bg-white px-4 py-3 shadow-sm outline-none focus:border-green-500"
+              />
+            </div>
           </div>
 
           {/* ── Bloco: Configuração do Sistema ──────────────────────────── */}
           <div className="space-y-5 rounded-2xl border border-stone-100 bg-stone-50 p-6">
             <h3 className="text-sm font-bold uppercase tracking-wider text-stone-500">
-              {isSimplificado ? 'Dados para Diagnóstico' : 'Configuração do Sistema'}
+              Configuração do Sistema
             </h3>
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               {/* Sistema de Manejo */}
-              <div className={isSimplificado ? 'col-span-full space-y-1' : 'space-y-1'}>
+              <div className="space-y-1">
                 <div className="group relative flex w-max items-center gap-2">
                   <label className="text-xs font-semibold text-stone-600">Sistema de Manejo *</label>
                   <div className="cursor-help text-yellow-500"><Lightbulb size={14} /></div>
@@ -451,27 +403,24 @@ export function CalculadoraPage() {
                 </select>
               </div>
 
-              {/* Tipo de Aplicação (Somente Avançado) */}
-              {!isSimplificado && (
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-stone-600">Tipo de Aplicação *</label>
-                  <select
-                    {...register('primeira_calagem', { setValueAs: (v) => v === 'true' })}
-                    className={`w-full rounded-xl border px-4 py-3 shadow-sm outline-none transition-all ${
-                      errors.primeira_calagem
-                        ? 'border-red-400 bg-red-50'
-                        : 'border-stone-200 bg-white focus:border-green-500'
-                    }`}
-                  >
-                    <option value="true">Primeira calagem</option>
-                    <option value="false">Reaplicação</option>
-                  </select>
-                </div>
-              )}
+              {/* Tipo de Aplicação */}
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-stone-600">Tipo de Aplicação *</label>
+                <select
+                  {...register('primeira_calagem', { setValueAs: (v) => v === 'true' })}
+                  className={`w-full rounded-xl border px-4 py-3 shadow-sm outline-none transition-all ${
+                    errors.primeira_calagem
+                      ? 'border-red-400 bg-red-50'
+                      : 'border-stone-200 bg-white focus:border-green-500'
+                  }`}
+                >
+                  <option value="true">Primeira calagem</option>
+                  <option value="false">Reaplicação</option>
+                </select>
+              </div>
             </div>
 
-            {/* PRNT e Dados de Solo Agrupados no modo Simplificado */}
-            <div className={`grid grid-cols-1 gap-4 ${isSimplificado ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <CampoNumerico
                 label="PRNT (%) *"
                 name="PRNT"
@@ -482,32 +431,10 @@ export function CalculadoraPage() {
                 error={errors.PRNT}
                 dica="PRNT deve estar no intervalo (0, 100]."
               />
-              {isSimplificado && (
-                <>
-                  <CampoNumerico
-                    label="pH em água *"
-                    name="pH_agua"
-                    min={3.5}
-                    max={8}
-                    placeholder="Ex: 5,2"
-                    register={register}
-                    error={errors.pH_agua}
-                  />
-                  <CampoNumerico
-                    label="Índice SMP *"
-                    name="SMP"
-                    min={4.4}
-                    max={7.1}
-                    placeholder="Ex: 5,5"
-                    register={register}
-                    error={errors.SMP}
-                  />
-                </>
-              )}
             </div>
 
-            {/* Modo de aplicação — PD Implantação (Somente Avançado) */}
-            {isPDImplantacao && !isSimplificado ? (
+            {/* Modo de aplicação — PD Implantação */}
+            {isPDImplantacao ? (
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-stone-600">Modo de Aplicação *</label>
                 <select
@@ -521,9 +448,8 @@ export function CalculadoraPage() {
             ) : null}
           </div>
 
-          {/* ── Bloco: Dados de Solo (Somente Avançado) ────────────────────── */}
-          {!isSimplificado && (
-            <div className="space-y-5 rounded-2xl border border-stone-100 bg-stone-50 p-6">
+          {/* ── Bloco: Dados de Solo ────────────────────── */}
+          <div className="space-y-5 rounded-2xl border border-stone-100 bg-stone-50 p-6">
               <div className="flex flex-wrap items-center gap-2">
                 <h3 className="text-sm font-bold uppercase tracking-wider text-stone-500">Dados de Solo</h3>
                 {isPDConsolidado ? (
@@ -698,10 +624,9 @@ export function CalculadoraPage() {
                 </div>
               ) : null}
             </div>
-          )}
 
           {/* ── Bloco: Monitoramento de Profundidade (só PD Consolidado) ── */}
-          {isPDConsolidado && !isSimplificado ? (
+          {isPDConsolidado ? (
             <div className="space-y-5 rounded-2xl border border-stone-100 bg-stone-50 p-6">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
@@ -895,23 +820,6 @@ export function CalculadoraPage() {
                 ))}
               </div>
 
-              {isSimplificado && (
-                <div className="rounded-xl border border-stone-200 bg-white/40 p-4 shadow-sm">
-                  <p className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-stone-500">
-                    <Info size={14} /> Premissas do Cálculo Rápido
-                  </p>
-                  <ul className="space-y-1 text-[11px] text-stone-500">
-                    <li>• Considerada primeira calagem da área.</li>
-                    <li>• Sem restrições na camada de 10-20 cm.</li>
-                    <li>• pH alvo padrão: 6,0 (Grãos).</li>
-                    {smpValor !== undefined && smpValor > 6.3 && (
-                      <li className="font-bold text-orange-600">
-                        • Solo requer dados de MO/Al para maior precisão.
-                      </li>
-                    )}
-                  </ul>
-                </div>
-              )}
 
               {resultado.profundidade_cm ? (
                 <div className="rounded-xl border border-stone-200 bg-white/80 p-4 text-sm text-stone-700 shadow-sm">
