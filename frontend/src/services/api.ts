@@ -215,3 +215,11 @@ export async function getAnaliseAdubacaoId(id: string) {
   const res = await api.get(`/adubacao/${id}`);
   return res.data;
 }
+
+export async function postAdubacaoBulk(data: {
+  talhao_id: string;
+  amostras: any[];
+}) {
+  const res = await api.post('/adubacao/bulk', data);
+  return res.data;
+}
