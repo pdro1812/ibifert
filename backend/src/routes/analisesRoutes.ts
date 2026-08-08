@@ -2,9 +2,9 @@ import { Router } from 'express';
 import { executarMotorCalagem } from '../services/motorCalagem';
 import { validarEntrada } from '../services/calculadoraCalagem';
 import { CalagemValidationError } from '../schemas/calagemSchema';
-import { eq, count, sql, inArray } from 'drizzle-orm';
+import { eq, count, sql, inArray, desc } from 'drizzle-orm';
 import { db } from '../database/db';
-import { analises } from '../database/schema';
+import { analises, analisesAdubacao } from '../database/schema';
 import { salvarAnalise, listarAnalises, salvarLoteAnalises } from '../database/analises';
 import { verificarToken, AuthRequest } from '../middlewares/authMiddleware';
 
@@ -210,8 +210,24 @@ analisesRoutes.get('/regional-stats', async (req: AuthRequest, res) => {
 analisesRoutes.get('/historico', verificarToken, async (req: AuthRequest, res) => {
   try {
     const isAdmin = req.userRole === 'ADMIN';
-    const registros = await listarAnalises(isAdmin ? undefined : req.userId);
-    res.status(200).json({ sucesso: true, dados: registros });
+    const calagens = await listarAnalises(isAdmin ? undefined : req.userId);
+    
+    // Buscar também as de adubação
+    let adubacoes = [];
+    if (isAdmin) {
+      adubacoes = await db.select().from(analisesAdubacao).orderBy(desc(analisesAdubacao.criado_em));
+    } else if (req.userId) {
+      adubacoes = await db.select().from(analisesAdubacao).where(eq(analisesAdubacao.usuario_id, req.userId)).orderBy(desc(analisesAdubacao.criado_em));
+    }
+
+    const unified = [
+      ...calagens.map(a => ({ ...a, tipo: 'CALAGEM' })),
+      ...adubacoes.map(a => ({ ...a, tipo: 'ADUBACAO' }))
+    ];
+
+    unified.sort((a, b) => new Date(b.criado_em).getTime() - new Date(a.criado_em).getTime());
+
+    res.status(200).json({ sucesso: true, dados: unified });
   } catch (error: any) {
     res.status(500).json({
       sucesso: false,
