@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
+import { JWT_SECRET } from '../config/env';
 
 // Estendendo o Request do Express para embutir o ID e Role do usuário logado
 export interface AuthRequest extends Request {
@@ -18,7 +19,7 @@ export function verificarToken(req: AuthRequest, res: Response, next: NextFuncti
   const [, token] = authHeader.split(' ');
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'super-secret-key') as { id: string; role: string };
+    const decoded = jwt.verify(token, JWT_SECRET) as { id: string; role: string };
     req.userId = decoded.id;
     req.userRole = decoded.role;
     next();
