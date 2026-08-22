@@ -93,7 +93,7 @@ export function obtemDoseDiretoConsolidadoSemRestricao(
   ph_referencia_informado: number,
   prnt: number | null
 ): StandaloneResult {
-  if (ph_0_10 >= 5.5 && saturacao_base_0_10 >= 65 && saturacao_aluminio_0_10 < 10) {
+  if (ph_0_10 >= 5.5 || (saturacao_base_0_10 >= 65 && saturacao_aluminio_0_10 < 10)) {
     return {
       dose_recomendada: 0,
       msg: 'Não é necessária a aplicação de corretivo de acidez do solo na área analisada, pois os valores de pH, saturação por alumínio e saturação por bases não trazem indícios de acidez no solo.',
@@ -103,20 +103,27 @@ export function obtemDoseDiretoConsolidadoSemRestricao(
   }
 
   const phAlvo = (ph_referencia_informado === 6) ? 6.0 : ph_referencia_informado as any;
-  let dose = tabelaSmpLookup(smp_0_10, phAlvo);
+  let dose = tabelaSmpLookup(smp_0_10, phAlvo) / 4;
 
-  dose = dose / 4;
+  const modo_aplicacao = 0;
+  const excedeuLimite = dose > 5.0;
+  if (excedeuLimite) {
+    dose = 5.0;
+  }
 
   if (prnt !== null && prnt > 0) {
     dose = (dose * 100) / prnt;
   }
 
-  const modo_aplicacao = 0;
+  const msg = excedeuLimite
+    ? `Dose calculada excede o limite de 5 t/ha para aplicação superficial. Recomendação ajustada para ${dose.toFixed(3)} t ha-1 de calcário, de modo ${choicesModoAplicacao(modo_aplicacao)}. A correção completa poderá requerer reaplicação futura.`
+    : `Com base nas informações fornecidas, a recomendação é aplicar ${dose.toFixed(3)} t ha-1 de calcário, de modo ${choicesModoAplicacao(modo_aplicacao)}`;
+
   return {
     dose_recomendada: dose,
     modo_aplicacao,
     erro: null,
-    msg: `Com base nas informações fornecidas, a recomendação é aplicar ${dose.toFixed(3)} t ha-1 de calcário, de modo ${choicesModoAplicacao(modo_aplicacao)}`,
+    msg,
   };
 }
 
@@ -130,7 +137,7 @@ export function obtemDoseDiretoConsolidadoComRestricao(
   ph_referencia_informado: number,
   prnt: number | null
 ): StandaloneResult {
-  if (ph_10_20 >= 5.5 && saturacao_aluminio_10_20 <= 30) {
+  if (ph_10_20 >= 5.5 || saturacao_aluminio_10_20 < 30) {
     return {
       dose_recomendada: 0,
       msg: 'Não é necessária a aplicação de corretivo de acidez do solo na área analisada, pois a saturação de alumínio se encontra igual ou inferior a 30% e o pH se encontra igual ou superior a 5,5. Verifique a condição da área novamente.',
