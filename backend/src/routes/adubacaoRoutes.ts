@@ -178,7 +178,10 @@ adubacaoRoutes.get('/', verificarToken, async (req: AuthRequest, res) => {
 // Endpoint para buscar análise específica
 adubacaoRoutes.get('/:id', verificarToken, async (req: AuthRequest, res) => {
   try {
-    const analise = await buscarAnaliseAdubacaoPorId(req.params.id);
+    if (!req.userId) {
+      return res.status(401).json({ error: 'Usuário não autenticado' });
+    }
+    const analise = await buscarAnaliseAdubacaoPorId(req.params.id, req.userId);
     if (!analise) {
       return res.status(404).json({ error: 'Análise não encontrada' });
     }
