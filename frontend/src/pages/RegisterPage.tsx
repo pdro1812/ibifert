@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { AlertCircle, Leaf, Loader2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { recuperarAnalisePendente } from '../services/pendencias';
 
 // ─── Schema ──────────────────────────────────────────────────────────────────
 
@@ -54,11 +55,10 @@ export function RegisterPage() {
     try {
       await cadastrar(data);
 
-      // Lida com redirecionamento de análise pendente caso o usuário tenha chegado aqui por lá
-      const pendente = sessionStorage.getItem('analisePendente');
-      if (pendente) {
-        sessionStorage.removeItem('analisePendente');
-        navigate('/dashboard/nova-analise', { replace: true });
+      // Se havia uma análise calculada antes do cadastro, recupera e salva agora
+      const recuperada = await recuperarAnalisePendente();
+      if (recuperada) {
+        navigate(recuperada.destino, { state: { resultadoRecuperado: recuperada.resultado }, replace: true });
         return;
       }
 

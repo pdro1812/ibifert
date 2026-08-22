@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import type { FieldError, FieldPath, UseFormRegister } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -9,7 +9,7 @@ import {
 import { AdubacaoSchema, type EntradaAdubacao } from '../schemas/adubacaoSchema';
 import { calcularAdubacao, salvarAdubacao } from '../services/api';
 import { gerarPDFRelatorioAdubacao } from '../services/pdfGeneratorAdubacao';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 const CampoNumerico = ({
@@ -62,13 +62,24 @@ const SelectPadrao = ({
 );
 
 export function AdubacaoPage() {
-  const [resultado, setResultado] = useState<any | null>(null);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { isLoggedIn } = useAuth();
+
+  const resultadoRecuperado = (location.state as { resultadoRecuperado?: any } | null)?.resultadoRecuperado;
+  const [resultado, setResultado] = useState<any | null>(resultadoRecuperado ?? null);
   const [loading, setLoading] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
   const [salvo, setSalvo] = useState(false);
 
-  const navigate = useNavigate();
-  const { isLoggedIn } = useAuth();
+  // Limpa o state de navegação após consumir o resultado recuperado, para
+  // não reaplicá-lo se o usuário navegar de volta para esta página depois.
+  useEffect(() => {
+    if (resultadoRecuperado) {
+      navigate(location.pathname, { replace: true, state: null });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const {
     register,
