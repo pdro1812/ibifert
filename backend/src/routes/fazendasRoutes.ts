@@ -7,9 +7,12 @@ import {
   createFazenda,
   deleteFazenda,
   getFazendasByUsuario,
+  getFazendaPorIdEUsuario,
   createTalhao,
   deleteTalhao,
   getTalhoesByFazenda,
+  getTalhaoById,
+  getAnalisesByTalhao,
 } from '../database/fazendas';
 
 export const fazendasRouter = Router();
@@ -61,10 +64,11 @@ fazendasRouter.post('/', async (req, res) => {
   }
 });
 
-// DELETE /api/fazendas/:id  →  remove fazenda e seus talhões
+// DELETE /api/fazendas/:id  →  remove fazenda e seus talhões (só do dono)
 fazendasRouter.delete('/:id', async (req, res) => {
   try {
-    const fazenda = await deleteFazenda(req.params.id);
+    const usuarioId = (req as AuthRequest).userId as string;
+    const fazenda = await deleteFazenda(req.params.id, usuarioId);
     if (!fazenda) return res.status(404).json({ error: 'Fazenda não encontrada.' });
     res.json(fazenda);
   } catch (err) {
@@ -75,15 +79,19 @@ fazendasRouter.delete('/:id', async (req, res) => {
 
 // ── Talhoes ───────────────────────────────────────────────────────────────────
 
-// POST /api/fazendas/:fazendaId/talhoes  →  cria talhão vinculado à fazenda
+// POST /api/fazendas/:fazendaId/talhoes  →  cria talhão vinculado à fazenda (só do dono)
 fazendasRouter.post('/:fazendaId/talhoes', async (req, res) => {
   try {
+    const usuarioId = (req as AuthRequest).userId as string;
     const { fazendaId } = req.params;
     const { nome, cultura } = req.body as { nome: string; cultura: string };
 
     if (!nome || !cultura) {
       return res.status(400).json({ error: 'nome e cultura são obrigatórios.' });
     }
+
+    const fazenda = await getFazendaPorIdEUsuario(fazendaId, usuarioId);
+    if (!fazenda) return res.status(404).json({ error: 'Fazenda não encontrada.' });
 
     const talhao = await createTalhao({ fazenda_id: fazendaId, nome, cultura });
     res.status(201).json(talhao);
@@ -93,10 +101,11 @@ fazendasRouter.post('/:fazendaId/talhoes', async (req, res) => {
   }
 });
 
-// DELETE /api/fazendas/talhoes/:id  →  remove talhão
+// DELETE /api/fazendas/talhoes/:id  →  remove talhão (só do dono)
 fazendasRouter.delete('/talhoes/:id', async (req, res) => {
   try {
-    const talhao = await deleteTalhao(req.params.id);
+    const usuarioId = (req as AuthRequest).userId as string;
+    const talhao = await deleteTalhao(req.params.id, usuarioId);
     if (!talhao) return res.status(404).json({ error: 'Talhão não encontrado.' });
     res.json(talhao);
   } catch (err) {
@@ -105,12 +114,11 @@ fazendasRouter.delete('/talhoes/:id', async (req, res) => {
   }
 });
 
-// GET /api/fazendas/talhoes/:id  →  busca detalhes de um talhão
+// GET /api/fazendas/talhoes/:id  →  busca detalhes de um talhão (só do dono)
 fazendasRouter.get('/talhoes/:id', async (req, res) => {
   try {
-    const { id } = req.params;
-    const { getTalhaoById } = require('../database/fazendas');
-    const talhao = await getTalhaoById(id);
+    const usuarioId = (req as AuthRequest).userId as string;
+    const talhao = await getTalhaoById(req.params.id, usuarioId);
     if (!talhao) return res.status(404).json({ error: 'Talhão não encontrado.' });
     res.json(talhao);
   } catch (err) {
@@ -119,12 +127,14 @@ fazendasRouter.get('/talhoes/:id', async (req, res) => {
   }
 });
 
-// GET /api/fazendas/talhoes/:id/analises  →  busca histórico de análises de um talhão
+// GET /api/fazendas/talhoes/:id/analises  →  busca histórico de análises de um talhão (só do dono)
 fazendasRouter.get('/talhoes/:id/analises', async (req, res) => {
   try {
-    const { id } = req.params;
-    const { getAnalisesByTalhao } = require('../database/fazendas');
-    const rows = await getAnalisesByTalhao(id);
+    const usuarioId = (req as AuthRequest).userId as string;
+    const talhao = await getTalhaoById(req.params.id, usuarioId);
+    if (!talhao) return res.status(404).json({ error: 'Talhão não encontrado.' });
+
+    const rows = await getAnalisesByTalhao(req.params.id);
     res.json(rows);
   } catch (err) {
     console.error(err);
