@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import { rateLimit } from 'express-rate-limit';
 import { eq, or } from 'drizzle-orm';
 import { db } from '../database/db';
 import { users } from '../database/schema';
@@ -9,8 +10,16 @@ import { RegistroSchema, LoginSchema } from '../schemas/authSchema';
 export const authRoutes = Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-key';
 
+const limitadorAuth = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { erro: 'Muitas tentativas. Aguarde alguns minutos e tente novamente.' },
+});
+
 // Rota de Cadastro
-authRoutes.post('/register', async (req, res) => {
+authRoutes.post('/register', limitadorAuth, async (req, res) => {
   try {
     const dados = RegistroSchema.parse(req.body);
 
@@ -58,7 +67,7 @@ authRoutes.post('/register', async (req, res) => {
 });
 
 // Rota de Login
-authRoutes.post('/login', async (req, res) => {
+authRoutes.post('/login', limitadorAuth, async (req, res) => {
   try {
     const dados = LoginSchema.parse(req.body);
 
