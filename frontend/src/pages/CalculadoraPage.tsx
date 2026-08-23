@@ -422,7 +422,7 @@ export function CalculadoraPage() {
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-stone-600">Tipo de Aplicação *</label>
                 <select
-                  {...register('primeira_calagem', { setValueAs: (v) => v === 'true' })}
+                  {...register('primeira_calagem', { setValueAs: (v) => v === true || v === 'true' })}
                   className={`w-full rounded-xl border px-4 py-3 shadow-sm outline-none transition-all ${
                     errors.primeira_calagem
                       ? 'border-red-400 bg-red-50'
@@ -453,7 +453,7 @@ export function CalculadoraPage() {
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-stone-600">Modo de Aplicação *</label>
                 <select
-                  {...register('opcao_superficial_campo_natural', { setValueAs: (v) => v === 'true' })}
+                  {...register('opcao_superficial_campo_natural', { setValueAs: (v) => v === true || v === 'true' })}
                   className="w-full rounded-xl border border-stone-200 bg-white px-4 py-3 shadow-sm outline-none focus:border-green-500"
                 >
                   <option value="false">Incorporado (padrão)</option>
