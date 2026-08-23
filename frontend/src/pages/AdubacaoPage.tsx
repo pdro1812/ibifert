@@ -12,6 +12,16 @@ import { gerarPDFRelatorioAdubacao } from '../services/pdfGeneratorAdubacao';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
+export function normalizarNumero(valor: unknown): number | undefined {
+  if (valor === '' || valor === null || valor === undefined) return undefined;
+  if (typeof valor === 'number') return Number.isNaN(valor) ? undefined : valor;
+  if (typeof valor === 'string') {
+    const n = Number(valor.replace(',', '.').trim());
+    return Number.isNaN(n) ? undefined : n;
+  }
+  return undefined;
+}
+
 const CampoNumerico = ({
   label, name, register, error, dica, min, max, step = '0.1', placeholder
 }: {
@@ -31,7 +41,7 @@ const CampoNumerico = ({
       className={`w-full rounded-xl border bg-stone-50/50 px-4 py-2.5 text-sm outline-none transition-all focus:border-green-500 focus:bg-white focus:ring-4 focus:ring-green-500/10 ${
         error ? 'border-red-400 bg-red-50/50 focus:border-red-500 focus:ring-red-500/10' : 'border-stone-200'
       }`}
-      {...register(name, { valueAsNumber: true })}
+      {...register(name, { setValueAs: normalizarNumero })}
     />
     {error && <span className="text-xs font-medium text-red-500">{error.message}</span>}
     {dica && !error && <span className="text-xs text-stone-400">{dica}</span>}
@@ -87,6 +97,7 @@ export function AdubacaoPage() {
     control,
     reset,
     getValues,
+    setValue,
     formState: { errors },
   } = useForm<EntradaAdubacaoForm, any, EntradaAdubacao>({
     resolver: zodResolver(AdubacaoSchema),
@@ -173,6 +184,16 @@ export function AdubacaoPage() {
   const exigeCultAnt = watchCultura ? culturasComAnt.includes(watchCultura) : false;
 
   const disableCorrecaoTotal = (watchArgila !== undefined && watchArgila < 20) || (watchCtc !== undefined && watchCtc < 7.5);
+  const watchTipoCorrecao = useWatch({ control, name: 'tipo_correcao' });
+
+  // Se o solo deixar de atender Argila>=20%/CTC>=7.5 depois de "Total" já
+  // selecionado, a opção fica disabled no dropdown mas o valor do form
+  // continuava "Total" — travava o envio sem nenhum feedback visível.
+  useEffect(() => {
+    if (disableCorrecaoTotal && watchTipoCorrecao === 'Total') {
+      setValue('tipo_correcao', 'Gradual');
+    }
+  }, [disableCorrecaoTotal, watchTipoCorrecao, setValue]);
 
   const onSubmit = async (data: EntradaAdubacao) => {
     try {
@@ -296,11 +317,20 @@ export function AdubacaoPage() {
               <SelectPadrao label="Cultura" name="cultura" register={register} error={errors.cultura} placeholder="Selecione..." options={[
                 { value: 'soja', label: 'Soja' },
                 { value: 'milho', label: 'Milho' },
+                { value: 'milho_pipoca', label: 'Milho Pipoca' },
                 { value: 'aveia_branca', label: 'Aveia Branca' },
                 { value: 'aveia_preta', label: 'Aveia Preta' },
                 { value: 'cevada', label: 'Cevada' },
                 { value: 'trigo', label: 'Trigo' },
+                { value: 'triticale', label: 'Triticale' },
+                { value: 'centeio', label: 'Centeio' },
                 { value: 'feijao', label: 'Feijão' },
+                { value: 'canola', label: 'Canola' },
+                { value: 'girassol', label: 'Girassol' },
+                { value: 'sorgo', label: 'Sorgo' },
+                { value: 'ervilha', label: 'Ervilha' },
+                { value: 'ervilhaca', label: 'Ervilhaca' },
+                { value: 'nabo_forrageiro', label: 'Nabo Forrageiro' },
               ]} />
               <CampoNumerico label="Rendimento (t/ha)" name="rendimento_esperado" register={register} error={errors.rendimento_esperado} placeholder="Ex: 4.5" />
               <SelectPadrao label="Número do Cultivo" name="num_cultivo" register={register} error={errors.num_cultivo} options={[
@@ -325,16 +355,32 @@ export function AdubacaoPage() {
                     Total {disableCorrecaoTotal ? '(Argila <20 ou CTC <7.5)' : ''}
                   </option>
                 </select>
+                {errors.tipo_correcao && (
+                  <span className="text-xs font-medium text-red-500">{errors.tipo_correcao.message}</span>
+                )}
               </div>
             </div>
 
-            {exigeCultAnt && (
+            {(exigeCultAnt || watchCultura === 'milho') && (
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <SelectPadrao label="Cultura Antecedente *" name="cultura_antecedente" register={register} error={errors.cultura_antecedente} placeholder="Selecione..." options={[
-                  { value: 'Leguminosa', label: 'Leguminosa (Ex: Soja)' },
-                  { value: 'Gramínea', label: 'Gramínea (Ex: Milho, Trigo)' },
-                  ...(watchCultura === 'milho' ? [{ value: 'Consorciação ou Pousio', label: 'Consorciação ou Pousio' }] : [])
-                ]} />
+                {exigeCultAnt && (
+                  <SelectPadrao label="Cultura Antecedente *" name="cultura_antecedente" register={register} error={errors.cultura_antecedente} placeholder="Selecione..." options={[
+                    { value: 'Leguminosa', label: 'Leguminosa (Ex: Soja)' },
+                    { value: 'Gramínea', label: 'Gramínea (Ex: Milho, Trigo)' },
+                    ...(watchCultura === 'milho' ? [{ value: 'Consorciação ou Pousio', label: 'Consorciação ou Pousio' }] : [])
+                  ]} />
+                )}
+                {watchCultura === 'milho' && (
+                  <CampoNumerico
+                    label="Densidade de Plantas (plantas/ha)"
+                    name="densidade_plantas"
+                    register={register}
+                    error={errors.densidade_plantas}
+                    placeholder="Ex: 70000"
+                    step="1000"
+                    dica="Acima de 65.000 plantas/ha, aplica bônus de N a cada 5.000 plantas extras."
+                  />
+                )}
               </div>
             )}
 
