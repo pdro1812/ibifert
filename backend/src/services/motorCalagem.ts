@@ -111,7 +111,7 @@ export function executarMotorCalagem(
     const Al_sat_resolvido = resolverAlSat(entrada);
 
     if (
-      pH_agua >= 5.5 && entrada.V_atual !== undefined &&
+      entrada.V_atual !== undefined &&
       entrada.V_atual >= 65.0 &&
       Al_sat_resolvido !== undefined &&
       Al_sat_resolvido < 10.0
