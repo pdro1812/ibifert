@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import jwt from 'jsonwebtoken';
 import { executarMotorCalagem } from '../services/motorCalagem';
 import { validarEntrada } from '../services/calculadoraCalagem';
 import { CalagemValidationError } from '../schemas/calagemSchema';
@@ -7,6 +8,7 @@ import { db } from '../database/db';
 import { analises, analisesAdubacao } from '../database/schema';
 import { salvarAnalise, listarAnalises, salvarLoteAnalises } from '../database/analises';
 import { verificarToken, AuthRequest } from '../middlewares/authMiddleware';
+import { JWT_SECRET } from '../config/env';
 
 export const analisesRoutes = Router();
 
@@ -25,7 +27,7 @@ analisesRoutes.post('/calcular', async (req: AuthRequest, res) => {
     if (authHeader) {
       try {
         const [, token] = authHeader.split(' ');
-        const decoded = (require('jsonwebtoken')).verify(token, process.env.JWT_SECRET || 'super-secret-key') as { id: string };
+        const decoded = jwt.verify(token, JWT_SECRET) as { id: string };
         usuario_id = decoded.id;
       } catch (e) { /* ignore */ }
     }

@@ -5,9 +5,9 @@ import { eq, or } from 'drizzle-orm';
 import { db } from '../database/db';
 import { users } from '../database/schema';
 import { RegistroSchema, LoginSchema } from '../schemas/authSchema';
+import { JWT_SECRET } from '../config/env';
 
 export const authRoutes = Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-key';
 
 // Rota de Cadastro
 authRoutes.post('/register', async (req, res) => {
@@ -53,6 +53,7 @@ authRoutes.post('/register', async (req, res) => {
     });
 
   } catch (error: any) {
+    console.error("Erro na rota de cadastro:", error.errors || error.message);
     res.status(400).json({ erro: 'Falha no cadastro', detalhes: error.errors || error.message });
   }
 });

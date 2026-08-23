@@ -165,10 +165,10 @@ adubacaoRoutes.post('/bulk', verificarToken, async (req: AuthRequest, res) => {
 // Endpoint para listar as análises do usuário logado
 adubacaoRoutes.get('/', verificarToken, async (req: AuthRequest, res) => {
   try {
-    if (!req.user) {
+    if (!req.userId) {
       return res.status(401).json({ error: 'Usuário não autenticado' });
     }
-    const analises = await listarAnalisesAdubacaoPorUsuario(req.user.id);
+    const analises = await listarAnalisesAdubacaoPorUsuario(req.userId);
     res.json(analises);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
