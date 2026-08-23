@@ -392,3 +392,52 @@ com os selects de sistema/tipo de calagem, deixando-os no valor padrão.
 Roda local com `npm run test:e2e` em `frontend/`, e no CI a cada push em
 `main` (job `test-frontend-e2e` em `.github/workflows/main.yml`), antes do
 build/push das imagens Docker.
+
+### 9.2 Segunda reimplementação da regra — "Inserção Rápida de Lotes"
+
+`frontend/src/pages/NovaAnalisePage.tsx` (tela `/dashboard/nova-analise`,
+aba Calagem/Adubação) tem sua **própria reimplementação** da mesma regra
+de campos condicionais da §9, numa função separada (`isCellEnabled`) que
+habilita/desabilita colunas da planilha de lote em vez de blocos JSX. Ela
+não reaproveita nada de `CalculadoraPage.tsx` nem de `determinarCamposNecessarios()`
+— é lógica duplicada, com risco de divergência (o mesmo risco já citado na
+nota da §2 sobre o `.superRefine()` e o `determinarCamposNecessarios()`
+precisarem ficar sincronizados).
+
+> **Dois bugs corrigidos em 2026-08-23**, encontrados ao auditar essa
+> reimplementação contra o `CalagemSchema`/`AdubacaoSchema` (fonte real de
+> validação no envio, em `handleSalvarTudo`):
+>
+> 1. **Erro de nome de propriedade**: `configGlobais` guarda o estado como
+>    `primeiraCalagem` (camelCase), mas `isCellEnabled` lia
+>    `configGlobais.primeira_calagem` (snake_case) — propriedade
+>    inexistente, sempre `undefined`. Na prática, o toggle "1ª Calagem /
+>    Reaplicação" da tela **não tinha nenhum efeito** em quais colunas
+>    apareciam; a coluna `v_atual`/`ctc` ficava habilitada só em função do
+>    SMP, ignorando se era reaplicação de verdade.
+> 2. **Consequência prática**: em `PD Consolidado + Reaplicação + pH < 5.5
+>    + SMP > 6.3`, a coluna `V (%)` (`v_atual`) ficava **desabilitada**,
+>    mas o `CalagemSchema` exige esse campo nesse exato caso (trava
+>    RN-04/§6.3 em reaplicação) — o lote nunca conseguia ser salvo, sem
+>    nenhuma forma de corrigir pela tela.
+> 3. **Bug separado, Adubação**: `AdubacaoSchema` exige `finalidade_cevada`
+>    sempre que `cultura === 'cevada'`, mas essa tela não tinha esse campo
+>    em nenhum lugar das Configurações Globais — **qualquer lote de
+>    Cevada falhava ao salvar, sempre**, não só em algum caso de borda.
+>
+> Corrigido: `isCellEnabled` agora usa `configGlobais.primeiraCalagem` e
+> exige reaplicação (`!primeiraCalagem`) para liberar `v_atual` via a trava
+> do PD Consolidado (antes exigia o oposto); foi adicionado o campo
+> "Finalidade Cevada" nas Configurações Globais de Adubação, espelhando as
+> mesmas opções de `AdubacaoPage.tsx`.
+
+Cobertura de teste: `frontend/src/pages/NovaAnalisePage.test.ts` (Vitest)
+exporta `isCellEnabled` e testa a mesma matriz de combinações da §9.1,
+mas perguntando diretamente ao `CalagemSchema.safeParse()` real se cada
+campo é exigido — se `isCellEnabled` algum dia desabilitar um campo que o
+schema exige, o teste falha (é assim que ele detectou o bug acima). Roda
+com `npm test` em `frontend/`, e no CI antes dos testes e2e (mesmo job
+`test-frontend-e2e`). O bug da Cevada foi corrigido e verificado por
+leitura direta do código + `tsc --noEmit`, sem teste automatizado
+dedicado — não há harness de teste de componente (Testing Library) neste
+projeto ainda para cobrir a renderização condicional do campo na tela.
