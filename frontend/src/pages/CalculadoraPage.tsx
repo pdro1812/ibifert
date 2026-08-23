@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useForm, useWatch } from 'react-hook-form';
 import type {
   FieldError,
@@ -130,10 +130,12 @@ const CampoNumerico = ({
 
 export function CalculadoraPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { isLoggedIn } = useAuth();
 
   // ── Local state ──────────────────────────────────────────────────────────
-  const [resultado, setResultado] = useState<CalagemResultado | null>(null);
+  const resultadoRecuperado = (location.state as { resultadoRecuperado?: CalagemResultado } | null)?.resultadoRecuperado;
+  const [resultado, setResultado] = useState<CalagemResultado | null>(resultadoRecuperado ?? null);
   const [loading, setLoading] = useState(false);
   const [salvo, setSalvo] = useState(false);
   const [mensagemApi, setMensagemApi] = useState<string | null>(null);
@@ -147,6 +149,15 @@ export function CalculadoraPage() {
   const [erroTermos, setErroTermos] = useState(false);
   const [modoAlSat, setModoAlSat] = useState<'direto' | 'calculado'>('direto');
   const [monitoramentoAtivo, setMonitoramentoAtivo] = useState(false);
+
+  // Limpa o state de navegação após consumir o resultado recuperado, para
+  // não reaplicá-lo se o usuário navegar de volta para esta página depois.
+  useEffect(() => {
+    if (resultadoRecuperado) {
+      navigate(location.pathname, { replace: true, state: null });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── IBGE ─────────────────────────────────────────────────────────────────
   useEffect(() => { ibgeService.getEstados().then(setEstados); }, []);
@@ -239,7 +250,13 @@ export function CalculadoraPage() {
 
   const handleTentarSalvar = () => {
     if (!isLoggedIn) {
-      sessionStorage.setItem('analisePendente', JSON.stringify({ dados: getValues(), resultado }));
+      sessionStorage.setItem(
+        'analisePendente',
+        JSON.stringify({
+          dados: getValues(),
+          localizacao: { uf: ufSelecionada, cidade: cidadeSelecionada },
+        })
+      );
       navigate('/login');
       return;
     }
