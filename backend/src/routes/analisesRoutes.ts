@@ -215,7 +215,7 @@ analisesRoutes.get('/historico', verificarToken, async (req: AuthRequest, res) =
     const calagens = await listarAnalises(isAdmin ? undefined : req.userId);
     
     // Buscar também as de adubação
-    let adubacoes = [];
+    let adubacoes: any[] = [];
     if (isAdmin) {
       adubacoes = await db.select().from(analisesAdubacao).orderBy(desc(analisesAdubacao.criado_em));
     } else if (req.userId) {
