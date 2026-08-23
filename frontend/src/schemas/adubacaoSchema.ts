@@ -14,16 +14,17 @@ export const NumCultivoSchema = z.enum(['1', '2']);
 export const FinalidadeCevadaSchema = z.enum(['cervejeira_malte_unico', 'malte_especial', 'outra']);
 
 export const AdubacaoSchema = z.object({
+  identificacao: z.string().optional(),
   // Grupo A - Solo
-  argila: z.number({ required_error: "Argila é obrigatória" }).min(0).max(99, "Argila deve ser <= 99%"),
-  MO: z.number({ required_error: "Matéria Orgânica é obrigatória" }).positive().max(20, "MO deve ser <= 20%"),
-  CTC_pH7: z.number({ required_error: "CTC é obrigatória" }).positive(),
-  P: z.number({ required_error: "Fósforo é obrigatório" }).positive(),
+  argila: z.number({ error: "Argila é obrigatória" }).min(0).max(99, "Argila deve ser <= 99%"),
+  MO: z.number({ error: "Matéria Orgânica é obrigatória" }).positive().max(20, "MO deve ser <= 20%"),
+  CTC_pH7: z.number({ error: "CTC é obrigatória" }).positive(),
+  P: z.number({ error: "Fósforo é obrigatório" }).positive(),
   metodo_P: MetodoExtratorSchema,
-  K: z.number({ required_error: "Potássio é obrigatório" }).positive(),
+  K: z.number({ error: "Potássio é obrigatório" }).positive(),
   metodo_K: MetodoExtratorSchema,
-  Ca: z.number({ required_error: "Cálcio é obrigatório" }).positive(),
-  Mg: z.number({ required_error: "Magnésio é obrigatório" }).positive(),
+  Ca: z.number({ error: "Cálcio é obrigatório" }).positive(),
+  Mg: z.number({ error: "Magnésio é obrigatório" }).positive(),
   S: z.number().positive().optional(),
   Cu: z.number().min(0).optional(),
   Zn: z.number().min(0).optional(),
@@ -34,7 +35,7 @@ export const AdubacaoSchema = z.object({
   // Grupo B - Cultura e Manejo
   cultura: CulturaSchema,
   num_cultivo: NumCultivoSchema,
-  rendimento_esperado: z.number({ required_error: "Rendimento esperado é obrigatório" }).positive(),
+  rendimento_esperado: z.number({ error: "Rendimento esperado é obrigatório" }).positive(),
   cultura_antecedente: CulturaAntecedenteSchema.optional(),
   sistema_cultivo: SistemaCultivoSchema,
   tipo_correcao: TipoCorrecaoSchema.default('Gradual'),
@@ -83,3 +84,4 @@ export const AdubacaoSchema = z.object({
 });
 
 export type EntradaAdubacao = z.infer<typeof AdubacaoSchema>;
+export type EntradaAdubacaoForm = z.input<typeof AdubacaoSchema>;

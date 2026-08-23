@@ -11,7 +11,7 @@ import {
   rotearMetodoCalagem,
 } from '../schemas/calagemSchema';
 
-import type { EntradaAdubacao } from '../schemas/adubacaoSchema';
+import type { EntradaAdubacao, EntradaAdubacaoForm } from '../schemas/adubacaoSchema';
 
 export const api = axios.create({
   baseURL: '/api',
@@ -201,7 +201,7 @@ export async function calcularAdubacao(dados: EntradaAdubacao) {
   return res.data;
 }
 
-export async function salvarAdubacao(payload: { dadosForm: EntradaAdubacao, resultado: any }) {
+export async function salvarAdubacao(payload: { dadosForm: EntradaAdubacaoForm, resultado: any }) {
   const res = await api.post('/adubacao/salvar', payload);
   return res.data;
 }
