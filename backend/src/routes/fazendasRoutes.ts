@@ -3,6 +3,7 @@
 import { Router } from 'express';
 import { verificarToken } from '../middlewares/authMiddleware';
 import type { AuthRequest } from '../middlewares/authMiddleware';
+import { CriarFazendaSchema, CriarTalhaoSchema } from '../schemas/fazendasSchema';
 import {
   createFazenda,
   deleteFazenda,
@@ -46,19 +47,14 @@ fazendasRouter.get('/', async (req, res) => {
 fazendasRouter.post('/', async (req, res) => {
   try {
     const usuarioId = (req as AuthRequest).userId as string;
-    const { nome, municipio, uf } = req.body as {
-      nome: string;
-      municipio: string;
-      uf: string;
-    };
-
-    if (!nome || !municipio || !uf) {
-      return res.status(400).json({ error: 'nome, municipio e uf são obrigatórios.' });
-    }
+    const { nome, municipio, uf } = CriarFazendaSchema.parse(req.body);
 
     const fazenda = await createFazenda({ usuario_id: usuarioId, nome, municipio, uf });
     res.status(201).json(fazenda);
-  } catch (err) {
+  } catch (err: any) {
+    if (err.name === 'ZodError') {
+      return res.status(400).json({ error: 'Erro de validação', details: err.errors });
+    }
     console.error(err);
     res.status(500).json({ error: 'Erro ao criar fazenda.' });
   }
@@ -84,18 +80,17 @@ fazendasRouter.post('/:fazendaId/talhoes', async (req, res) => {
   try {
     const usuarioId = (req as AuthRequest).userId as string;
     const { fazendaId } = req.params;
-    const { nome, cultura } = req.body as { nome: string; cultura: string };
-
-    if (!nome || !cultura) {
-      return res.status(400).json({ error: 'nome e cultura são obrigatórios.' });
-    }
+    const { nome, cultura } = CriarTalhaoSchema.parse(req.body);
 
     const fazenda = await getFazendaPorIdEUsuario(fazendaId, usuarioId);
     if (!fazenda) return res.status(404).json({ error: 'Fazenda não encontrada.' });
 
     const talhao = await createTalhao({ fazenda_id: fazendaId, nome, cultura });
     res.status(201).json(talhao);
-  } catch (err) {
+  } catch (err: any) {
+    if (err.name === 'ZodError') {
+      return res.status(400).json({ error: 'Erro de validação', details: err.errors });
+    }
     console.error(err);
     res.status(500).json({ error: 'Erro ao criar talhão.' });
   }
