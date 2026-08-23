@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { AlertCircle, Leaf, Loader2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { recuperarAnalisePendente } from '../services/pendencias';
 
 // ─── Schema ──────────────────────────────────────────────────────────────────
 
@@ -52,19 +53,31 @@ export function RegisterPage() {
   const onSubmit = async (data: RegisterFormValues) => {
     setApiError(null);
     try {
-      await cadastrar(data);
+      const payload = {
+        ...data,
+        cpf: data.cpf.replace(/\D/g, '')
+      };
+      await cadastrar(payload);
 
-      // Lida com redirecionamento de análise pendente caso o usuário tenha chegado aqui por lá
-      const pendente = sessionStorage.getItem('analisePendente');
-      if (pendente) {
-        sessionStorage.removeItem('analisePendente');
-        navigate('/dashboard/nova-analise', { replace: true });
+      // Se havia uma análise calculada antes do cadastro, recupera e salva agora
+      const recuperada = await recuperarAnalisePendente();
+      if (recuperada) {
+        navigate(recuperada.destino, { state: { resultadoRecuperado: recuperada.resultado }, replace: true });
         return;
       }
 
       navigate(from, { replace: true });
-    } catch (error) {
-      setApiError('Ocorreu um erro ao criar a conta. Verifique os dados e tente novamente.');
+    } catch (error: any) {
+      console.error("Erro de API:", error.response?.data);
+
+      let msgErro = 'Ocorreu um erro ao criar a conta. Verifique os dados e tente novamente.';
+      if (error.response?.data?.erro) {
+        msgErro = error.response.data.erro;
+        if (error.response?.data?.detalhes && Array.isArray(error.response.data.detalhes)) {
+          msgErro += ' - ' + error.response.data.detalhes.map((d: any) => d.message).join(', ');
+        }
+      }
+      setApiError(msgErro);
     }
   };
 
