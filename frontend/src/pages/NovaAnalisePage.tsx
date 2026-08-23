@@ -147,7 +147,7 @@ export function NovaAnalisePage() {
   const [cultura, setCultura] = useState('soja');
   const [rendimento, setRendimento] = useState('4.5');
   const [numCultivo, setNumCultivo] = useState('1');
-  const [sistemaCultivo, setSistemaCultivo] = useState('Plantio Direto');
+  const sistemaCultivo = 'Plantio Direto';
   const [tipoCorrecao, setTipoCorrecao] = useState('Gradual');
   const [metodoP, setMetodoP] = useState('Mehlich-1');
   const [metodoK, setMetodoK] = useState('Mehlich-1');
@@ -295,7 +295,7 @@ export function NovaAnalisePage() {
         const parseResult = CalagemSchema.safeParse(payload);
         if (!parseResult.success) {
           temErro = true;
-          const errosZod = parseResult.error?.issues || parseResult.error?.errors || [];
+          const errosZod = parseResult.error?.issues || [];
           errosZod.forEach(err => {
             const path = err.path[0] as string;
             let key = path;
@@ -341,7 +341,7 @@ export function NovaAnalisePage() {
         const parseResult = AdubacaoSchema.safeParse(payload);
         if (!parseResult.success) {
           temErro = true;
-          const errosZod = parseResult.error?.issues || parseResult.error?.errors || [];
+          const errosZod = parseResult.error?.issues || [];
           errosZod.forEach(err => {
             const path = err.path[0] as string;
             let key = path.toLowerCase();

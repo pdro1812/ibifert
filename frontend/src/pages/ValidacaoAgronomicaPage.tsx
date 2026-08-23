@@ -17,7 +17,6 @@ const EXEMPLOS: Exemplo[] = [
     id: 1,
     titulo: 'Exemplo 1: Cálculo normal no PD Consolidado',
     dados: {
-      modo: 'avancado',
       sistema_manejo: 'PD_CONSOLIDADO',
       primeira_calagem: true,
       PRNT: 100,
@@ -31,7 +30,6 @@ const EXEMPLOS: Exemplo[] = [
     id: 2,
     titulo: 'Exemplo 2: Teste da Trava Máxima de 5 Toneladas (PD Consolidado)',
     dados: {
-      modo: 'avancado',
       sistema_manejo: 'PD_CONSOLIDADO',
       primeira_calagem: true,
       PRNT: 100,
@@ -46,7 +44,6 @@ const EXEMPLOS: Exemplo[] = [
     id: 3,
     titulo: 'Exemplo 3: Roteamento para a Equação Polinomial',
     dados: {
-      modo: 'avancado',
       sistema_manejo: 'CONVENCIONAL',
       primeira_calagem: true,
       PRNT: 100,
@@ -62,7 +59,6 @@ const EXEMPLOS: Exemplo[] = [
     id: 4,
     titulo: 'Exemplo 4: A Trava de Não-Aplicação no PD Consolidado',
     dados: {
-      modo: 'avancado',
       sistema_manejo: 'PD_CONSOLIDADO',
       primeira_calagem: false,
       PRNT: 100,
@@ -79,7 +75,6 @@ const EXEMPLOS: Exemplo[] = [
     id: 5,
     titulo: 'Exemplo 5: Método Saturação por Bases (Segunda Opinião/Referência)',
     dados: {
-      modo: 'avancado',
       sistema_manejo: 'CONVENCIONAL',
       primeira_calagem: false,
       PRNT: 100,
@@ -94,7 +89,6 @@ const EXEMPLOS: Exemplo[] = [
     id: 6,
     titulo: 'Exemplo 6: Implantação de PD com Superficial em Campo Natural',
     dados: {
-      modo: 'avancado',
       sistema_manejo: 'PD_IMPLANTACAO',
       primeira_calagem: true,
       PRNT: 100,
