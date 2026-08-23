@@ -52,13 +52,6 @@ export const modosAlSatEnum = pgEnum('modo_al_sat', [
   'calculado',
 ]);
 
-export const sistemasEfetivosEnum = pgEnum('sistema_efetivo', [
-  'CONVENCIONAL',
-  'PD_IMPLANTACAO',
-  'PD_CONSOLIDADO',
-  'PD_COM_RESTRICAO',
-]);
-
 // ── Analises ──────────────────────────────────────────────────────────────────
 
 export const analises = pgTable('analises', {
@@ -101,7 +94,6 @@ export const analises = pgTable('analises', {
   metodo_calc_roteado: metodosCalcEnum('metodo_calc_roteado'),
   modo_aplicacao:      modosAplicacaoEnum('modo_aplicacao'),
   profundidade_cm:     integer('profundidade_cm'),
-  sistema_efetivo:     sistemasEfetivosEnum('sistema_efetivo'),
   nota_tecnica:        text('nota_tecnica'),
   acao_requerida:      text('acao_requerida'),
   alertas:             text('alertas').array(),
