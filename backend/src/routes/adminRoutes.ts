@@ -78,27 +78,50 @@ adminRoutes.get('/stats', async (req: AuthRequest, res) => {
   }
 });
 
-// Listar todos os usuários com contagem de análises
+// Listar todos os usuários com contagem de análises (calagem + adubação)
 adminRoutes.get('/users', async (req, res) => {
   try {
-    const listaUsuarios = await db
-      .select({
-        id: users.id,
-        nome: users.nome,
-        email: users.email,
-        cpf: users.cpf,
-        cidade: users.cidade,
-        estado: users.estado,
-        role: users.role,
-        createdAt: users.createdAt,
-        totalAnalises: count(analises.id),
-      })
-      .from(users)
-      .leftJoin(analises, eq(users.id, analises.usuario_id))
-      .groupBy(users.id)
-      .orderBy(sql`${users.createdAt} DESC`);
+    const [listaUsuarios, contagemCalagem, contagemAdubacao] = await Promise.all([
+      db
+        .select({
+          id: users.id,
+          nome: users.nome,
+          email: users.email,
+          cpf: users.cpf,
+          cidade: users.cidade,
+          estado: users.estado,
+          role: users.role,
+          createdAt: users.createdAt,
+        })
+        .from(users)
+        .orderBy(sql`${users.createdAt} DESC`),
+      db
+        .select({ usuario_id: analises.usuario_id, total: count(analises.id) })
+        .from(analises)
+        .where(isNotNull(analises.usuario_id))
+        .groupBy(analises.usuario_id),
+      db
+        .select({ usuario_id: analisesAdubacao.usuario_id, total: count(analisesAdubacao.id) })
+        .from(analisesAdubacao)
+        .where(isNotNull(analisesAdubacao.usuario_id))
+        .groupBy(analisesAdubacao.usuario_id),
+    ]);
 
-    res.status(200).json(listaUsuarios);
+    const calagemPorUsuario = new Map(contagemCalagem.map((c) => [c.usuario_id, c.total]));
+    const adubacaoPorUsuario = new Map(contagemAdubacao.map((c) => [c.usuario_id, c.total]));
+
+    const resultado = listaUsuarios.map((usuario) => {
+      const totalCalagem = calagemPorUsuario.get(usuario.id) ?? 0;
+      const totalAdubacao = adubacaoPorUsuario.get(usuario.id) ?? 0;
+      return {
+        ...usuario,
+        totalAnalisesCalagem: totalCalagem,
+        totalAnalisesAdubacao: totalAdubacao,
+        totalAnalises: totalCalagem + totalAdubacao,
+      };
+    });
+
+    res.status(200).json(resultado);
   } catch (error: any) {
     res.status(500).json({ erro: 'Erro ao listar usuários', detalhes: error.message });
   }
@@ -195,17 +218,24 @@ adminRoutes.get('/users/:id/full-details', async (req, res) => {
         .orderBy(desc(talhoes.criado_em));
     }
 
-    // 3. Buscar todas as Análises do Usuário
+    // 3. Buscar todas as Análises do Usuário (calagem + adubação)
     const userAnalises = await db
       .select()
       .from(analises)
       .where(eq(analises.usuario_id, id))
       .orderBy(desc(analises.criado_em));
 
+    const userAdubacoes = await db
+      .select()
+      .from(analisesAdubacao)
+      .where(eq(analisesAdubacao.usuario_id, id))
+      .orderBy(desc(analisesAdubacao.criado_em));
+
     res.status(200).json({
       fazendas: userFazendas,
       talhoes: allTalhoes,
       analises: userAnalises,
+      adubacoes: userAdubacoes,
     });
   } catch (error: any) {
     console.error('[admin] Erro ao buscar detalhes completos do usuário:', error);
