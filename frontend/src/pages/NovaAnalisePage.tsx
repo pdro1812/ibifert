@@ -21,7 +21,7 @@ interface Fazenda {
   talhoes: Talhao[];
 }
 
-interface LinhaAmostra {
+export interface LinhaAmostra {
   id: string;
   talhao_id: string;
   identificacao: string;
@@ -50,11 +50,11 @@ interface LinhaAmostra {
   mn: string;
 }
 
-type ModoInsercao = 'CALAGEM' | 'ADUBACAO';
+export type ModoInsercao = 'CALAGEM' | 'ADUBACAO';
 
 // ─── Helpers Dinâmicos ────────────────────────────────────────────────────────
 
-function isCellEnabled(modo: ModoInsercao, campo: keyof LinhaAmostra, linha: LinhaAmostra, configGlobais: any): boolean {
+export function isCellEnabled(modo: ModoInsercao, campo: keyof LinhaAmostra, linha: LinhaAmostra, configGlobais: any): boolean {
   if (modo === 'CALAGEM') {
     if (['ph', 'smp'].includes(campo)) return true;
     
@@ -66,9 +66,10 @@ function isCellEnabled(modo: ModoInsercao, campo: keyof LinhaAmostra, linha: Lin
     }
     
     if (['v_atual', 'ctc'].includes(campo)) {
-      const isReaplicacao = !configGlobais.primeira_calagem && smpVal <= 6.3;
-      const isPDLock = configGlobais.sistemaManejo === 'PD_CONSOLIDADO' && phVal < 5.5 && configGlobais.primeira_calagem;
-      return isReaplicacao || (campo === 'v_atual' && isPDLock);
+      const isReaplicacao = !configGlobais.primeiraCalagem && smpVal <= 6.3;
+      const precisaTravaPDConsolidado =
+        configGlobais.sistemaManejo === 'PD_CONSOLIDADO' && phVal < 5.5 && !configGlobais.primeiraCalagem;
+      return isReaplicacao || (campo === 'v_atual' && precisaTravaPDConsolidado);
     }
     
     if (campo === 'al_sat') {
@@ -152,10 +153,11 @@ export function NovaAnalisePage() {
   const [metodoP, setMetodoP] = useState('Mehlich-1');
   const [metodoK, setMetodoK] = useState('Mehlich-1');
   const [culturaAntecedente, setCulturaAntecedente] = useState('Gramínea');
-  
-  const configGlobais = modo === 'CALAGEM' 
+  const [finalidadeCevada, setFinalidadeCevada] = useState('cervejeira_malte_unico');
+
+  const configGlobais = modo === 'CALAGEM'
     ? { sistemaManejo, primeiraCalagem, prnt }
-    : { cultura, rendimento, numCultivo, sistemaCultivo, tipoCorrecao, metodoP, metodoK, culturaAntecedente };
+    : { cultura, rendimento, numCultivo, sistemaCultivo, tipoCorrecao, metodoP, metodoK, culturaAntecedente, finalidadeCevada };
 
   // ── Amostras
   const [linhas, setLinhas] = useState<LinhaAmostra[]>([]);
@@ -321,6 +323,7 @@ export function NovaAnalisePage() {
           sistema_cultivo: sistemaCultivo,
           tipo_correcao: tipoCorrecao,
           cultura_antecedente: culturaAntecedente,
+          finalidade_cevada: cultura === 'cevada' ? finalidadeCevada : undefined,
           metodo_P: metodoP,
           metodo_K: metodoK,
           argila: l.argila !== '' ? Number(l.argila) : undefined,
@@ -545,7 +548,18 @@ export function NovaAnalisePage() {
                     </select>
                   </div>
                 )}
-                
+
+                {cultura === 'cevada' && (
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-stone-600">Finalidade Cevada</label>
+                    <select value={finalidadeCevada} onChange={e => setFinalidadeCevada(e.target.value)} className="w-full rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm outline-none shadow-sm">
+                      <option value="cervejeira_malte_unico">Cervejeira (Malte Único)</option>
+                      <option value="malte_especial">Cervejeira (Malte Especial)</option>
+                      <option value="outra">Outra finalidade</option>
+                    </select>
+                  </div>
+                )}
+
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-stone-600">Método P e K (Padrão Lab)</label>
                   <select value={metodoP} onChange={e => { setMetodoP(e.target.value); setMetodoK(e.target.value); }} className="w-full rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm outline-none shadow-sm">
