@@ -111,8 +111,8 @@ adubacaoRoutes.post('/bulk', verificarToken, async (req: AuthRequest, res) => {
         const payloadBanco = {
           usuario_id: usuario_id,
           talhao_id: talhao_id,
-          uf: entradaValidada.uf || 'RS',
-          cidade: entradaValidada.cidade || 'Não informada',
+          uf: amostra.uf || 'RS',
+          cidade: amostra.cidade || 'Não informada',
           identificacao: entradaValidada.identificacao || 'Análise Adubação',
           
           argila: entradaValidada.argila,
@@ -181,7 +181,7 @@ adubacaoRoutes.get('/:id', verificarToken, async (req: AuthRequest, res) => {
     if (!req.userId) {
       return res.status(401).json({ error: 'Usuário não autenticado' });
     }
-    const analise = await buscarAnaliseAdubacaoPorId(req.params.id, req.userId);
+    const analise = await buscarAnaliseAdubacaoPorId(req.params.id as string, req.userId);
     if (!analise) {
       return res.status(404).json({ error: 'Análise não encontrada' });
     }
