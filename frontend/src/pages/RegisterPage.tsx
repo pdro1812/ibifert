@@ -53,7 +53,11 @@ export function RegisterPage() {
   const onSubmit = async (data: RegisterFormValues) => {
     setApiError(null);
     try {
-      await cadastrar(data);
+      const payload = {
+        ...data,
+        cpf: data.cpf.replace(/\D/g, '')
+      };
+      await cadastrar(payload);
 
       // Se havia uma análise calculada antes do cadastro, recupera e salva agora
       const recuperada = await recuperarAnalisePendente();
@@ -63,8 +67,17 @@ export function RegisterPage() {
       }
 
       navigate(from, { replace: true });
-    } catch (error) {
-      setApiError('Ocorreu um erro ao criar a conta. Verifique os dados e tente novamente.');
+    } catch (error: any) {
+      console.error("Erro de API:", error.response?.data);
+
+      let msgErro = 'Ocorreu um erro ao criar a conta. Verifique os dados e tente novamente.';
+      if (error.response?.data?.erro) {
+        msgErro = error.response.data.erro;
+        if (error.response?.data?.detalhes && Array.isArray(error.response.data.detalhes)) {
+          msgErro += ' - ' + error.response.data.detalhes.map((d: any) => d.message).join(', ');
+        }
+      }
+      setApiError(msgErro);
     }
   };
 
