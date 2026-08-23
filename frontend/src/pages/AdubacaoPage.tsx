@@ -6,7 +6,7 @@ import {
   AlertCircle, ArrowRight, CheckCircle2, Leaf, ShieldCheck, Sprout, FileDown, Beaker, Save
 } from 'lucide-react';
 
-import { AdubacaoSchema, type EntradaAdubacao } from '../schemas/adubacaoSchema';
+import { AdubacaoSchema, type EntradaAdubacao, type EntradaAdubacaoForm } from '../schemas/adubacaoSchema';
 import { calcularAdubacao, salvarAdubacao } from '../services/api';
 import { gerarPDFRelatorioAdubacao } from '../services/pdfGeneratorAdubacao';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -15,7 +15,7 @@ import { useAuth } from '../contexts/AuthContext';
 const CampoNumerico = ({
   label, name, register, error, dica, min, max, step = '0.1', placeholder
 }: {
-  label: string; name: FieldPath<EntradaAdubacao>; register: UseFormRegister<EntradaAdubacao>;
+  label: string; name: FieldPath<EntradaAdubacaoForm>; register: UseFormRegister<EntradaAdubacaoForm>;
   error?: FieldError; dica?: string; min?: number; max?: number; step?: string; placeholder?: string;
 }) => (
   <div className="space-y-1">
@@ -41,7 +41,7 @@ const CampoNumerico = ({
 const SelectPadrao = ({
   label, name, register, options, error, placeholder
 }: {
-  label: string; name: FieldPath<EntradaAdubacao>; register: UseFormRegister<EntradaAdubacao>;
+  label: string; name: FieldPath<EntradaAdubacaoForm>; register: UseFormRegister<EntradaAdubacaoForm>;
   options: { value: string; label: string }[]; error?: FieldError; placeholder?: string;
 }) => (
   <div className="space-y-1">
@@ -88,7 +88,7 @@ export function AdubacaoPage() {
     reset,
     getValues,
     formState: { errors },
-  } = useForm<EntradaAdubacao>({
+  } = useForm<EntradaAdubacaoForm, any, EntradaAdubacao>({
     resolver: zodResolver(AdubacaoSchema),
     defaultValues: {
       metodo_P: 'Mehlich-1',
@@ -121,7 +121,7 @@ export function AdubacaoPage() {
     }
   };
 
-  const aplicarCenario = (dados: Partial<EntradaAdubacao>) => {
+  const aplicarCenario = (dados: Partial<EntradaAdubacaoForm>) => {
     reset({
       metodo_P: 'Mehlich-1',
       metodo_K: 'Mehlich-1',
@@ -163,7 +163,6 @@ export function AdubacaoPage() {
   ];
 
   const watchCultura = useWatch({ control, name: 'cultura' });
-  const watchTipoCorrecao = useWatch({ control, name: 'tipo_correcao' });
   const watchArgila = useWatch({ control, name: 'argila' });
   const watchCtc = useWatch({ control, name: 'CTC_pH7' });
 
