@@ -10,7 +10,14 @@ import { standaloneRoutes } from './routes/standaloneRoutes';
 
 
 const app = express();
-app.use(cors());
+
+// CORS_ORIGIN: lista de origens permitidas separadas por vírgula (ex.:
+// "https://app.ibiferti.com,https://ibiferti.com"). Sem essa variável,
+// mantém o comportamento atual (qualquer origem) até o domínio de
+// produção ser definido.
+const origensPermitidas = process.env.CORS_ORIGIN?.split(',').map((o) => o.trim());
+app.use(cors(origensPermitidas ? { origin: origensPermitidas } : undefined));
+
 app.use(express.json());
 
 app.get('/', (_req, res) => {
