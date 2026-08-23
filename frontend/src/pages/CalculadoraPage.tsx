@@ -172,8 +172,6 @@ export function CalculadoraPage() {
     handleSubmit,
     getValues,
     formState: { errors },
-    setValue,
-    clearErrors,
   } = useForm<FormValores>({
     resolver: zodResolver(CalagemSchema),
     shouldUnregister: true,
