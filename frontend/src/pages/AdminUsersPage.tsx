@@ -5,6 +5,7 @@ import {
   MapPin,
   Calendar,
   FlaskConical,
+  Sprout,
   ChevronRight,
   Loader2,
   ArrowLeft,
@@ -66,10 +67,27 @@ interface UserAnalise {
   alertas?: string[] | null;
 }
 
+interface UserAdubacao {
+  id: string;
+  talhao_id: string | null;
+  criado_em: string;
+  uf: string;
+  cidade: string;
+  identificacao: string | null;
+  cultura: string;
+  recomendacao_json?: {
+    recomendacao?: {
+      p2o5?: { dose_total_kg_ha?: number };
+      k2o?: { dose_total_kg_ha?: number };
+    };
+  } | null;
+}
+
 interface UserFullData {
   fazendas: Fazenda[];
   talhoes: Talhao[];
   analises: UserAnalise[];
+  adubacoes: UserAdubacao[];
 }
 
 export function AdminUsersPage() {
@@ -211,6 +229,7 @@ export function AdminUsersPage() {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                               {talhoesFazenda.map(talhao => {
                                 const analisesTalhao = fullData.analises.filter(a => a.talhao_id === talhao.id);
+                                const adubacoesTalhao = fullData.adubacoes.filter(a => a.talhao_id === talhao.id);
                                 return (
                                   <div key={talhao.id} className="bg-white rounded-xl border border-stone-200 p-4 shadow-sm">
                                     <div className="flex items-center gap-2 mb-3">
@@ -220,21 +239,35 @@ export function AdminUsersPage() {
                                         {talhao.cultura}
                                       </span>
                                     </div>
-                                    
+
                                     <div className="space-y-2">
-                                      {analisesTalhao.length === 0 ? (
+                                      {analisesTalhao.length === 0 && adubacoesTalhao.length === 0 ? (
                                         <p className="text-[10px] text-stone-300 italic">Sem análises para este talhão.</p>
                                       ) : (
-                                        analisesTalhao.map(a => (
-                                          <div 
-                                            key={a.id} 
-                                            onClick={() => setSelectedAnalise({...a, usuario_nome: selectedUser.nome, usuario_email: selectedUser.email})}
-                                            className="flex items-center justify-between text-xs py-1.5 border-b border-stone-50 last:border-0 hover:bg-green-50 px-2 rounded-lg cursor-pointer transition-colors"
-                                          >
-                                            <span className="text-stone-500">{new Date(a.criado_em).toLocaleDateString('pt-BR')}</span>
-                                            <span className="font-bold text-green-700">{a.NC_ajustada?.toFixed(2) || '0.00'} t/ha</span>
-                                          </div>
-                                        ))
+                                        <>
+                                          {analisesTalhao.map(a => (
+                                            <div
+                                              key={a.id}
+                                              onClick={() => setSelectedAnalise({...a, usuario_nome: selectedUser.nome, usuario_email: selectedUser.email})}
+                                              className="flex items-center justify-between text-xs py-1.5 border-b border-stone-50 last:border-0 hover:bg-green-50 px-2 rounded-lg cursor-pointer transition-colors"
+                                            >
+                                              <span className="text-stone-500">{new Date(a.criado_em).toLocaleDateString('pt-BR')}</span>
+                                              <span className="font-bold text-green-700">{a.NC_ajustada?.toFixed(2) || '0.00'} t/ha</span>
+                                            </div>
+                                          ))}
+                                          {adubacoesTalhao.map(a => (
+                                            <div
+                                              key={a.id}
+                                              onClick={() => setSelectedAnalise({ ...a, tipo: 'ADUBACAO', usuario_nome: selectedUser.nome, usuario_email: selectedUser.email })}
+                                              className="flex items-center justify-between text-xs py-1.5 border-b border-stone-50 last:border-0 hover:bg-emerald-50 px-2 rounded-lg cursor-pointer transition-colors"
+                                            >
+                                              <span className="text-stone-500">{new Date(a.criado_em).toLocaleDateString('pt-BR')}</span>
+                                              <span className="font-bold text-emerald-700">
+                                                P: {a.recomendacao_json?.recomendacao?.p2o5?.dose_total_kg_ha ?? 0} · K: {a.recomendacao_json?.recomendacao?.k2o?.dose_total_kg_ha ?? 0} kg/ha
+                                              </span>
+                                            </div>
+                                          ))}
+                                        </>
                                       )}
                                     </div>
                                   </div>
@@ -272,6 +305,37 @@ export function AdminUsersPage() {
                        <p className="text-[10px] text-stone-400">{a.cidade} - {a.uf}</p>
                        <div className="mt-2 pt-2 border-t border-stone-50 text-right">
                           <span className="font-bold text-green-700 text-xs">{a.NC_ajustada?.toFixed(2) || '0.00'} t/ha</span>
+                       </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Adubações Soltas (sem talhão) */}
+            {fullData && fullData.adubacoes.some(a => !a.talhao_id) && (
+              <div className="mt-8 space-y-4">
+                <h3 className="text-md font-bold text-stone-600 flex items-center gap-2">
+                  <Sprout size={18} />
+                  Adubações Avulsas (Sem Talhão)
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {fullData.adubacoes.filter(a => !a.talhao_id).map(a => (
+                    <div
+                      key={a.id}
+                      onClick={() => setSelectedAnalise({ ...a, tipo: 'ADUBACAO', usuario_nome: selectedUser.nome, usuario_email: selectedUser.email })}
+                      className="bg-white rounded-xl border border-stone-200 p-4 shadow-sm hover:border-emerald-300 cursor-pointer transition-all"
+                    >
+                       <div className="flex items-center justify-between mb-2">
+                          <span className="text-[10px] text-stone-400 font-bold">{new Date(a.criado_em).toLocaleDateString('pt-BR')}</span>
+                          <span className="text-[10px] text-emerald-600 font-bold uppercase">{a.cultura?.replace('_', ' ')}</span>
+                       </div>
+                       <p className="font-bold text-stone-700 text-sm truncate">{a.identificacao || 'Sem Identificação'}</p>
+                       <p className="text-[10px] text-stone-400">{a.cidade} - {a.uf}</p>
+                       <div className="mt-2 pt-2 border-t border-stone-50 text-right">
+                          <span className="font-bold text-emerald-700 text-xs">
+                            P: {a.recomendacao_json?.recomendacao?.p2o5?.dose_total_kg_ha ?? 0} · K: {a.recomendacao_json?.recomendacao?.k2o?.dose_total_kg_ha ?? 0} kg/ha
+                          </span>
                        </div>
                     </div>
                   ))}
