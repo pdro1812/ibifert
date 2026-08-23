@@ -1,4 +1,4 @@
-import { eq, desc } from 'drizzle-orm';
+import { and, eq, desc } from 'drizzle-orm';
 import { db } from './db';
 import { analisesAdubacao } from './schema';
 
@@ -10,12 +10,12 @@ export async function criarAnaliseAdubacao(dados: NovaAnaliseAdubacao): Promise<
   return analise;
 }
 
-export async function buscarAnaliseAdubacaoPorId(id: string): Promise<AnaliseAdubacao | undefined> {
+export async function buscarAnaliseAdubacaoPorId(id: string, usuario_id: string): Promise<AnaliseAdubacao | undefined> {
   const [analise] = await db
     .select()
     .from(analisesAdubacao)
-    .where(eq(analisesAdubacao.id, id));
-  
+    .where(and(eq(analisesAdubacao.id, id), eq(analisesAdubacao.usuario_id, usuario_id)));
+
   return analise;
 }
 

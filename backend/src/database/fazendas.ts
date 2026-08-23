@@ -1,6 +1,6 @@
 // backend/src/database/fazendas.ts
 
-import { eq, desc } from 'drizzle-orm';
+import { and, eq, desc } from 'drizzle-orm';
 import { db } from './db';
 import { fazendas, talhoes, analises } from './schema';
 
@@ -30,7 +30,18 @@ export async function createFazenda(data: {
   return fazenda;
 }
 
-export async function deleteFazenda(id: string) {
+export async function getFazendaPorIdEUsuario(id: string, usuarioId: string) {
+  const [fazenda] = await db
+    .select()
+    .from(fazendas)
+    .where(and(eq(fazendas.id, id), eq(fazendas.usuario_id, usuarioId)));
+  return fazenda;
+}
+
+export async function deleteFazenda(id: string, usuarioId: string) {
+  const propria = await getFazendaPorIdEUsuario(id, usuarioId);
+  if (!propria) return undefined;
+
   await db.delete(talhoes).where(eq(talhoes.fazenda_id, id));
   const [fazenda] = await db
     .delete(fazendas)
@@ -82,21 +93,31 @@ export async function createTalhao(data: {
   return talhao;
 }
 
-export async function deleteTalhao(id: string) {
+export async function getTalhaoById(id: string, usuarioId: string) {
+  const [row] = await db
+    .select({
+      id: talhoes.id,
+      fazenda_id: talhoes.fazenda_id,
+      nome: talhoes.nome,
+      cultura: talhoes.cultura,
+      criado_em: talhoes.criado_em,
+    })
+    .from(talhoes)
+    .innerJoin(fazendas, eq(talhoes.fazenda_id, fazendas.id))
+    .where(and(eq(talhoes.id, id), eq(fazendas.usuario_id, usuarioId)))
+    .limit(1);
+  return row;
+}
+
+export async function deleteTalhao(id: string, usuarioId: string) {
+  const proprio = await getTalhaoById(id, usuarioId);
+  if (!proprio) return undefined;
+
   const [talhao] = await db
     .delete(talhoes)
     .where(eq(talhoes.id, id))
     .returning();
   return talhao;
-}
-
-export async function getTalhaoById(id: string) {
-  const [row] = await db
-    .select()
-    .from(talhoes)
-    .where(eq(talhoes.id, id))
-    .limit(1);
-  return row;
 }
 
 export async function getAnalisesByTalhao(talhaoId: string) {
