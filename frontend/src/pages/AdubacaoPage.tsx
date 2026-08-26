@@ -144,33 +144,79 @@ export function AdubacaoPage() {
     setResultado(null);
   };
 
+  // Cenários de teste (docs/plano-testes-validacao-agronoma.md, A1–A8) —
+  // espelham 1:1 os cenários do plano entregue à coordenadora agronôma.
+  // Valores aqui têm que ficar sincronizados com o .md.
   const cenarios = [
     {
-      nome: 'Soja (Manutenção, Solo Alto)',
+      nome: 'A1 — Soja, manutenção + limite K',
       dados: {
-        argila: 45, MO: 3.0, CTC_pH7: 12.0, P: 25, K: 120,
-        Ca: 5, Mg: 2, S: 15, Cu: 1.5, Zn: 2.0, B: 0.5, Mn: 10, pH_agua: 6.0,
-        cultura: 'soja' as const, num_cultivo: '1' as const, rendimento_esperado: 4.5,
+        argila: 30, MO: 3.0, CTC_pH7: 10.0, P: 8, K: 50,
+        Ca: 3.0, Mg: 1.0, S: 12, pH_agua: 6.0,
+        cultura: 'soja' as const, num_cultivo: '1' as const, rendimento_esperado: 4,
       }
     },
     {
-      nome: 'Milho (Correção Total, MB)',
+      nome: 'A2 — Trigo, cultura antecedente',
       dados: {
-        argila: 30, MO: 1.5, CTC_pH7: 8.0, P: 2.0, K: 15.0,
-        Ca: 1.0, Mg: 0.2, S: 4.0, Cu: 0.8, Zn: 1.0, B: 0.2, Mn: 5.0, pH_agua: 5.2,
-        cultura: 'milho' as const, num_cultivo: '1' as const, rendimento_esperado: 8.0,
-        cultura_antecedente: 'Gramínea' as const, tipo_correcao: 'Total' as const, densidade_plantas: 70000
+        argila: 30, MO: 3.5, CTC_pH7: 10.0, P: 20, K: 70,
+        Ca: 3.0, Mg: 1.0,
+        cultura: 'trigo' as const, cultura_antecedente: 'Gramínea' as const,
+        num_cultivo: '1' as const, rendimento_esperado: 4,
       }
     },
     {
-      nome: 'Cevada Cervejeira (Solo Baixo)',
+      nome: 'A3 — Milho, correção total',
       dados: {
-        argila: 35, MO: 2.0, CTC_pH7: 10.0, P: 8.0, K: 40.0,
-        Ca: 3.0, Mg: 1.0, S: 5.0, Cu: 1.2, Zn: 1.5, B: 0.4, Mn: 8.0, pH_agua: 5.8,
-        cultura: 'cevada' as const, num_cultivo: '1' as const, rendimento_esperado: 4.0,
-        cultura_antecedente: 'Gramínea' as const, finalidade_cevada: 'cervejeira_malte_unico' as const
+        argila: 25, MO: 2.0, CTC_pH7: 8.0, P: 5, K: 25,
+        Ca: 3.0, Mg: 1.0,
+        cultura: 'milho' as const, cultura_antecedente: 'Gramínea' as const,
+        num_cultivo: '1' as const, rendimento_esperado: 8,
+        tipo_correcao: 'Total' as const, densidade_plantas: 70000,
       }
-    }
+    },
+    {
+      nome: 'A4 ⭐ — Soja, 2º cultivo, solo muito rico',
+      dados: {
+        argila: 30, MO: 3.0, CTC_pH7: 10.0, P: 40, K: 200,
+        Ca: 3.0, Mg: 1.0, S: 15,
+        cultura: 'soja' as const, num_cultivo: '2' as const, rendimento_esperado: 3,
+      }
+    },
+    {
+      nome: 'A5 — Ervilhaca, enxofre baixo',
+      dados: {
+        argila: 40, MO: 3.0, CTC_pH7: 10.0, P: 10, K: 50,
+        Ca: 3.0, Mg: 1.0, S: 1,
+        cultura: 'ervilhaca' as const, num_cultivo: '1' as const, rendimento_esperado: 2,
+      }
+    },
+    {
+      nome: 'A6 — Soja, pH baixo (alerta molibdênio)',
+      dados: {
+        argila: 30, MO: 3.0, CTC_pH7: 10.0, P: 8, K: 50,
+        Ca: 3.0, Mg: 1.0, S: 15, pH_agua: 5.0,
+        cultura: 'soja' as const, num_cultivo: '1' as const, rendimento_esperado: 3,
+      }
+    },
+    {
+      nome: 'A7 — Micronutrientes e Ca/Mg baixos',
+      dados: {
+        argila: 30, MO: 3.0, CTC_pH7: 10.0, P: 15, K: 50,
+        Ca: 1.5, Mg: 0.3, Cu: 0.1, Zn: 0.1, B: 0.05, Mn: 2.0,
+        cultura: 'feijao' as const, num_cultivo: '1' as const, rendimento_esperado: 2,
+      }
+    },
+    {
+      nome: 'A8 — Cevada cervejeira',
+      dados: {
+        argila: 30, MO: 2.0, CTC_pH7: 10.0, P: 5, K: 25,
+        Ca: 3.0, Mg: 1.0,
+        cultura: 'cevada' as const, cultura_antecedente: 'Gramínea' as const,
+        finalidade_cevada: 'cervejeira_malte_unico' as const,
+        num_cultivo: '1' as const, rendimento_esperado: 3,
+      }
+    },
   ];
 
   const watchCultura = useWatch({ control, name: 'cultura' });
