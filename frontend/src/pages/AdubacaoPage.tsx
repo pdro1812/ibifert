@@ -140,7 +140,7 @@ export function AdubacaoPage() {
   const CAMPOS_OPCIONAIS_BASE = {
     identificacao: '',
     S: '', Cu: '', Zn: '', B: '', Mn: '', pH_agua: '',
-    cultura_antecedente: undefined, finalidade_cevada: undefined, densidade_plantas: '',
+    cultura_antecedente: undefined, finalidade_cevada: undefined, densidade_plantas: undefined,
   } as unknown as Partial<EntradaAdubacaoForm>;
 
   const aplicarCenario = (dados: Partial<EntradaAdubacaoForm>) => {
