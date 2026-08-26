@@ -25,6 +25,7 @@ import {
 import {
   CalagemSchema,
   detectarRestricaoMonitoramento,
+  precisaAlSatPDConsolidado,
   resolverSistemaEfetivo,
   rotearMetodoCalagem,
   type CalagemResultado,
@@ -189,13 +190,12 @@ export function CalculadoraPage() {
   const monitoramento      = useWatch({ control, name: 'monitoramento' });
 
   const temSmpInformado  = typeof smpValor === 'number';
-  const temPhInformado   = typeof pHValor  === 'number';
   const metodoRoteado    = temSmpInformado ? rotearMetodoCalagem(smpValor) : null;
   const isPolinomial     = metodoRoteado === 'POLINOMIAL';
   const isReaplicacaoSMP = primeiraCalagem === false && metodoRoteado === 'SMP';
   const isPDConsolidado  = sistemaSelecionado === 'PD_CONSOLIDADO';
   const isPDImplantacao  = sistemaSelecionado === 'PD_IMPLANTACAO';
-  const precisaAlSat     = isPDConsolidado && temPhInformado && pHValor < 5.5;
+  const precisaAlSat     = precisaAlSatPDConsolidado(sistemaSelecionado, pHValor);
   const modoAlSatAtual   = precisaAlSat ? modoAlSat : 'direto';
   const restricao10_20   =
     isPDConsolidado &&

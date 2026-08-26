@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ArrowRight, Plus, TableProperties, Tractor, MapPin, AlertCircle, CheckCircle2, Leaf, Sprout, FlaskConical } from 'lucide-react';
 import { getFazendas, postAnalisesBulk, postAdubacaoBulk } from '../services/api';
-import { CalagemSchema } from '../schemas/calagemSchema';
+import { CalagemSchema, precisaAlSatPDConsolidado } from '../schemas/calagemSchema';
 import { AdubacaoSchema } from '../schemas/adubacaoSchema';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -73,7 +73,7 @@ export function isCellEnabled(modo: ModoInsercao, campo: keyof LinhaAmostra, lin
     }
     
     if (campo === 'al_sat') {
-      return configGlobais.sistemaManejo === 'PD_CONSOLIDADO' && phVal < 5.5;
+      return precisaAlSatPDConsolidado(configGlobais.sistemaManejo, phVal);
     }
     return false;
   } 
@@ -95,7 +95,7 @@ const COLS_CALAGEM: Array<{ key: keyof LinhaAmostra; label: string; placeholder:
   { key: 'al_trocavel', label: 'Al (cmolc)', placeholder: '0.5' },
   { key: 'v_atual',     label: 'V (%)',      placeholder: '55'  },
   { key: 'ctc',         label: 'CTC',        placeholder: '10'  },
-  { key: 'al_sat',      label: 'm (%)',      placeholder: '15'  },
+  { key: 'al_sat',      label: 'Al saturação (%)', placeholder: '15'  },
 ];
 
 const COLS_ADUBACAO: Array<{ key: keyof LinhaAmostra; label: string; placeholder: string }> = [
