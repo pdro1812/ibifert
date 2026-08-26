@@ -6,7 +6,6 @@ import { analisesRoutes } from './routes/analisesRoutes';
 import { adubacaoRoutes } from './routes/adubacaoRoutes';
 import { fazendasRouter } from './routes/fazendasRoutes';
 import { adminRoutes }    from './routes/adminRoutes';
-import { standaloneRoutes } from './routes/standaloneRoutes';
 
 
 const app = express();
@@ -29,7 +28,6 @@ app.use('/api/analises', analisesRoutes);
 app.use('/api/adubacao', adubacaoRoutes);
 app.use('/api/fazendas', fazendasRouter);
 app.use('/api/admin',    adminRoutes);
-app.use('/api/standalone', standaloneRoutes);
 
 
 app.listen(3000, () => {

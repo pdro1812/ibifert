@@ -12,6 +12,16 @@ import { gerarPDFRelatorioAdubacao } from '../services/pdfGeneratorAdubacao';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
+export function normalizarNumero(valor: unknown): number | undefined {
+  if (valor === '' || valor === null || valor === undefined) return undefined;
+  if (typeof valor === 'number') return Number.isNaN(valor) ? undefined : valor;
+  if (typeof valor === 'string') {
+    const n = Number(valor.replace(',', '.').trim());
+    return Number.isNaN(n) ? undefined : n;
+  }
+  return undefined;
+}
+
 const CampoNumerico = ({
   label, name, register, error, dica, min, max, step = '0.1', placeholder
 }: {
@@ -31,7 +41,7 @@ const CampoNumerico = ({
       className={`w-full rounded-xl border bg-stone-50/50 px-4 py-2.5 text-sm outline-none transition-all focus:border-green-500 focus:bg-white focus:ring-4 focus:ring-green-500/10 ${
         error ? 'border-red-400 bg-red-50/50 focus:border-red-500 focus:ring-red-500/10' : 'border-stone-200'
       }`}
-      {...register(name, { valueAsNumber: true })}
+      {...register(name, { setValueAs: normalizarNumero })}
     />
     {error && <span className="text-xs font-medium text-red-500">{error.message}</span>}
     {dica && !error && <span className="text-xs text-stone-400">{dica}</span>}
@@ -87,6 +97,7 @@ export function AdubacaoPage() {
     control,
     reset,
     getValues,
+    setValue,
     formState: { errors },
   } = useForm<EntradaAdubacaoForm, any, EntradaAdubacao>({
     resolver: zodResolver(AdubacaoSchema),
@@ -121,6 +132,17 @@ export function AdubacaoPage() {
     }
   };
 
+  // Campos opcionais precisam ser explicitamente limpos aqui — se um
+  // cenário anterior preencheu, por exemplo, o Boro, e o próximo cenário
+  // não menciona esse campo, o reset() do react-hook-form mantém o valor
+  // antigo em vez de limpar, porque a chave simplesmente não aparece no
+  // objeto passado. Sem essa base, o campo "gruda" de um cenário pro outro.
+  const CAMPOS_OPCIONAIS_BASE = {
+    identificacao: '',
+    S: '', Cu: '', Zn: '', B: '', Mn: '', pH_agua: '',
+    cultura_antecedente: undefined, finalidade_cevada: undefined, densidade_plantas: undefined,
+  } as unknown as Partial<EntradaAdubacaoForm>;
+
   const aplicarCenario = (dados: Partial<EntradaAdubacaoForm>) => {
     reset({
       metodo_P: 'Mehlich-1',
@@ -128,38 +150,85 @@ export function AdubacaoPage() {
       tipo_correcao: 'Gradual',
       sistema_cultivo: 'Plantio Direto',
       num_cultivo: '1',
+      ...CAMPOS_OPCIONAIS_BASE,
       ...dados
     });
     setResultado(null);
   };
 
+  // Cenários de teste (docs/plano-testes-validacao-agronoma.md, A1–A8) —
+  // espelham 1:1 os cenários do plano entregue à coordenadora agronôma.
+  // Valores aqui têm que ficar sincronizados com o .md.
   const cenarios = [
     {
-      nome: 'Soja (Manutenção, Solo Alto)',
+      nome: 'A1 — Soja, manutenção + limite K',
       dados: {
-        argila: 45, MO: 3.0, CTC_pH7: 12.0, P: 25, K: 120,
-        Ca: 5, Mg: 2, S: 15, Cu: 1.5, Zn: 2.0, B: 0.5, Mn: 10, pH_agua: 6.0,
-        cultura: 'soja' as const, num_cultivo: '1' as const, rendimento_esperado: 4.5,
+        argila: 30, MO: 3.0, CTC_pH7: 10.0, P: 8, K: 50,
+        Ca: 3.0, Mg: 1.0, S: 12, pH_agua: 6.0,
+        cultura: 'soja' as const, num_cultivo: '1' as const, rendimento_esperado: 4,
       }
     },
     {
-      nome: 'Milho (Correção Total, MB)',
+      nome: 'A2 — Trigo, cultura antecedente',
       dados: {
-        argila: 30, MO: 1.5, CTC_pH7: 8.0, P: 2.0, K: 15.0,
-        Ca: 1.0, Mg: 0.2, S: 4.0, Cu: 0.8, Zn: 1.0, B: 0.2, Mn: 5.0, pH_agua: 5.2,
-        cultura: 'milho' as const, num_cultivo: '1' as const, rendimento_esperado: 8.0,
-        cultura_antecedente: 'Gramínea' as const, tipo_correcao: 'Total' as const, densidade_plantas: 70000
+        argila: 30, MO: 3.5, CTC_pH7: 10.0, P: 20, K: 70,
+        Ca: 3.0, Mg: 1.0,
+        cultura: 'trigo' as const, cultura_antecedente: 'Gramínea' as const,
+        num_cultivo: '1' as const, rendimento_esperado: 4,
       }
     },
     {
-      nome: 'Cevada Cervejeira (Solo Baixo)',
+      nome: 'A3 — Milho, correção total',
       dados: {
-        argila: 35, MO: 2.0, CTC_pH7: 10.0, P: 8.0, K: 40.0,
-        Ca: 3.0, Mg: 1.0, S: 5.0, Cu: 1.2, Zn: 1.5, B: 0.4, Mn: 8.0, pH_agua: 5.8,
-        cultura: 'cevada' as const, num_cultivo: '1' as const, rendimento_esperado: 4.0,
-        cultura_antecedente: 'Gramínea' as const, finalidade_cevada: 'cervejeira_malte_unico' as const
+        argila: 25, MO: 2.0, CTC_pH7: 8.0, P: 5, K: 25,
+        Ca: 3.0, Mg: 1.0,
+        cultura: 'milho' as const, cultura_antecedente: 'Gramínea' as const,
+        num_cultivo: '1' as const, rendimento_esperado: 8,
+        tipo_correcao: 'Total' as const, densidade_plantas: 70000,
       }
-    }
+    },
+    {
+      nome: 'A4 — Soja, 2º cultivo, solo muito rico',
+      dados: {
+        argila: 30, MO: 3.0, CTC_pH7: 10.0, P: 40, K: 200,
+        Ca: 3.0, Mg: 1.0, S: 15,
+        cultura: 'soja' as const, num_cultivo: '2' as const, rendimento_esperado: 3,
+      }
+    },
+    {
+      nome: 'A5 — Ervilhaca, enxofre baixo',
+      dados: {
+        argila: 40, MO: 3.0, CTC_pH7: 10.0, P: 10, K: 50,
+        Ca: 3.0, Mg: 1.0, S: 1,
+        cultura: 'ervilhaca' as const, num_cultivo: '1' as const, rendimento_esperado: 2,
+      }
+    },
+    {
+      nome: 'A6 — Soja, pH baixo (alerta molibdênio)',
+      dados: {
+        argila: 30, MO: 3.0, CTC_pH7: 10.0, P: 8, K: 50,
+        Ca: 3.0, Mg: 1.0, S: 15, pH_agua: 5.0,
+        cultura: 'soja' as const, num_cultivo: '1' as const, rendimento_esperado: 3,
+      }
+    },
+    {
+      nome: 'A7 — Micronutrientes e Ca/Mg baixos',
+      dados: {
+        argila: 30, MO: 3.0, CTC_pH7: 10.0, P: 15, K: 50,
+        Ca: 1.5, Mg: 0.3, Cu: 0.1, Zn: 0.1, B: 0.05, Mn: 2.0,
+        cultura: 'feijao' as const, num_cultivo: '1' as const, rendimento_esperado: 2,
+      }
+    },
+    {
+      nome: 'A8 — Cevada cervejeira',
+      dados: {
+        argila: 30, MO: 2.0, CTC_pH7: 10.0, P: 5, K: 25,
+        Ca: 3.0, Mg: 1.0,
+        cultura: 'cevada' as const, cultura_antecedente: 'Gramínea' as const,
+        finalidade_cevada: 'cervejeira_malte_unico' as const,
+        num_cultivo: '1' as const, rendimento_esperado: 3,
+      }
+    },
   ];
 
   const watchCultura = useWatch({ control, name: 'cultura' });
@@ -173,6 +242,16 @@ export function AdubacaoPage() {
   const exigeCultAnt = watchCultura ? culturasComAnt.includes(watchCultura) : false;
 
   const disableCorrecaoTotal = (watchArgila !== undefined && watchArgila < 20) || (watchCtc !== undefined && watchCtc < 7.5);
+  const watchTipoCorrecao = useWatch({ control, name: 'tipo_correcao' });
+
+  // Se o solo deixar de atender Argila>=20%/CTC>=7.5 depois de "Total" já
+  // selecionado, a opção fica disabled no dropdown mas o valor do form
+  // continuava "Total" — travava o envio sem nenhum feedback visível.
+  useEffect(() => {
+    if (disableCorrecaoTotal && watchTipoCorrecao === 'Total') {
+      setValue('tipo_correcao', 'Gradual');
+    }
+  }, [disableCorrecaoTotal, watchTipoCorrecao, setValue]);
 
   const onSubmit = async (data: EntradaAdubacao) => {
     try {
@@ -234,7 +313,7 @@ export function AdubacaoPage() {
           </div>
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+        <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-8">
           
           {/* ── Identificação ──────────────────────────────────────── */}
           <div className="space-y-5 rounded-2xl border border-stone-100 bg-stone-50 p-6">
@@ -279,10 +358,10 @@ export function AdubacaoPage() {
             </div>
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-              <CampoNumerico label="Cobre (Cu)" name="Cu" register={register} error={errors.Cu} placeholder="mg/dm³" />
-              <CampoNumerico label="Zinco (Zn)" name="Zn" register={register} error={errors.Zn} placeholder="mg/dm³" />
-              <CampoNumerico label="Boro (B)" name="B" register={register} error={errors.B} placeholder="mg/dm³" />
-              <CampoNumerico label="Manganês (Mn)" name="Mn" register={register} error={errors.Mn} placeholder="mg/dm³" />
+              <CampoNumerico label="Cobre (Cu)" name="Cu" register={register} error={errors.Cu} placeholder="mg/dm³" step="0.01" />
+              <CampoNumerico label="Zinco (Zn)" name="Zn" register={register} error={errors.Zn} placeholder="mg/dm³" step="0.01" />
+              <CampoNumerico label="Boro (B)" name="B" register={register} error={errors.B} placeholder="mg/dm³" step="0.01" />
+              <CampoNumerico label="Manganês (Mn)" name="Mn" register={register} error={errors.Mn} placeholder="mg/dm³" step="0.01" />
             </div>
           </div>
 
@@ -296,11 +375,20 @@ export function AdubacaoPage() {
               <SelectPadrao label="Cultura" name="cultura" register={register} error={errors.cultura} placeholder="Selecione..." options={[
                 { value: 'soja', label: 'Soja' },
                 { value: 'milho', label: 'Milho' },
+                { value: 'milho_pipoca', label: 'Milho Pipoca' },
                 { value: 'aveia_branca', label: 'Aveia Branca' },
                 { value: 'aveia_preta', label: 'Aveia Preta' },
                 { value: 'cevada', label: 'Cevada' },
                 { value: 'trigo', label: 'Trigo' },
+                { value: 'triticale', label: 'Triticale' },
+                { value: 'centeio', label: 'Centeio' },
                 { value: 'feijao', label: 'Feijão' },
+                { value: 'canola', label: 'Canola' },
+                { value: 'girassol', label: 'Girassol' },
+                { value: 'sorgo', label: 'Sorgo' },
+                { value: 'ervilha', label: 'Ervilha' },
+                { value: 'ervilhaca', label: 'Ervilhaca' },
+                { value: 'nabo_forrageiro', label: 'Nabo Forrageiro' },
               ]} />
               <CampoNumerico label="Rendimento (t/ha)" name="rendimento_esperado" register={register} error={errors.rendimento_esperado} placeholder="Ex: 4.5" />
               <SelectPadrao label="Número do Cultivo" name="num_cultivo" register={register} error={errors.num_cultivo} options={[
@@ -325,16 +413,32 @@ export function AdubacaoPage() {
                     Total {disableCorrecaoTotal ? '(Argila <20 ou CTC <7.5)' : ''}
                   </option>
                 </select>
+                {errors.tipo_correcao && (
+                  <span className="text-xs font-medium text-red-500">{errors.tipo_correcao.message}</span>
+                )}
               </div>
             </div>
 
-            {exigeCultAnt && (
+            {(exigeCultAnt || watchCultura === 'milho') && (
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <SelectPadrao label="Cultura Antecedente *" name="cultura_antecedente" register={register} error={errors.cultura_antecedente} placeholder="Selecione..." options={[
-                  { value: 'Leguminosa', label: 'Leguminosa (Ex: Soja)' },
-                  { value: 'Gramínea', label: 'Gramínea (Ex: Milho, Trigo)' },
-                  ...(watchCultura === 'milho' ? [{ value: 'Consorciação ou Pousio', label: 'Consorciação ou Pousio' }] : [])
-                ]} />
+                {exigeCultAnt && (
+                  <SelectPadrao label="Cultura Antecedente *" name="cultura_antecedente" register={register} error={errors.cultura_antecedente} placeholder="Selecione..." options={[
+                    { value: 'Leguminosa', label: 'Leguminosa (Ex: Soja)' },
+                    { value: 'Gramínea', label: 'Gramínea (Ex: Milho, Trigo)' },
+                    ...(watchCultura === 'milho' ? [{ value: 'Consorciação ou Pousio', label: 'Consorciação ou Pousio' }] : [])
+                  ]} />
+                )}
+                {watchCultura === 'milho' && (
+                  <CampoNumerico
+                    label="Densidade de Plantas (plantas/ha)"
+                    name="densidade_plantas"
+                    register={register}
+                    error={errors.densidade_plantas}
+                    placeholder="Ex: 70000"
+                    step="1000"
+                    dica="Acima de 65.000 plantas/ha, aplica bônus de N a cada 5.000 plantas extras."
+                  />
+                )}
               </div>
             )}
 

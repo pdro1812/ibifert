@@ -11,6 +11,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import {
   AlertCircle,
   ArrowRight,
+  Beaker,
   Check,
   CheckCircle2,
   FileDown,
@@ -25,6 +26,7 @@ import {
 import {
   CalagemSchema,
   detectarRestricaoMonitoramento,
+  precisaAlSatPDConsolidado,
   resolverSistemaEfetivo,
   rotearMetodoCalagem,
   type CalagemResultado,
@@ -126,6 +128,83 @@ const CampoNumerico = ({
   </div>
 );
 
+// ─── Cenários de teste (docs/plano-testes-validacao-agronoma.md, C1–C9) ────────
+// Espelham 1:1 os cenários do plano de testes entregue à coordenadora
+// agronôma — os valores aqui têm que ficar sincronizados com o .md.
+
+type CenarioCalagem = {
+  id: string;
+  nome: string;
+  dados: Partial<FormValores>;
+  modoAlSat?: 'direto' | 'calculado';
+};
+
+const CENARIOS_CALAGEM: CenarioCalagem[] = [
+  {
+    id: 'C1',
+    nome: 'C1 — Convencional, sem necessidade',
+    dados: { sistema_manejo: 'CONVENCIONAL', primeira_calagem: true, pH_agua: 5.8, SMP: 6.0, PRNT: 80 },
+  },
+  {
+    id: 'C2',
+    nome: 'C2 — Convencional, método SMP',
+    dados: { sistema_manejo: 'CONVENCIONAL', primeira_calagem: true, pH_agua: 5.0, SMP: 5.6, PRNT: 100 },
+  },
+  {
+    id: 'C3',
+    nome: 'C3 — Convencional, método Polinomial',
+    dados: {
+      sistema_manejo: 'CONVENCIONAL', primeira_calagem: true, pH_agua: 5.0, SMP: 6.8,
+      MO: 3.0, Al_trocavel: 1.5, PRNT: 80,
+    },
+  },
+  {
+    id: 'C4',
+    nome: 'C4 — PD Implantação, incorporado',
+    dados: {
+      sistema_manejo: 'PD_IMPLANTACAO', primeira_calagem: true, pH_agua: 5.2, SMP: 5.8,
+      PRNT: 90, opcao_superficial_campo_natural: false,
+    },
+  },
+  {
+    id: 'C5',
+    nome: 'C5 — PD Implantação, superficial campo natural',
+    dados: {
+      sistema_manejo: 'PD_IMPLANTACAO', primeira_calagem: true, pH_agua: 5.2, SMP: 5.8,
+      PRNT: 100, opcao_superficial_campo_natural: true,
+    },
+  },
+  {
+    id: 'C6',
+    nome: 'C6 — PD Consolidado, dose normal',
+    dados: { sistema_manejo: 'PD_CONSOLIDADO', primeira_calagem: true, pH_agua: 5.0, SMP: 5.0, PRNT: 80, Al_sat: 20 },
+    modoAlSat: 'direto',
+  },
+  {
+    id: 'C7',
+    nome: 'C7 — PD Consolidado, solo tamponado (trava)',
+    dados: {
+      sistema_manejo: 'PD_CONSOLIDADO', primeira_calagem: false, pH_agua: 5.2, SMP: 5.8,
+      V_atual: 66, CTC_pH7: 10, Al_sat: 8, PRNT: 80,
+    },
+    modoAlSat: 'direto',
+  },
+  {
+    id: 'C8',
+    nome: 'C8 — PD Consolidado, trava 5 t/ha',
+    dados: { sistema_manejo: 'PD_CONSOLIDADO', primeira_calagem: true, pH_agua: 4.8, SMP: 4.4, PRNT: 100, Al_sat: 25 },
+    modoAlSat: 'direto',
+  },
+  {
+    id: 'C9',
+    nome: 'C9 — Reaplicação, SMP x Saturação de Bases',
+    dados: {
+      sistema_manejo: 'CONVENCIONAL', primeira_calagem: false, pH_agua: 5.0, SMP: 5.6,
+      V_atual: 50, CTC_pH7: 10, PRNT: 100,
+    },
+  },
+];
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export function CalculadoraPage() {
@@ -171,6 +250,7 @@ export function CalculadoraPage() {
     register,
     handleSubmit,
     getValues,
+    reset,
     formState: { errors },
   } = useForm<FormValores>({
     resolver: zodResolver(CalagemSchema),
@@ -182,6 +262,33 @@ export function CalculadoraPage() {
     },
   });
 
+  const aplicarCenario = (cenario: CenarioCalagem) => {
+    reset({
+      sistema_manejo: 'CONVENCIONAL',
+      primeira_calagem: true,
+      opcao_superficial_campo_natural: false,
+      ...cenario.dados,
+    });
+    setModoAlSat(cenario.modoAlSat ?? 'direto');
+    setMonitoramentoAtivo(false);
+    setResultado(null);
+    setMensagemApi(null);
+    setSalvo(false);
+  };
+
+  const limparCenario = () => {
+    reset({
+      sistema_manejo: 'CONVENCIONAL',
+      primeira_calagem: true,
+      opcao_superficial_campo_natural: false,
+    });
+    setModoAlSat('direto');
+    setMonitoramentoAtivo(false);
+    setResultado(null);
+    setMensagemApi(null);
+    setSalvo(false);
+  };
+
   const sistemaSelecionado = useWatch({ control, name: 'sistema_manejo' });
   const primeiraCalagem    = useWatch({ control, name: 'primeira_calagem' });
   const smpValor           = useWatch({ control, name: 'SMP' });
@@ -189,13 +296,12 @@ export function CalculadoraPage() {
   const monitoramento      = useWatch({ control, name: 'monitoramento' });
 
   const temSmpInformado  = typeof smpValor === 'number';
-  const temPhInformado   = typeof pHValor  === 'number';
   const metodoRoteado    = temSmpInformado ? rotearMetodoCalagem(smpValor) : null;
   const isPolinomial     = metodoRoteado === 'POLINOMIAL';
   const isReaplicacaoSMP = primeiraCalagem === false && metodoRoteado === 'SMP';
   const isPDConsolidado  = sistemaSelecionado === 'PD_CONSOLIDADO';
   const isPDImplantacao  = sistemaSelecionado === 'PD_IMPLANTACAO';
-  const precisaAlSat     = isPDConsolidado && temPhInformado && pHValor < 5.5;
+  const precisaAlSat     = precisaAlSatPDConsolidado(sistemaSelecionado, pHValor);
   const modoAlSatAtual   = precisaAlSat ? modoAlSat : 'direto';
   const restricao10_20   =
     isPDConsolidado &&
@@ -306,6 +412,33 @@ export function CalculadoraPage() {
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-stone-800">Ibiferti Calagem</h1>
             <p className="text-sm font-medium text-stone-500">Motor de Recomendação v2.0</p>
+          </div>
+        </div>
+
+        {/* Cenários de Teste (docs/plano-testes-validacao-agronoma.md) */}
+        <div className="mb-8 space-y-3 rounded-2xl border border-stone-100 bg-stone-50 p-4">
+          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-stone-400">
+            <Beaker size={14} /> Cenários de Teste (Validação Agronômica)
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {CENARIOS_CALAGEM.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => aplicarCenario(c)}
+                title={c.nome}
+                className="rounded-lg bg-white border border-stone-200 px-3 py-1.5 text-xs font-semibold text-stone-600 transition-all hover:border-green-500 hover:text-green-700 active:scale-95"
+              >
+                {c.nome}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={limparCenario}
+              className="ml-auto rounded-lg bg-stone-200 px-3 py-1.5 text-xs font-semibold text-stone-600 transition-all hover:bg-stone-300 hover:text-stone-800 active:scale-95"
+            >
+              Limpar Tudo
+            </button>
           </div>
         </div>
 
@@ -422,7 +555,7 @@ export function CalculadoraPage() {
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-stone-600">Tipo de Aplicação *</label>
                 <select
-                  {...register('primeira_calagem', { setValueAs: (v) => v === 'true' })}
+                  {...register('primeira_calagem', { setValueAs: (v) => v === true || v === 'true' })}
                   className={`w-full rounded-xl border px-4 py-3 shadow-sm outline-none transition-all ${
                     errors.primeira_calagem
                       ? 'border-red-400 bg-red-50'
@@ -453,7 +586,7 @@ export function CalculadoraPage() {
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-stone-600">Modo de Aplicação *</label>
                 <select
-                  {...register('opcao_superficial_campo_natural', { setValueAs: (v) => v === 'true' })}
+                  {...register('opcao_superficial_campo_natural', { setValueAs: (v) => v === true || v === 'true' })}
                   className="w-full rounded-xl border border-stone-200 bg-white px-4 py-3 shadow-sm outline-none focus:border-green-500"
                 >
                   <option value="false">Incorporado (padrão)</option>

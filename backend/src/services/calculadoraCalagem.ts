@@ -6,6 +6,8 @@ import {
   EntradaCalagem,
   MetodoCalcRoteado,
   SistemaManejo,
+  precisaAlSatPDConsolidado,
+  temAlSatResolvido,
 } from "../schemas/calagemSchema";
 
 export function validarEntrada(entrada: unknown): EntradaCalagem {
@@ -117,16 +119,8 @@ export function determinarCamposNecessarios(
     }
   }
 
-  if (
-    entrada.sistema_manejo === SistemaManejo.PD_CONSOLIDADO &&
-    entrada.pH_agua !== undefined &&
-    entrada.pH_agua < 5.5
-  ) {
-    const temAlSatDireto = entrada.Al_sat !== undefined;
-    const temAlSatPorCalculo =
-      entrada.Al_trocavel !== undefined && entrada.CTC_pH7 !== undefined;
-
-    if (!temAlSatDireto && !temAlSatPorCalculo) {
+  if (precisaAlSatPDConsolidado(entrada.sistema_manejo, entrada.pH_agua)) {
+    if (!temAlSatResolvido(entrada)) {
       adicionar("Al_sat");
       adicionar("Al_trocavel", entrada.Al_trocavel === undefined);
       adicionar("CTC_pH7", entrada.CTC_pH7 === undefined);
