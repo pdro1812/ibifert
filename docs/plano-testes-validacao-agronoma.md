@@ -21,7 +21,7 @@
    coluna/linha de anotações — inclusive coisas que pareceram estranhas,
    confusas na tela, ou sugestões de melhoria, mesmo que o número em si
    esteja certo.
-5. Cenários marcados **⭐ Atenção especial** testam pontos onde já
+5. Cenários marcados **Atenção especial** testam pontos onde já
    encontramos e corrigimos bugs antes — vale conferir com mais cuidado.
 
 ---
@@ -139,7 +139,7 @@ profundidade de incorporação).
 
 ---
 
-### C7 ⭐ Atenção especial — PD Consolidado, solo "tamponado" (trava de não aplicar)
+### C7 Atenção especial — PD Consolidado, solo "tamponado" (trava de não aplicar)
 
 Este cenário testa uma regra sutil: pH baixo, mas o solo já tem boa
 saturação de bases e pouco alumínio — o manual diz que **não é necessário
@@ -302,7 +302,7 @@ casos que os botões prontos não cobrem.
 
 ---
 
-### A4 ⭐ Atenção especial — Soja, 2º cultivo, solo já muito rico em P e K
+### A4 Atenção especial — Soja, 2º cultivo, solo já muito rico em P e K
 
 Este cenário é sabidamente ambíguo hoje: quando P/K estão em nível
 "muito alto" e é o 2º cultivo do ano, o texto diz "reposição parcial a

@@ -182,7 +182,7 @@ const CENARIOS_CALAGEM: CenarioCalagem[] = [
   },
   {
     id: 'C7',
-    nome: 'C7 ⭐ — PD Consolidado, solo tamponado (trava)',
+    nome: 'C7 — PD Consolidado, solo tamponado (trava)',
     dados: {
       sistema_manejo: 'PD_CONSOLIDADO', primeira_calagem: false, pH_agua: 5.2, SMP: 5.8,
       V_atual: 66, CTC_pH7: 10, Al_sat: 8, PRNT: 80,

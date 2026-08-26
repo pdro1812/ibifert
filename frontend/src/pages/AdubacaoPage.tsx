@@ -132,6 +132,17 @@ export function AdubacaoPage() {
     }
   };
 
+  // Campos opcionais precisam ser explicitamente limpos aqui — se um
+  // cenário anterior preencheu, por exemplo, o Boro, e o próximo cenário
+  // não menciona esse campo, o reset() do react-hook-form mantém o valor
+  // antigo em vez de limpar, porque a chave simplesmente não aparece no
+  // objeto passado. Sem essa base, o campo "gruda" de um cenário pro outro.
+  const CAMPOS_OPCIONAIS_BASE = {
+    identificacao: '',
+    S: '', Cu: '', Zn: '', B: '', Mn: '', pH_agua: '',
+    cultura_antecedente: undefined, finalidade_cevada: undefined, densidade_plantas: '',
+  } as unknown as Partial<EntradaAdubacaoForm>;
+
   const aplicarCenario = (dados: Partial<EntradaAdubacaoForm>) => {
     reset({
       metodo_P: 'Mehlich-1',
@@ -139,6 +150,7 @@ export function AdubacaoPage() {
       tipo_correcao: 'Gradual',
       sistema_cultivo: 'Plantio Direto',
       num_cultivo: '1',
+      ...CAMPOS_OPCIONAIS_BASE,
       ...dados
     });
     setResultado(null);
@@ -176,7 +188,7 @@ export function AdubacaoPage() {
       }
     },
     {
-      nome: 'A4 ⭐ — Soja, 2º cultivo, solo muito rico',
+      nome: 'A4 — Soja, 2º cultivo, solo muito rico',
       dados: {
         argila: 30, MO: 3.0, CTC_pH7: 10.0, P: 40, K: 200,
         Ca: 3.0, Mg: 1.0, S: 15,
@@ -301,7 +313,7 @@ export function AdubacaoPage() {
           </div>
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+        <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-8">
           
           {/* ── Identificação ──────────────────────────────────────── */}
           <div className="space-y-5 rounded-2xl border border-stone-100 bg-stone-50 p-6">
@@ -346,10 +358,10 @@ export function AdubacaoPage() {
             </div>
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-              <CampoNumerico label="Cobre (Cu)" name="Cu" register={register} error={errors.Cu} placeholder="mg/dm³" />
-              <CampoNumerico label="Zinco (Zn)" name="Zn" register={register} error={errors.Zn} placeholder="mg/dm³" />
-              <CampoNumerico label="Boro (B)" name="B" register={register} error={errors.B} placeholder="mg/dm³" />
-              <CampoNumerico label="Manganês (Mn)" name="Mn" register={register} error={errors.Mn} placeholder="mg/dm³" />
+              <CampoNumerico label="Cobre (Cu)" name="Cu" register={register} error={errors.Cu} placeholder="mg/dm³" step="0.01" />
+              <CampoNumerico label="Zinco (Zn)" name="Zn" register={register} error={errors.Zn} placeholder="mg/dm³" step="0.01" />
+              <CampoNumerico label="Boro (B)" name="B" register={register} error={errors.B} placeholder="mg/dm³" step="0.01" />
+              <CampoNumerico label="Manganês (Mn)" name="Mn" register={register} error={errors.Mn} placeholder="mg/dm³" step="0.01" />
             </div>
           </div>
 
