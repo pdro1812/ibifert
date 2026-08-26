@@ -23,6 +23,29 @@ export enum AcaoRequerida {
 
 const SISTEMA_MANEJO_SCHEMA = z.nativeEnum(SistemaManejo);
 
+export function precisaAlSatPDConsolidado(
+  sistema_manejo: SistemaManejo | undefined,
+  pH_agua: number | undefined
+): boolean {
+  return (
+    sistema_manejo === SistemaManejo.PD_CONSOLIDADO &&
+    typeof pH_agua === "number" &&
+    pH_agua < 5.5
+  );
+}
+
+export function temAlSatResolvido(entrada: {
+  Al_sat?: number;
+  Al_trocavel?: number;
+  CTC_pH7?: number;
+}): boolean {
+  const temAlSatDireto = entrada.Al_sat !== undefined;
+  const temAlSatPorCalculo =
+    entrada.Al_trocavel !== undefined && entrada.CTC_pH7 !== undefined;
+
+  return temAlSatDireto || temAlSatPorCalculo;
+}
+
 const percentualSchema = (campo: string) =>
   z
     .number()
@@ -136,15 +159,8 @@ export const CalagemSchema = z
       }
     }
 
-    if (
-      entrada.sistema_manejo === SistemaManejo.PD_CONSOLIDADO &&
-      entrada.pH_agua < 5.5
-    ) {
-      const temAlSatDireto = entrada.Al_sat !== undefined;
-      const temAlSatPorCalculo =
-        entrada.Al_trocavel !== undefined && entrada.CTC_pH7 !== undefined;
-
-      if (!temAlSatDireto && !temAlSatPorCalculo) {
+    if (precisaAlSatPDConsolidado(entrada.sistema_manejo, entrada.pH_agua)) {
+      if (!temAlSatResolvido(entrada)) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ["Al_sat"],

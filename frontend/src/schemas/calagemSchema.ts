@@ -73,8 +73,7 @@ export const CalagemSchema = z
   })
   .superRefine((entrada, ctx) => {
     const metodo = rotearMetodoCalagem(entrada.SMP);
-    const precisaAlSat =
-      entrada.sistema_manejo === 'PD_CONSOLIDADO' && entrada.pH_agua < 5.5;
+    const precisaAlSat = precisaAlSatPDConsolidado(entrada.sistema_manejo, entrada.pH_agua);
     const precisaSatBases = !entrada.primeira_calagem && metodo === 'SMP';
     const monitoramentoComRestricao =
       entrada.sistema_manejo === 'PD_CONSOLIDADO' &&
@@ -117,11 +116,7 @@ export const CalagemSchema = z
     }
 
     if (precisaAlSat) {
-      const temAlSatDireto = entrada.Al_sat !== undefined;
-      const temAlSatCalculado =
-        entrada.Al_trocavel !== undefined && entrada.CTC_pH7 !== undefined;
-
-      if (!temAlSatDireto && !temAlSatCalculado) {
+      if (!temAlSatResolvido(entrada)) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ['Al_sat'],
@@ -198,6 +193,30 @@ export interface CalagemResultado {
 
 export function rotearMetodoCalagem(smp: number): MetodoCalcRoteado {
   return smp > 6.3 ? 'POLINOMIAL' : 'SMP';
+}
+
+export function precisaAlSatPDConsolidado(
+  sistema_manejo: SistemaManejo | undefined,
+  pH_agua: number | undefined
+): boolean {
+  return (
+    sistema_manejo === 'PD_CONSOLIDADO' &&
+    typeof pH_agua === 'number' &&
+    !Number.isNaN(pH_agua) &&
+    pH_agua < 5.5
+  );
+}
+
+export function temAlSatResolvido(entrada: {
+  Al_sat?: number;
+  Al_trocavel?: number;
+  CTC_pH7?: number;
+}): boolean {
+  const temAlSatDireto = entrada.Al_sat !== undefined;
+  const temAlSatCalculado =
+    entrada.Al_trocavel !== undefined && entrada.CTC_pH7 !== undefined;
+
+  return temAlSatDireto || temAlSatCalculado;
 }
 
 export function detectarRestricaoMonitoramento(
