@@ -14,7 +14,6 @@ import { FazendasPage } from './pages/FazendasPage';
 import { NovaAnalisePage } from './pages/NovaAnalisePage';
 import { HistoricoAnalisesPage } from './pages/HistoricoAnalisesPage';
 import { TalhaoDetalhesPage } from './pages/TalhaoDetalhesPage';
-import { ValidacaoAgronomicaPage } from './pages/ValidacaoAgronomicaPage';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
 import { AdminUsersPage } from './pages/AdminUsersPage';
 import { AdminAnalisesPage } from './pages/AdminAnalisesPage';
@@ -34,7 +33,6 @@ export default function App() {
             <Route path="/" element={<CalculadoraPage />} />
             <Route path="/adubacao" element={<AdubacaoPage />} />
             <Route path="/monitoramento" element={<MonitoramentoPage />} />
-            <Route path="/validacao" element={<ValidacaoAgronomicaPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/RegisterPage" element={<RegisterPage />} />
           </Route>
