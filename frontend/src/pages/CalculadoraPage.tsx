@@ -143,18 +143,24 @@ const CENARIOS_CALAGEM: CenarioCalagem[] = [
   {
     id: 'C1',
     nome: 'C1 — Convencional, sem necessidade',
-    dados: { sistema_manejo: 'CONVENCIONAL', primeira_calagem: true, pH_agua: 5.8, SMP: 6.0, PRNT: 80 },
+    dados: {
+      sistema_manejo: 'CONVENCIONAL', pH_agua: 5.8, SMP: 6.0, PRNT: 80,
+      V_atual: 60, CTC_pH7: 10,
+    },
   },
   {
     id: 'C2',
     nome: 'C2 — Convencional, método SMP',
-    dados: { sistema_manejo: 'CONVENCIONAL', primeira_calagem: true, pH_agua: 5.0, SMP: 5.6, PRNT: 100 },
+    dados: {
+      sistema_manejo: 'CONVENCIONAL', pH_agua: 5.0, SMP: 5.6,
+      V_atual: 50, CTC_pH7: 10, PRNT: 100,
+    },
   },
   {
     id: 'C3',
     nome: 'C3 — Convencional, método Polinomial',
     dados: {
-      sistema_manejo: 'CONVENCIONAL', primeira_calagem: true, pH_agua: 5.0, SMP: 6.8,
+      sistema_manejo: 'CONVENCIONAL', pH_agua: 5.0, SMP: 6.8,
       MO: 3.0, Al_trocavel: 1.5, PRNT: 80,
     },
   },
@@ -162,29 +168,34 @@ const CENARIOS_CALAGEM: CenarioCalagem[] = [
     id: 'C4',
     nome: 'C4 — PD Implantação, incorporado',
     dados: {
-      sistema_manejo: 'PD_IMPLANTACAO', primeira_calagem: true, pH_agua: 5.2, SMP: 5.8,
+      sistema_manejo: 'PD_IMPLANTACAO', pH_agua: 5.2, SMP: 5.8,
       PRNT: 90, opcao_superficial_campo_natural: false,
+      V_atual: 55, CTC_pH7: 10,
     },
   },
   {
     id: 'C5',
     nome: 'C5 — PD Implantação, superficial campo natural',
     dados: {
-      sistema_manejo: 'PD_IMPLANTACAO', primeira_calagem: true, pH_agua: 5.2, SMP: 5.8,
+      sistema_manejo: 'PD_IMPLANTACAO', pH_agua: 5.2, SMP: 5.8,
       PRNT: 100, opcao_superficial_campo_natural: true,
+      V_atual: 55, CTC_pH7: 10,
     },
   },
   {
     id: 'C6',
     nome: 'C6 — PD Consolidado, dose normal',
-    dados: { sistema_manejo: 'PD_CONSOLIDADO', primeira_calagem: true, pH_agua: 5.0, SMP: 5.0, PRNT: 80, Al_sat: 20 },
+    dados: {
+      sistema_manejo: 'PD_CONSOLIDADO', pH_agua: 5.0, SMP: 5.0, PRNT: 80,
+      V_atual: 40, CTC_pH7: 10, Al_sat: 20,
+    },
     modoAlSat: 'direto',
   },
   {
     id: 'C7',
     nome: 'C7 — PD Consolidado, solo tamponado (trava)',
     dados: {
-      sistema_manejo: 'PD_CONSOLIDADO', primeira_calagem: false, pH_agua: 5.2, SMP: 5.8,
+      sistema_manejo: 'PD_CONSOLIDADO', pH_agua: 5.2, SMP: 5.8,
       V_atual: 66, CTC_pH7: 10, Al_sat: 8, PRNT: 80,
     },
     modoAlSat: 'direto',
@@ -192,14 +203,17 @@ const CENARIOS_CALAGEM: CenarioCalagem[] = [
   {
     id: 'C8',
     nome: 'C8 — PD Consolidado, trava 5 t/ha',
-    dados: { sistema_manejo: 'PD_CONSOLIDADO', primeira_calagem: true, pH_agua: 4.8, SMP: 4.4, PRNT: 100, Al_sat: 25 },
+    dados: {
+      sistema_manejo: 'PD_CONSOLIDADO', pH_agua: 4.8, SMP: 4.4, PRNT: 100,
+      V_atual: 30, CTC_pH7: 10, Al_sat: 25,
+    },
     modoAlSat: 'direto',
   },
   {
     id: 'C9',
     nome: 'C9 — Reaplicação, SMP x Saturação de Bases',
     dados: {
-      sistema_manejo: 'CONVENCIONAL', primeira_calagem: false, pH_agua: 5.0, SMP: 5.6,
+      sistema_manejo: 'CONVENCIONAL', pH_agua: 5.0, SMP: 5.6,
       V_atual: 50, CTC_pH7: 10, PRNT: 100,
     },
   },
@@ -257,7 +271,9 @@ export function CalculadoraPage() {
     shouldUnregister: true,
     defaultValues: {
       sistema_manejo: 'CONVENCIONAL',
-      primeira_calagem: true,
+      // Não é mais uma opção da interface — toda calagem é tratada como
+      // reaplicação (ver docs/diagnostico-primeira-calagem-metodo-smp.md).
+      primeira_calagem: false,
       opcao_superficial_campo_natural: false,
     },
   });
@@ -265,7 +281,7 @@ export function CalculadoraPage() {
   const aplicarCenario = (cenario: CenarioCalagem) => {
     reset({
       sistema_manejo: 'CONVENCIONAL',
-      primeira_calagem: true,
+      primeira_calagem: false,
       opcao_superficial_campo_natural: false,
       ...cenario.dados,
     });
@@ -279,7 +295,7 @@ export function CalculadoraPage() {
   const limparCenario = () => {
     reset({
       sistema_manejo: 'CONVENCIONAL',
-      primeira_calagem: true,
+      primeira_calagem: false,
       opcao_superficial_campo_natural: false,
     });
     setModoAlSat('direto');
@@ -290,7 +306,6 @@ export function CalculadoraPage() {
   };
 
   const sistemaSelecionado = useWatch({ control, name: 'sistema_manejo' });
-  const primeiraCalagem    = useWatch({ control, name: 'primeira_calagem' });
   const smpValor           = useWatch({ control, name: 'SMP' });
   const pHValor            = useWatch({ control, name: 'pH_agua' });
   const monitoramento      = useWatch({ control, name: 'monitoramento' });
@@ -298,7 +313,9 @@ export function CalculadoraPage() {
   const temSmpInformado  = typeof smpValor === 'number';
   const metodoRoteado    = temSmpInformado ? rotearMetodoCalagem(smpValor) : null;
   const isPolinomial     = metodoRoteado === 'POLINOMIAL';
-  const isReaplicacaoSMP = primeiraCalagem === false && metodoRoteado === 'SMP';
+  // Toda calagem é tratada como reaplicação (não é mais uma opção do
+  // formulário) — ver docs/diagnostico-primeira-calagem-metodo-smp.md.
+  const isReaplicacaoSMP = metodoRoteado === 'SMP';
   const isPDConsolidado  = sistemaSelecionado === 'PD_CONSOLIDADO';
   const isPDImplantacao  = sistemaSelecionado === 'PD_IMPLANTACAO';
   const precisaAlSat     = precisaAlSatPDConsolidado(sistemaSelecionado, pHValor);
@@ -550,22 +567,6 @@ export function CalculadoraPage() {
                   <option value="PD_CONSOLIDADO">Plantio Direto — Consolidado</option>
                 </select>
               </div>
-
-              {/* Tipo de Aplicação */}
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-stone-600">Tipo de Aplicação *</label>
-                <select
-                  {...register('primeira_calagem', { setValueAs: (v) => v === true || v === 'true' })}
-                  className={`w-full rounded-xl border px-4 py-3 shadow-sm outline-none transition-all ${
-                    errors.primeira_calagem
-                      ? 'border-red-400 bg-red-50'
-                      : 'border-stone-200 bg-white focus:border-green-500'
-                  }`}
-                >
-                  <option value="true">Primeira calagem</option>
-                  <option value="false">Reaplicação</option>
-                </select>
-              </div>
             </div>
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -681,24 +682,22 @@ export function CalculadoraPage() {
                     </p>
                   </div>
 
-                  {!primeiraCalagem ? (
-                    isReaplicacaoSMP ? (
-                      <div className="rounded-xl border border-blue-200 bg-blue-50 p-3 text-xs text-blue-800">
-                        V_atual já foi coletado no Bloco B1 e será reaproveitado aqui.
-                      </div>
-                    ) : (
-                      <CampoNumerico
-                        label="V atual (%) *"
-                        name="V_atual"
-                        min={0}
-                        max={100}
-                        placeholder="Ex: 66"
-                        register={register}
-                        error={errors.V_atual}
-                        dica="Necessário para verificar a trava RN-04/TRAVA-03."
-                      />
-                    )
-                  ) : null}
+                  {isReaplicacaoSMP ? (
+                    <div className="rounded-xl border border-blue-200 bg-blue-50 p-3 text-xs text-blue-800">
+                      V_atual já foi coletado no Bloco B1 e será reaproveitado aqui.
+                    </div>
+                  ) : (
+                    <CampoNumerico
+                      label="V atual (%) *"
+                      name="V_atual"
+                      min={0}
+                      max={100}
+                      placeholder="Ex: 66"
+                      register={register}
+                      error={errors.V_atual}
+                      dica="Necessário para verificar a trava RN-04/TRAVA-03."
+                    />
+                  )}
 
                   <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                     <button

@@ -97,7 +97,9 @@ export const CalagemSchema = z
   .object({
     identificacao: z.string().optional(),
     sistema_manejo: SISTEMA_MANEJO_SCHEMA,
-    primeira_calagem: z.boolean(),
+    // Não é mais uma pergunta feita ao usuário — todo cálculo é tratado
+    // como reaplicação por padrão (ver docs/diagnostico-primeira-calagem-metodo-smp.md).
+    primeira_calagem: z.boolean().default(false),
     pH_agua: phSchema,
     SMP: smpSchema,
     PRNT: prntSchema,
