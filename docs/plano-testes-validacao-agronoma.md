@@ -6,14 +6,27 @@
 
 Tela: **Calculadora de Calagem** (menu público / dashboard).
 
+> **Mudança de comportamento (2026-09-15):** o campo "Tipo de Aplicação"
+> (Primeira calagem / Reaplicação) foi removido da tela — todo cálculo
+> passou a ser tratado como reaplicação (ver
+> `docs/diagnostico-primeira-calagem-metodo-smp.md`). Efeito prático nos
+> cenários abaixo: **sempre que o método roteado é SMP** (índice SMP
+> ≤ 6,3), a tela agora também pede `V atual` e `CTC pH7`, e o resultado
+> passa a exibir uma referência adicional — **Saturação por Bases** — ao
+> lado da dose principal, mesmo em cenários que antes não mostravam essa
+> referência (C1, C2, C4, C5, C6, C8). Isso vale mesmo quando a dose final
+> é zero (C1), porque o campo é exigido pela validação independentemente
+> do resultado do cálculo.
+
 ### C1 — Convencional, pH já corrigido (não deve recomendar calcário)
 
 | Campo | Valor |
 |---|---|
 | Sistema de Manejo | Convencional |
-| Primeira aplicação de calcário? | Sim |
 | pH em água | `5.8` |
 | Índice SMP | `6.0` |
+| V atual (%) | `60` |
+| CTC pH7 | `10` |
 | PRNT (%) | `80` |
 
 **Resultado esperado:** sistema **não recomenda aplicar calcário** (dose
@@ -28,14 +41,16 @@ Tela: **Calculadora de Calagem** (menu público / dashboard).
 | Campo | Valor |
 |---|---|
 | Sistema de Manejo | Convencional |
-| Primeira aplicação de calcário? | Sim |
 | pH em água | `5.0` |
 | Índice SMP | `5.6` |
+| V atual (%) | `50` |
+| CTC pH7 | `10` |
 | PRNT (%) | `100` |
 
 **Resultado esperado:** aplica calcário, **NC final ≈ 5,4 t/ha**,
 **NC ajustada (PRNT) ≈ 5,4 t/ha**, modo **Incorporado**, profundidade
-20 cm, método usado = SMP.
+20 cm, método usado = SMP. Referência de Saturação por Bases (NC_vb)
+≈ **2,5 t/ha**.
 
 ☐ Bateu ☐ Não bateu — Observações: ___________________________________
 
@@ -46,7 +61,6 @@ Tela: **Calculadora de Calagem** (menu público / dashboard).
 | Campo | Valor |
 |---|---|
 | Sistema de Manejo | Convencional |
-| Primeira aplicação de calcário? | Sim |
 | pH em água | `5.0` |
 | Índice SMP | `6.8` |
 | MO (%) | `3.0` |
@@ -54,7 +68,8 @@ Tela: **Calculadora de Calagem** (menu público / dashboard).
 | PRNT (%) | `80` |
 
 **Resultado esperado:** método usado = Polinomial, **NC base ≈ 5,55 t/ha**,
-**NC ajustada (PRNT) ≈ 6,94 t/ha**, modo Incorporado, 20 cm.
+**NC ajustada (PRNT) ≈ 6,94 t/ha**, modo Incorporado, 20 cm. Sem
+referência de Saturação por Bases (só se aplica ao método SMP).
 
 ☐ Bateu ☐ Não bateu — Observações: ___________________________________
 
@@ -65,14 +80,16 @@ Tela: **Calculadora de Calagem** (menu público / dashboard).
 | Campo | Valor |
 |---|---|
 | Sistema de Manejo | PD Implantação |
-| Primeira aplicação de calcário? | Sim |
 | pH em água | `5.2` |
 | Índice SMP | `5.8` |
+| V atual (%) | `55` |
+| CTC pH7 | `10` |
 | PRNT (%) | `90` |
 | Opção "superficial em campo natural" | **não marcar** |
 
 **Resultado esperado:** aplica calcário, **NC final ≈ 4,2 t/ha**,
-**NC ajustada ≈ 4,67 t/ha**, modo **Incorporado**, 20 cm.
+**NC ajustada ≈ 4,67 t/ha**, modo **Incorporado**, 20 cm. Referência de
+Saturação por Bases (NC_vb) ≈ **2,0 t/ha**.
 
 ☐ Bateu ☐ Não bateu — Observações: ___________________________________
 
@@ -83,15 +100,17 @@ Tela: **Calculadora de Calagem** (menu público / dashboard).
 | Campo | Valor |
 |---|---|
 | Sistema de Manejo | PD Implantação |
-| Primeira aplicação de calcário? | Sim |
 | pH em água | `5.2` |
 | Índice SMP | `5.8` |
+| V atual (%) | `55` |
+| CTC pH7 | `10` |
 | PRNT (%) | `100` |
 | Opção "superficial em campo natural" | **marcar** |
 
 **Resultado esperado:** dose cai pela metade em relação ao C4 — **NC final
 ≈ 2,1 t/ha**, **NC ajustada ≈ 2,1 t/ha**, modo **Superficial** (sem
-profundidade de incorporação).
+profundidade de incorporação). Referência de Saturação por Bases (NC_vb)
+≈ **2,0 t/ha**.
 
 ☐ Bateu ☐ Não bateu — Observações: ___________________________________
 
@@ -102,14 +121,16 @@ profundidade de incorporação).
 | Campo | Valor |
 |---|---|
 | Sistema de Manejo | PD Consolidado |
-| Primeira aplicação de calcário? | Sim |
 | pH em água | `5.0` |
 | Índice SMP | `5.0` |
+| V atual (%) | `40` |
+| CTC pH7 | `10` |
 | PRNT (%) | `80` |
 | Al saturação (%) | `20` |
 
 **Resultado esperado:** aplica calcário, **NC final ≈ 2,48 t/ha**,
 **NC ajustada ≈ 3,09 t/ha**, modo **Superficial**, sem alerta de limite.
+Referência de Saturação por Bases (NC_vb) ≈ **3,5 t/ha**.
 
 ☐ Bateu ☐ Não bateu — Observações: ___________________________________
 
@@ -126,7 +147,6 @@ de novo.
 | Campo | Valor |
 |---|---|
 | Sistema de Manejo | PD Consolidado |
-| Primeira aplicação de calcário? | Não (reaplicação) |
 | pH em água | `5.2` |
 | Índice SMP | `5.8` |
 | V atual (%) | `66` |
@@ -138,8 +158,6 @@ de novo.
 = 0), mesmo com pH abaixo de 5,5 — porque V% ≥ 65 e Al_sat < 10%. Deve
 aparecer um aviso explicando o motivo ("solo tamponado").
 
-**Se o sistema recomendar uma dose diferente de zero aqui, é um bug grave
-— avisar imediatamente.**
 
 ☐ Bateu ☐ Não bateu — Observações: ___________________________________
 
@@ -150,27 +168,28 @@ aparecer um aviso explicando o motivo ("solo tamponado").
 | Campo | Valor |
 |---|---|
 | Sistema de Manejo | PD Consolidado |
-| Primeira aplicação de calcário? | Sim |
 | pH em água | `4.8` |
 | Índice SMP | `4.4` |
+| V atual (%) | `30` |
+| CTC pH7 | `10` |
 | PRNT (%) | `100` |
 | Al saturação (%) | `25` |
 
 **Resultado esperado:** a dose calculada internamente passaria de 5 t/ha
 (5,25), mas o sistema deve **travar em NC final = 5,0 t/ha** e mostrar um
 alerta dizendo que o limite de aplicação superficial foi atingido. NC
-ajustada = 5,0 t/ha (PRNT=100).
+ajustada = 5,0 t/ha (PRNT=100). Referência de Saturação por Bases (NC_vb)
+≈ **4,5 t/ha**.
 
 ☐ Bateu ☐ Não bateu — Observações: ___________________________________
 
 ---
 
-### C9 — Reaplicação com comparação de métodos (NC pelo SMP x NC pela Saturação de Bases)
+### C9 — Comparação de métodos (NC pelo SMP x NC pela Saturação de Bases)
 
 | Campo | Valor |
 |---|---|
 | Sistema de Manejo | Convencional |
-| Primeira aplicação de calcário? | Não (reaplicação) |
 | pH em água | `5.0` |
 | Índice SMP | `5.6` |
 | V atual (%) | `50` |
@@ -181,7 +200,8 @@ ajustada = 5,0 t/ha (PRNT=100).
 pelo método SMP ≈ **5,4 t/ha** e pela Saturação de Bases (NC_vb) ≈
 **2,5 t/ha**, com um texto explicando que a escolha entre as duas é
 decisão do técnico. O resultado final adotado (NC ajustada) deve ser o do
-método SMP, **5,4 t/ha**.
+método SMP, **5,4 t/ha**. (Mesma entrada de C2 — mantido como cenário
+dedicado à checagem do texto de comparação entre os dois métodos.)
 
 ☐ Bateu ☐ Não bateu — Observações: ___________________________________
 
@@ -303,10 +323,6 @@ adubação no campo, ou se precisa de ajuste.
 
 **Resultado esperado:** N = 0 (FBN). P₂O₅ e K₂O aparecem como **"0
 kg/ha"** com o texto **"Reposição parcial — a critério do técnico"**.
-
-**Pergunta para a coordenadora:** essa forma de exibir ("0 kg/ha" + texto)
-é aceitável, ou o time agronômico esperava ver um número sugerido de
-reposição mesmo no 2º cultivo?
 
 ☐ Bateu (comportamento é o esperado) ☐ Precisa ajuste — Observações: ___________________________________
 

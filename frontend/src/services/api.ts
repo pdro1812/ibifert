@@ -64,7 +64,9 @@ function calcularPhMedio0_20(
 export function sanitizarPayloadCalagem(dados: EntradaCalagem): CalagemPayload {
   const metodo = rotearMetodoCalagem(dados.SMP);
   const primeira_calagem = dados.primeira_calagem;
-  const precisaSatBases = !primeira_calagem && metodo === 'SMP';
+  // Toda calagem é tratada como reaplicação (não é mais uma opção do
+  // formulário) — ver docs/diagnostico-primeira-calagem-metodo-smp.md.
+  const precisaSatBases = metodo === 'SMP';
   const precisaAlSat =
     dados.sistema_manejo === 'PD_CONSOLIDADO' && dados.pH_agua < 5.5;
   const monitoramento = dados.monitoramento;
@@ -94,7 +96,7 @@ export function sanitizarPayloadCalagem(dados: EntradaCalagem): CalagemPayload {
   }
 
   if (!temRestricao && precisaAlSat) {
-    if (!primeira_calagem && dados.V_atual !== undefined) {
+    if (dados.V_atual !== undefined) {
       payload.V_atual = dados.V_atual;
     }
 

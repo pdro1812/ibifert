@@ -32,6 +32,9 @@ export type Monitoramento10_20 = z.infer<typeof MonitoramentoSchema>;
 export const CalagemSchema = z
   .object({
     sistema_manejo: SistemaManejoSchema,
+    // Não é mais uma pergunta feita ao usuário — os formulários sempre
+    // enviam `false` (reaplicação), ver
+    // docs/diagnostico-primeira-calagem-metodo-smp.md.
     primeira_calagem: z.boolean(),
     pH_agua: numeroObrigatorio('Informe o pH em água.')
       .min(3.5, 'pH inválido: deve estar entre 3.5 e 8.0.')
