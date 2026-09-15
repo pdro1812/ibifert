@@ -66,9 +66,11 @@ export function isCellEnabled(modo: ModoInsercao, campo: keyof LinhaAmostra, lin
     }
     
     if (['v_atual', 'ctc'].includes(campo)) {
-      const isReaplicacao = !configGlobais.primeiraCalagem && smpVal <= 6.3;
+      // Toda calagem é tratada como reaplicação (não é mais uma opção do
+      // formulário) — ver docs/diagnostico-primeira-calagem-metodo-smp.md.
+      const isReaplicacao = smpVal <= 6.3;
       const precisaTravaPDConsolidado =
-        configGlobais.sistemaManejo === 'PD_CONSOLIDADO' && phVal < 5.5 && !configGlobais.primeiraCalagem;
+        configGlobais.sistemaManejo === 'PD_CONSOLIDADO' && phVal < 5.5;
       return isReaplicacao || (campo === 'v_atual' && precisaTravaPDConsolidado);
     }
     
@@ -142,7 +144,6 @@ export function NovaAnalisePage() {
   // ── Config Globais: Calagem
   const [sistemaManejo, setSistemaManejo] = useState<'CONVENCIONAL' | 'PD_IMPLANTACAO' | 'PD_CONSOLIDADO'>('CONVENCIONAL');
   const [prnt, setPrnt] = useState('90');
-  const [primeiraCalagem, setPrimeiraCalagem] = useState(true);
 
   // ── Config Globais: Adubacao
   const [cultura, setCultura] = useState('soja');
@@ -156,7 +157,7 @@ export function NovaAnalisePage() {
   const [finalidadeCevada, setFinalidadeCevada] = useState('cervejeira_malte_unico');
 
   const configGlobais = modo === 'CALAGEM'
-    ? { sistemaManejo, primeiraCalagem, prnt }
+    ? { sistemaManejo, prnt }
     : { cultura, rendimento, numCultivo, sistemaCultivo, tipoCorrecao, metodoP, metodoK, culturaAntecedente, finalidadeCevada };
 
   // ── Amostras
@@ -224,7 +225,6 @@ export function NovaAnalisePage() {
       
       setSistemaManejo('CONVENCIONAL');
       setPrnt('90');
-      setPrimeiraCalagem(true);
       setLinhas([linha]);
     } else {
       const linha = GERAR_LINHA_VAZIA(talhoesDisponiveis[0]?.id || '', 1);
@@ -283,7 +283,9 @@ export function NovaAnalisePage() {
       if (modo === 'CALAGEM') {
         const payload = {
           sistema_manejo: sistemaManejo,
-          primeira_calagem: primeiraCalagem,
+          // Não é mais uma opção do formulário — sempre reaplicação
+          // (ver docs/diagnostico-primeira-calagem-metodo-smp.md).
+          primeira_calagem: false,
           PRNT: prnt ? Number(prnt) : undefined,
           pH_agua: l.ph !== '' ? Number(l.ph) : undefined,
           SMP: l.smp !== '' ? Number(l.smp) : undefined,
@@ -475,10 +477,10 @@ export function NovaAnalisePage() {
             </h3>
             
             {modo === 'CALAGEM' ? (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-stone-600">Manejo</label>
-                  <select 
+                  <select
                     value={sistemaManejo}
                     onChange={(e) => setSistemaManejo(e.target.value as any)}
                     className="w-full rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm outline-none shadow-sm"
@@ -486,17 +488,6 @@ export function NovaAnalisePage() {
                     <option value="CONVENCIONAL">Convencional</option>
                     <option value="PD_IMPLANTACAO">PD Implantação</option>
                     <option value="PD_CONSOLIDADO">PD Consolidado</option>
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-stone-600">Aplicação</label>
-                  <select 
-                    value={primeiraCalagem ? 'true' : 'false'}
-                    onChange={(e) => setPrimeiraCalagem(e.target.value === 'true')}
-                    className="w-full rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm outline-none shadow-sm"
-                  >
-                    <option value="true">1ª Calagem</option>
-                    <option value="false">Reaplicação</option>
                   </select>
                 </div>
                 <div className="space-y-1">
