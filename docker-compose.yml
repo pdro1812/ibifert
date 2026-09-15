@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   backend:
     build: ./backend
@@ -11,6 +9,9 @@ services:
       - /app/node_modules
     environment:
       - NODE_ENV=development
+      - DATABASE_URL=postgresql://admin:adminpassword@db:5432/ibifertydb
+    depends_on:
+      - db
 
   frontend:
     build: ./frontend
@@ -23,6 +24,9 @@ services:
     environment:
       - CHOKIDAR_USEPOLLING=true
       - NODE_ENV=development
+    depends_on:
+      - backend
+
   db:
     image: postgres:15-alpine
     container_name: ibiferti-db
