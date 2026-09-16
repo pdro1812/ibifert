@@ -460,7 +460,17 @@ export function CalculadoraPage() {
         </div>
 
         <form onSubmit={handleSubmit(onSubmitValidado, onErrorNoForm)} noValidate className="space-y-8">
-
+          {/*
+            Campo fixo, sem UI própria: toda calagem é tratada como
+            reaplicação (ver docs/diagnostico-primeira-calagem-metodo-smp.md).
+            Precisa continuar registrado no React Hook Form — com
+            shouldUnregister: true, um campo exigido pelo CalagemSchema que
+            não está "montado" em nenhum input fica de fora do objeto
+            validado e a validação falha silenciosamente (o botão Calcular
+            parece não fazer nada, pois não há campo na tela para mostrar
+            o erro).
+          */}
+          <input type="hidden" {...register('primeira_calagem', { setValueAs: () => false })} />
 
           {/* ── Bloco: Localização ──────────────────────────────────────── */}
           <div className="space-y-5 rounded-2xl border border-stone-100 bg-stone-50 p-6">
