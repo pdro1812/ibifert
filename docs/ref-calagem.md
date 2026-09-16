@@ -47,7 +47,7 @@ Arquivos envolvidos:
 | `PRNT` | sim | — | > 0 e ≤ 100 |
 | `MO` (matéria orgânica) | não | `SMP > 6.3` (método Polinomial) | 0 – 100 |
 | `Al_trocavel` | não | `SMP > 6.3`, ou PD_CONSOLIDADO+pH<5.5 sem Al_sat direto | ≥ 0 |
-| `V_atual` | não | sempre que o método roteado é SMP (todo cálculo é tratado como reaplicação, `primeira_calagem=false`) | 0 – 100 |
+| `V_atual` | não | método roteado é SMP; **ou** `PD_CONSOLIDADO` com `pH_agua < 5.5` (necessário para a trava §6.3, independente do método roteado) — em ambos os casos, todo cálculo é tratado como reaplicação (`primeira_calagem=false`) | 0 – 100 |
 | `CTC_pH7` | não | método SMP; ou PD_CONSOLIDADO+pH<5.5 sem Al_sat direto | > 0 |
 | `Al_sat` | não | PD_CONSOLIDADO com `pH_agua < 5.5` (alternativa a Al_trocavel+CTC_pH7) | 0 – 100 |
 | `SMP_10_20` | não | `PD_COM_RESTRICAO` | número |
@@ -144,11 +144,26 @@ V_desejada = 75%
   se CTC_pH7 < 7.5  → V_desejada -= 5   (→ 70%)
   se CTC_pH7 > 15.0 → V_desejada += 5   (→ 80%)
 
-NC_vb = ((V_desejada - V_atual) / 100) * CTC_pH7        (mínimo 0)
+NC_vb_bruto = ((V_desejada - V_atual) / 100) * CTC_pH7  (mínimo 0)
+NC_vb       = NC_vb_bruto * fatorAjusteReferenciaVB
 ```
-- Fonte: `calculadoraCalagem.ts:42-55` (`calcularNCVB`).
+- Fonte: `calculadoraCalagem.ts:44-57` (`calcularNCVB`, o cálculo bruto).
 - Exemplo: `CTC_pH7 = 10`, `V_atual = 50` → `V_desejada=75` →
-  `NC_vb = ((75-50)/100)*10 = 2.5` t/ha.
+  `NC_vb_bruto = ((75-50)/100)*10 = 2.5` t/ha.
+- **Ajuste pelo mesmo fator da dose principal (RN-19 do manual).** O manual
+  (p. 71–72) exige que a dose por Saturação por Bases leve "os mesmos
+  fatores empregados para o SMP" quando a aplicação é superficial — senão
+  ela deixa de ser comparável a `NC_smp`/`NC_final` na tela. Por isso
+  `motorCalagem.ts` multiplica `NC_vb` por `fatorAjusteReferenciaVB`
+  (`motorCalagem.ts:154-160, 195, 222-224`):
+  - `PD_CONSOLIDADO` → 0,25 (mesmo fator de `fator_manejo`, §4.4).
+  - `PD_IMPLANTACAO` com `opcao_superficial_campo_natural=true` e `SMP >
+    5,5` (caso especial de §4.5) → 0,5.
+  - Demais casos → 1,0 (sem ajuste).
+  - **Não** recebe a trava de 5 t/ha (§4.6) — essa trava é lida como um
+    teto sobre a dose efetivamente aplicada, não sobre um número
+    apresentado como referência informativa; o manual não é explícito
+    sobre isso.
 
 ### 4.4 Fator de manejo
 
@@ -232,6 +247,15 @@ calagem (retorno antecipado, `aplicar_calcario: false`, `NC_final: 0`):
 Cada trava retorna um objeto padronizado (`criarResultadoNaoAplicar`) com
 `NC_base/NC_smp/NC_final/NC_ajustada` todos zerados e a mensagem
 correspondente em `alertas`.
+
+**A trava 6.3 independe do método roteado pelo SMP** (§3) — é uma leitura do
+estado do solo (V%, Al_sat), não do método de cálculo da dose. Por isso
+`V_atual` é exigido pelo schema e por `determinarCamposNecessarios` sempre
+que `PD_CONSOLIDADO` + `pH_agua < 5.5`, mesmo quando `SMP > 6.3` roteia para
+o método Polinomial (`calagemSchema.ts`, bloco de `precisaAlSatPDConsolidado`;
+`calculadoraCalagem.ts:130-133`) — sem isso, a trava não tinha como disparar
+nesse cenário, já que `V_atual` não é lido em lugar nenhum do método
+Polinomial.
 
 ---
 
