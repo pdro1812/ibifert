@@ -151,6 +151,12 @@ export function executarMotorCalagem(
     fator_manejo = 0.25;
   }
 
+  // RN-19 do manual: a dose por Saturação por Bases (NC_vb) é calculada para
+  // a camada de 0-20 cm e precisa do "mesmo fator empregado para o SMP"
+  // quando a aplicação é superficial — senão NC_vb deixa de ser comparável
+  // a NC_smp/NC_final na tela (ver docs/auditoria-calagem-manual-vs-codigo.md §1.1).
+  let fatorAjusteReferenciaVB = fator_manejo;
+
   const SMP_0_10 = entrada.SMP_0_10 ?? SMP;
   const smpParaTabela =
     sistema_manejo === SistemaManejo.PD_COM_RESTRICAO
@@ -190,6 +196,7 @@ export function executarMotorCalagem(
       if (opcao_superficial_campo_natural === true && SMP > 5.5) {
         modo_aplicacao = ModoAplicacao.SUPERFICIAL;
         NC_final = tabelaSmpLookup(SMP, 6.0) * 0.5;
+        fatorAjusteReferenciaVB = 0.5;
       } else {
         modo_aplicacao = ModoAplicacao.INCORPORADO;
         profundidade_cm = 20;
@@ -215,6 +222,10 @@ export function executarMotorCalagem(
 
   NC_final = Math.max(0.0, NC_final);
   const NC_ajustada = ajustarDosePorPRNT(NC_final, PRNT);
+
+  if (NC_vb !== undefined) {
+    NC_vb = NC_vb * fatorAjusteReferenciaVB;
+  }
 
   return {
     aplicar_calcario: true,
