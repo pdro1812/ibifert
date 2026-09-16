@@ -125,6 +125,10 @@ export function determinarCamposNecessarios(
       adicionar("Al_trocavel", entrada.Al_trocavel === undefined);
       adicionar("CTC_pH7", entrada.CTC_pH7 === undefined);
     }
+
+    if (entrada.primeira_calagem !== true) {
+      adicionar("V_atual", entrada.V_atual === undefined);
+    }
   }
 
   if (entrada.sistema_manejo === SistemaManejo.PD_COM_RESTRICAO) {
