@@ -1,22 +1,5 @@
 # Referência Técnica — Cálculo de Adubação (Grãos)
 
-> Especificação de como o cálculo funciona hoje no código. Não é relato de
-> auditoria — achados de bug/lacuna/segurança ficam em
-> `docs/03-calculo-adubacao.md`, com referência de volta às seções daqui.
->
-> ⚠️ Esta referência descreve **apenas o motor "oficial"**
-> (`motorAdubacao.ts`, usado pela rota autenticada `/api/adubacao`). Existe
-> um segundo motor, `motorStandalone.ts` (rota pública `/api/standalone`),
-> que reimplementa parte da lógica de **calagem** (não de adubação) — não
-> é código morto, é chamado por
-> `frontend/src/pages/ValidacaoAgronomicaPage.tsx` (ferramenta interna que
-> compara os dois motores lado a lado). As duas divergências de cálculo
-> encontradas nele já foram **corrigidas** (commit `b8d3ccf`,
-> 2026-08-21) — o que continua em aberto é a rota `/api/standalone`
-> seguir pública/sem autenticação e ser uma implementação duplicada da
-> lógica de calagem. Ver `docs/03-calculo-adubacao.md §4`. Não coberto em
-> detalhe aqui (é calagem, não adubação).
-
 ---
 
 ## 1. Visão geral
@@ -235,12 +218,6 @@ Rótulos de `tipo` quando não é "Total" explícito:
 | médio | 2º | "Manutenção" |
 | alto | 1º ou 2º | "Manutenção" |
 
-Note que o rótulo "Corretiva Total + Manutenção" para `médio + 1º cultivo`
-**não** passa pelo branch de `TABELA_CORRECAO_TOTAL` (esse só ativa com
-`tipo_correcao='Total'` explícito do usuário) — é só o nome do
-`base` já tabelado para esse caso; o valor numérico vem de
-`TABELA_PK_CULTURA`, não de `TABELA_CORRECAO_TOTAL`.
-
 **Limite de K na linha de semeadura**: se `doseK2O > 80`, o excedente é
 destacado como aplicação complementar (cobertura ou a lanço):
 ```
@@ -349,111 +326,3 @@ recomendacao_json: jsonb  ← o objeto completo descrito em §7.1
   (`docs/ref-calagem.md §7.2`), que grava cada resultado em coluna própria.
 - Histórico é auto-suficiente (reproduzível sem depender do motor atual),
   mesmo trade-off da calagem.
-- Rota `/api/standalone/calcular` (motor alternativo, ver aviso no topo)
-  **não** grava nada nesta tabela — só retorna o cálculo, não persiste.
-
----
-
-## 8. Como usar este documento para investigar um resultado suspeito
-
-1. **Confirme a entrada real**: `cultura`, `num_cultivo`, classes de
-   argila/MO/CTC (ou os valores brutos, se preferir recalcular a
-   classificação também), `P`/`K` e o `metodo_*` usado (se Mehlich-3,
-   lembrar da conversão §4.1 antes de comparar contra a tabela de
-   classificação, que é calibrada para Mehlich-1).
-2. **Refaça a classificação (§4.2)** com os valores convertidos — confirme
-   que a classe bate com a que o sistema usou (`classificacao_solo` na
-   saída).
-3. **Siga a fórmula do nutriente em questão (§4.3 para N, §4.4 para
-   P₂O₅/K₂O)** manualmente, usando a tabela correta para a cultura
-   (`TABELA_N_BASE` / `TABELA_PK_CULTURA` em §5).
-4. **Se a dose vier "0" ou "reposição parcial"**: primeiro confirme se é
-   um dos casos esperados de §7.1 (FBN, muito_alto 1º cultivo, muito_alto
-   2º cultivo) antes de tratar como erro — o zero é intencional nesses
-   três casos, só o rótulo (`tipo`) muda o motivo.
-5. **Bateu a conta e ainda parece errado?** A causa mais provável não é
-   lógica do motor de adubação em si — compare com os achados já
-   registrados em `docs/03-calculo-adubacao.md` (cobertura de teste baixa
-   §5.1, ambiguidade do "reposição parcial" §5.2, fracionamento de N
-   ausente §5.3) antes de assumir bug novo.
-6. **Se o cálculo em questão veio de `/api/standalone`**: essa rota não
-   usa nada deste documento — ela reimplementa (de forma divergente)
-   apenas o cálculo de **calagem**, não de adubação. Ver
-   `docs/03-calculo-adubacao.md §4` para os dois bugs já confirmados lá.
-
----
-
-## 9. Formulário `AdubacaoPage.tsx` (frontend) — achados e correções
-
-Auditoria do formulário único de adubação (`/adubacao`) contra o
-`AdubacaoSchema` real (fonte de verdade validada no envio), no mesmo
-espírito da §9 de `docs/ref-calagem.md` para a calculadora de calagem.
-Quatro problemas encontrados e corrigidos em 2026-08-23:
-
-### 9.1 Campo numérico opcional em branco travava o envio (o mais grave)
-
-`CampoNumerico` registrava os inputs com `{ valueAsNumber: true }`. O
-React Hook Form converte um campo vazio para `NaN` com essa opção — não
-para `undefined`. Como `Cu`, `Zn`, `B`, `Mn`, `S` (fora das culturas que o
-exigem) e `pH_agua` são `z.number().optional()` no schema, o zod rejeita
-`NaN` mesmo em campo opcional (`"Invalid input: expected number, received
-NaN"`). Na prática: **deixar qualquer micronutriente em branco impedia o
-envio do formulário inteiro**, mesmo sendo um campo opcional. Passou
-despercebido porque os três botões de "Auto-preencher Cenário" sempre
-preenchem todos os micronutrientes.
-
-Corrigido com uma função `normalizarNumero` (mesma lógica de
-`CalculadoraPage.tsx`/`normalizarNumero` na calagem): `'' → undefined`,
-aceita vírgula como separador decimal, e nunca produz `NaN`. Trocado
-`valueAsNumber: true` por `setValueAs: normalizarNumero` em
-`CampoNumerico`. Coberto por `AdubacaoPage.test.ts`.
-
-### 9.2 "Tipo de Correção: Total" podia ficar num estado inválido sem nenhum feedback
-
-O `<select>` de `tipo_correcao` era o único do formulário que não exibia
-`errors.tipo_correcao`. Reproduzido ao vivo: preencher Argila/CTC de
-forma a permitir "Total", selecionar "Total", depois editar Argila para
-um valor que não permite mais Correção Total (`< 20%`) sem voltar a
-selecionar "Gradual" — a opção fica `disabled` no dropdown mas o valor do
-formulário continua `'Total'`. Ao clicar em "Calcular", a validação zod
-falha (`argila < 20` + `tipo_correcao === 'Total'`, regra do schema), mas
-como o erro não era exibido, o clique **não fazia nada visível**: sem
-resultado, sem erro de API, sem mensagem.
-
-Corrigido em duas camadas: (1) passou a exibir `errors.tipo_correcao`
-como as demais mensagens de erro do formulário; (2) um `useEffect` reseta
-`tipo_correcao` para `'Gradual'` automaticamente assim que a combinação
-deixar de ser válida, eliminando o estado inconsistente na raiz em vez de
-só mostrar o erro depois.
-
-### 9.3 Select de "Cultura" só oferecia 7 das 16 opções do schema
-
-Faltavam `canola`, `centeio`, `ervilha`, `ervilhaca`, `girassol`,
-`milho_pipoca`, `nabo_forrageiro`, `sorgo`, `triticale` — todas cultura
-com regras próprias já implementadas em `tabelasAdubacaoGraos.ts` (ex.:
-canola/ervilha/ervilhaca exigem Enxofre, igual soja). Não era um campo
-escondido por regra condicional, a opção inteira nunca existiu na tela —
-essas culturas eram inacessíveis neste formulário, ainda que suportadas
-pelo backend. Corrigido adicionando as 16 opções do `CulturaSchema`.
-
-### 9.4 `densidade_plantas` não tinha campo nenhum no formulário
-
-O bônus de N por densidade de plantio em milho acima de 65.000
-plantas/ha (`motorAdubacao.ts:73-74`) só era alcançável através do botão
-de cenário de exemplo "Milho" — não havia como um usuário digitar esse
-valor manualmente. Adicionado `CampoNumerico` para "Densidade de Plantas
-(plantas/ha)", visível só quando `cultura === 'milho'` (mesma cultura que
-o motor usa nessa regra).
-
-### 9.5 Cobertura de teste
-
-`frontend/src/pages/AdubacaoPage.test.ts` (Vitest) testa `normalizarNumero`
-isoladamente e confirma, contra o `AdubacaoSchema` real, que um payload
-com micronutrientes omitidos é aceito (mas seria rejeitado se `Cu` viesse
-como `NaN`, reproduzindo o bug da §9.1 caso a normalização seja removida
-no futuro). A correção do reset automático de `tipo_correcao` (§9.2) e a
-lista de opções de Cultura (§9.3) foram verificadas manualmente via
-Playwright contra o backend real (docker), sem teste automatizado
-dedicado — mesma limitação já registrada na §9.2 de `docs/ref-calagem.md`
-por falta de harness de teste de componente (Testing Library) no
-projeto.

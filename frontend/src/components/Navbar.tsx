@@ -1,5 +1,5 @@
 import { Link, NavLink } from 'react-router-dom';
-import { Leaf, LogOut } from 'lucide-react';
+import { Layers, Leaf, LogOut } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 export function Navbar() {
@@ -33,6 +33,18 @@ export function Navbar() {
             }
           >
             Adubação
+          </NavLink>
+          <NavLink
+            to="/calculadora-completa"
+            className={({ isActive }) =>
+              `flex items-center gap-1.5 text-sm font-bold transition-all hover:text-green-600 ${isActive ? 'text-green-600' : ''}`
+            }
+          >
+            <Layers size={15} />
+            Calculadora Completa
+            <span className="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-green-700">
+              Novo
+            </span>
           </NavLink>
           <NavLink
             to="/monitoramento"

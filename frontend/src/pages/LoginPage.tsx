@@ -44,7 +44,10 @@ export function LoginPage() {
       // Se havia uma análise calculada antes do login, recupera e salva agora
       const recuperada = await recuperarAnalisePendente();
       if (recuperada) {
-        navigate(recuperada.destino, { state: { resultadoRecuperado: recuperada.resultado }, replace: true });
+        navigate(recuperada.destino, {
+          state: { resultadoRecuperado: recuperada.resultado, tipoRecuperado: recuperada.tipo },
+          replace: true,
+        });
         return;
       }
 

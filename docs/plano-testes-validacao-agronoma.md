@@ -18,6 +18,17 @@ Tela: **Calculadora de Calagem** (menu público / dashboard).
 > é zero (C1), porque o campo é exigido pela validação independentemente
 > do resultado do cálculo.
 
+> **Correção de cálculo (2026-09-16, commit `f6e9c4e`):** a referência de
+> Saturação por Bases (`NC_vb`) passou a receber o mesmo fator de ajuste
+> aplicado à dose principal quando a aplicação é superficial (¼ no PD
+> Consolidado, ½ no PD Implantação em campo natural) — antes ela era
+> calculada sem esse ajuste, o que a tornava não comparável à dose
+> principal nesses casos (ver `docs/auditoria-calagem-manual-vs-codigo.md`,
+> achado 1.1). Isso muda o `NC_vb` esperado em **C5, C6 e C8** — valores
+> já atualizados abaixo. Revalidado em 2026-09-28 rodando os 17 cenários
+> (C1-C9/A1-A8) na nova Calculadora Completa (`/calculadora-completa`)
+> contra a API real: os 14 valores restantes bateram exatamente.
+
 ### C1 — Convencional, pH já corrigido (não deve recomendar calcário)
 
 | Campo | Valor |
@@ -110,7 +121,8 @@ Saturação por Bases (NC_vb) ≈ **2,0 t/ha**.
 **Resultado esperado:** dose cai pela metade em relação ao C4 — **NC final
 ≈ 2,1 t/ha**, **NC ajustada ≈ 2,1 t/ha**, modo **Superficial** (sem
 profundidade de incorporação). Referência de Saturação por Bases (NC_vb)
-≈ **2,0 t/ha**.
+≈ **1,0 t/ha** (valor bruto 2,0 t/ha × fator ½ do campo natural — ver nota
+de correção no topo do documento).
 
 ☐ Bateu ☐ Não bateu — Observações: ___________________________________
 
@@ -130,7 +142,9 @@ profundidade de incorporação). Referência de Saturação por Bases (NC_vb)
 
 **Resultado esperado:** aplica calcário, **NC final ≈ 2,48 t/ha**,
 **NC ajustada ≈ 3,09 t/ha**, modo **Superficial**, sem alerta de limite.
-Referência de Saturação por Bases (NC_vb) ≈ **3,5 t/ha**.
+Referência de Saturação por Bases (NC_vb) ≈ **0,88 t/ha** (valor bruto
+3,5 t/ha × fator ¼ do PD Consolidado — ver nota de correção no topo do
+documento).
 
 ☐ Bateu ☐ Não bateu — Observações: ___________________________________
 
@@ -179,7 +193,10 @@ aparecer um aviso explicando o motivo ("solo tamponado").
 (5,25), mas o sistema deve **travar em NC final = 5,0 t/ha** e mostrar um
 alerta dizendo que o limite de aplicação superficial foi atingido. NC
 ajustada = 5,0 t/ha (PRNT=100). Referência de Saturação por Bases (NC_vb)
-≈ **4,5 t/ha**.
+≈ **1,13 t/ha** (valor bruto 4,5 t/ha × fator ¼ do PD Consolidado — ver
+nota de correção no topo do documento; a trava de 5 t/ha continua sendo
+lida como teto sobre a dose efetivamente aplicada, não sobre este valor
+de referência).
 
 ☐ Bateu ☐ Não bateu — Observações: ___________________________________
 
