@@ -5,10 +5,16 @@ import type { EntradaAdubacao } from '../schemas/adubacaoSchema';
 interface CalagemPendente {
   dados: EntradaCalagem;
   localizacao: { uf: string; cidade: string };
+  // Página de origem para onde voltar após o login. Opcional por
+  // compatibilidade: páginas antigas que não enviam este campo continuam
+  // caindo no destino padrão de sempre ('/').
+  destino?: string;
 }
 
 interface AdubacaoPendente {
   dados: EntradaAdubacao;
+  // Ver comentário em CalagemPendente — mesmo padrão, default '/adubacao'.
+  destino?: string;
 }
 
 export type AnalisePendenteRecuperada =
@@ -28,7 +34,7 @@ export async function recuperarAnalisePendente(): Promise<AnalisePendenteRecuper
     try {
       const pendente: CalagemPendente = JSON.parse(calagemRaw);
       const resultado = await calcularCalagem(pendente.dados, pendente.localizacao);
-      return { tipo: 'CALAGEM', destino: '/', resultado };
+      return { tipo: 'CALAGEM', destino: pendente.destino ?? '/', resultado };
     } catch {
       return null;
     }
@@ -43,7 +49,7 @@ export async function recuperarAnalisePendente(): Promise<AnalisePendenteRecuper
       await salvarAdubacao({ dadosForm: pendente.dados, resultado: calculado.resultado });
       return {
         tipo: 'ADUBACAO',
-        destino: '/adubacao',
+        destino: pendente.destino ?? '/adubacao',
         resultado: { ...calculado.resultado, dadosEntrada: pendente.dados },
       };
     } catch {
