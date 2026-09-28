@@ -287,6 +287,83 @@ test("Parte 10: validações de pH e PRNT", () => {
   );
 });
 
+test("CT-19: NC_vb recebe o fator 0.25 da dose principal (PD Consolidado)", () => {
+  const resultado = executarMotorCalagem({
+    sistema_manejo: SistemaManejo.PD_CONSOLIDADO,
+    primeira_calagem: false,
+    pH_agua: 5.0,
+    SMP: 5.5,
+    PRNT: 100,
+    V_atual: 55.0,
+    CTC_pH7: 10.0,
+    Al_sat: 15.0,
+  });
+
+  // NC_vb bruto = ((75-55)/100)*10 = 2.0 (igual ao CT-08); com o fator de
+  // manejo do PD Consolidado (RN-19), o valor de referência cai para 0.5.
+  assertClose(resultado.NC_vb!, 0.5);
+});
+
+test("CT-20: NC_vb recebe o fator 0.5 no campo natural (PD Implantação superficial)", () => {
+  const resultado = executarMotorCalagem({
+    sistema_manejo: SistemaManejo.PD_IMPLANTACAO,
+    primeira_calagem: false,
+    pH_agua: 5.0,
+    SMP: 5.8,
+    PRNT: 100,
+    opcao_superficial_campo_natural: true,
+    V_atual: 55.0,
+    CTC_pH7: 10.0,
+  });
+
+  assertClose(resultado.NC_vb!, 1.0);
+});
+
+test("CT-21: trava do PD Consolidado dispara mesmo roteando para o método Polinomial", () => {
+  const resultado = executarMotorCalagem({
+    sistema_manejo: SistemaManejo.PD_CONSOLIDADO,
+    primeira_calagem: false,
+    pH_agua: 5.2,
+    SMP: 6.8, // > 6.3 → roteia para Polinomial
+    PRNT: 100,
+    MO: 3.0,
+    Al_trocavel: 1.5,
+    V_atual: 66.0,
+    CTC_pH7: 10.0,
+    Al_sat: 8.0,
+  });
+
+  assert.equal(resultado.metodo_calc_roteado, MetodoCalcRoteado.POLINOMIAL);
+  assert.equal(resultado.aplicar_calcario, false);
+});
+
+test("CT-22: backend exige V_atual para a trava do PD Consolidado mesmo em Polinomial", () => {
+  const camposFaltando = () =>
+    executarMotorCalagem({
+      sistema_manejo: SistemaManejo.PD_CONSOLIDADO,
+      primeira_calagem: false,
+      pH_agua: 5.2,
+      SMP: 6.8,
+      PRNT: 100,
+      MO: 3.0,
+      Al_trocavel: 1.5,
+      Al_sat: 8.0,
+      // V_atual ausente de propósito
+    });
+
+  assert.throws(camposFaltando);
+
+  const campos = determinarCamposNecessarios({
+    sistema_manejo: SistemaManejo.PD_CONSOLIDADO,
+    primeira_calagem: false,
+    pH_agua: 5.2,
+    SMP: 6.8,
+    Al_sat: 8.0,
+  });
+
+  assert.equal(campos.includes("V_atual"), true);
+});
+
 test("RN-05: Monitoramento 10–20 cm", () => {
   const comRestricao = avaliarMonitoramento10_20({
     pH_agua_10_20: 4.8,

@@ -170,6 +170,18 @@ export const CalagemSchema = z
             "Al_sat é obrigatório para PD_CONSOLIDADO quando pH_agua < 5.5 (diretamente ou via Al_trocavel + CTC_pH7).",
         });
       }
+
+      // A trava V>=65%/Al_sat<10% (Tabela 5.3 nota 1) depende do estado do
+      // solo, não do método usado para calcular a dose — precisa de
+      // V_atual mesmo quando SMP > 6.3 roteia para o método Polinomial.
+      if (!entrada.primeira_calagem && entrada.V_atual === undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["V_atual"],
+          message:
+            "V_atual é obrigatório para verificar a trava do PD Consolidado em reaplicações.",
+        });
+      }
     }
 
     if (entrada.sistema_manejo === SistemaManejo.PD_COM_RESTRICAO) {
