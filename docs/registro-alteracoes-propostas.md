@@ -28,7 +28,7 @@
 | 3 | Adubação na Inserção Rápida ("amostras rápidas") | em análise — já existe, ver achado |
 | 4 | Inserção Rápida: gerar calagem+adubação juntas | em análise |
 | 5 | Seleção explícita de método (SMP/Polinomial/Sat. por Bases) | em análise — mudança maior do que parecia |
-| 6 | Campo de feedback/erro para o usuário, visível ao admin | em análise |
+| 6 | Campo de feedback/erro para o usuário, visível ao admin | **implementado** |
 | 7 | Levantamento de dados sensíveis / LGPD | em análise — achados de risco |
 | 8 | Bug no cálculo de adubação em cenário específico | aguardando detalhes do usuário |
 
@@ -460,8 +460,8 @@ aberto na seção final.
 
 ### 6. Campo de feedback/dicas/erros, visível ao admin
 
-**Status:** em análise
-**Data:** 2026-09-28
+**Status:** implementado
+**Data:** 2026-09-28 (implementado em 2026-09-28)
 
 **O que muda:** um campo para o usuário reportar problema/feedback, que
 cai numa fila que o admin consegue ver e validar — antes da liberação da
@@ -501,22 +501,49 @@ admin existentes (`AdminDashboardPage`, `AdminUsersPage`, `AdminAnalisesPage`).
 - Algum ponto de entrada visível na UI do usuário para abrir o campo
   (rodapé, botão flutuante, item de menu — a decidir).
 
-**Impacto / o que pode quebrar:** baixo risco de quebrar algo existente,
-é uma feature nova isolada. Pontos que precisam de decisão de produto
-antes de implementar:
-- Permitir feedback de usuário não-logado (convidado)? O resto do
-  sistema já tem esse conceito (`usuario_id` nullable em várias tabelas).
-- Que categorias/tipos de feedback existem (bug, dúvida, sugestão)?
-- O admin só visualiza, ou também muda status/responde? Hoje não existe
-  nenhum fluxo de escrita no admin, então isso seria a primeira vez.
+**Decisões do usuário para manter simples (resolvem os pontos em aberto
+acima):** sem conceito de categoria/tipo, sem status (aberto/resolvido),
+sem `usuario_id` — qualquer pessoa envia, sem precisar estar logada, e o
+admin só visualiza (nenhum fluxo de escrita/resposta). Campos pedidos:
+nome (obrigatório), telefone (obrigatório), UF + cidade (obrigatórios),
+e-mail (opcional), descrição do problema (obrigatória).
 
-**Alterações necessárias em outras partes do código:** nenhuma em
-funcionalidade existente — é aditivo. Único ponto de atenção: como o
-conteúdo digitado pelo usuário é texto livre, ele pode conter dado
-pessoal (nome, contato, etc. escrito no corpo da mensagem) — ver item 7,
-mesmo cuidado de tratamento de dado sensível se aplica aqui.
+**O que foi implementado:**
+- `backend/src/database/schema.ts` — tabela `feedbacks`: `id`, `nome`,
+  `telefone`, `uf`, `cidade`, `email` (nullable), `descricao`,
+  `criado_em`. Migration gerada em `backend/drizzle/0004_add_feedbacks_table.sql`
+  e aplicada direto via SQL no banco de dev (evitei `drizzle-kit push`
+  porque ele também tentava apagar uma coluna antiga não relacionada,
+  `sistema_efetivo`, com 86 registros — divergência preexistente entre
+  schema e banco, fora do escopo deste item, não mexi nela).
+- `backend/src/schemas/feedbackSchema.ts` — validação Zod (nome, telefone,
+  descrição obrigatórios; UF com 2 letras; e-mail opcional mas validado
+  se preenchido).
+- `backend/src/database/feedback.ts` — `createFeedback`/`getAllFeedbacks`.
+- `backend/src/routes/feedbackRoutes.ts` — `POST /api/feedback`, **sem**
+  `verificarToken` (rota pública, de propósito).
+- `backend/src/routes/adminRoutes.ts` — `GET /admin/feedbacks` (dentro do
+  bloco que já exige `verificarToken + verificarRole(['ADMIN'])`).
+- `frontend/src/schemas/feedbackSchema.ts`, `frontend/src/services/api.ts`
+  (`postFeedback`, `getFeedbacksAdmin`).
+- `frontend/src/pages/FeedbackPage.tsx` (nova, rota pública `/feedback`,
+  sem `ProtectedRoute`) — formulário simples, reaproveitando o mesmo
+  seletor UF/cidade via IBGE já usado nas calculadoras.
+- `frontend/src/pages/AdminFeedbackPage.tsx` (nova, rota `/admin/feedback`,
+  dentro do bloco protegido por `roles={['ADMIN']}`) — lista simples em
+  cards (nome, telefone, e-mail se houver, cidade/UF, data, descrição),
+  com busca por texto. Sem paginação nem drill-down — não há necessidade
+  ainda dado o volume esperado.
+- `frontend/src/components/Navbar.tsx` — link público "Feedback".
+- `frontend/src/layouts/DashboardLayout.tsx` — item "Feedback" no menu
+  lateral do admin.
 
-**Decisão / próximos passos:** nenhuma implementação ainda.
+**Verificação feita:** `tsc` limpo (backend e frontend), `eslint` limpo
+nos arquivos novos, `vitest run` sem regressão (31/31). Testado ao vivo
+via Docker Compose + Playwright: enviei um feedback sem estar logado,
+confirmei o `POST /api/feedback` retornando 201 e a tela de confirmação,
+depois logei como admin e confirmei que o feedback aparece em
+`/admin/feedback` com todos os campos corretos.
 
 ---
 
