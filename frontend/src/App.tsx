@@ -8,6 +8,7 @@ import { DashboardLayout } from './layouts/DashboardLayout';
 import { CalculadoraPage } from './pages/CalculadoraPage';
 import { AdubacaoPage } from './pages/AdubacaoPage';
 import { CalculadoraCompletaPage } from './pages/CalculadoraCompletaPage';
+import { FeedbackPage } from './pages/FeedbackPage';
 import { MonitoramentoPage } from './pages/MonitoramentoPage';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
@@ -18,6 +19,7 @@ import { TalhaoDetalhesPage } from './pages/TalhaoDetalhesPage';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
 import { AdminUsersPage } from './pages/AdminUsersPage';
 import { AdminAnalisesPage } from './pages/AdminAnalisesPage';
+import { AdminFeedbackPage } from './pages/AdminFeedbackPage';
 
 
 /**
@@ -35,6 +37,7 @@ export default function App() {
             <Route path="/adubacao" element={<AdubacaoPage />} />
             <Route path="/calculadora-completa" element={<CalculadoraCompletaPage />} />
             <Route path="/monitoramento" element={<MonitoramentoPage />} />
+            <Route path="/feedback" element={<FeedbackPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/RegisterPage" element={<RegisterPage />} />
           </Route>
@@ -59,6 +62,7 @@ export default function App() {
               <Route path="/admin" element={<AdminDashboardPage />} />
               <Route path="/admin/usuarios" element={<AdminUsersPage />} />
               <Route path="/admin/analises" element={<AdminAnalisesPage />} />
+              <Route path="/admin/feedback" element={<AdminFeedbackPage />} />
             </Route>
           </Route>
 

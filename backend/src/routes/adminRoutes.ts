@@ -3,6 +3,7 @@ import { count, eq, isNull, isNotNull, sql, desc, inArray } from 'drizzle-orm';
 import { db } from '../database/db';
 import { users, analises, fazendas, talhoes, analisesAdubacao } from '../database/schema';
 import { verificarToken, verificarRole, AuthRequest } from '../middlewares/authMiddleware';
+import { getAllFeedbacks } from '../database/feedback';
 
 export const adminRoutes = Router();
 
@@ -192,6 +193,17 @@ adminRoutes.get('/analises', async (req, res) => {
   } catch (error: any) {
     console.error('[admin] Erro ao listar análises:', error);
     res.status(500).json({ erro: 'Erro ao listar todas as análises', detalhes: error.message });
+  }
+});
+
+// Listar todos os feedbacks/problemas reportados (logados ou não)
+adminRoutes.get('/feedbacks', async (req, res) => {
+  try {
+    const lista = await getAllFeedbacks();
+    res.status(200).json(lista);
+  } catch (error: any) {
+    console.error('[admin] Erro ao listar feedbacks:', error);
+    res.status(500).json({ erro: 'Erro ao listar feedbacks', detalhes: error.message });
   }
 });
 

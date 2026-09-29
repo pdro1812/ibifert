@@ -186,3 +186,18 @@ export const analisesAdubacao = pgTable('analises_adubacao', {
   // Resultados / Output
   recomendacao_json: jsonb('recomendacao_json'),
 });
+
+// ── Feedback ──────────────────────────────────────────────────────────────────
+// Reportado por qualquer pessoa, sem precisar estar logada (item 6 do
+// docs/registro-alteracoes-propostas.md).
+
+export const feedbacks = pgTable('feedbacks', {
+  id:        uuid('id').primaryKey().defaultRandom(),
+  nome:      text('nome').notNull(),
+  telefone:  text('telefone').notNull(),
+  uf:        text('uf').notNull(),
+  cidade:    text('cidade').notNull(),
+  email:     text('email'),
+  descricao: text('descricao').notNull(),
+  criado_em: timestamp('criado_em').notNull().defaultNow(),
+});
