@@ -12,6 +12,7 @@ import {
 } from '../schemas/calagemSchema';
 
 import type { EntradaAdubacao, EntradaAdubacaoForm } from '../schemas/adubacaoSchema';
+import type { EntradaFeedback } from '../schemas/feedbackSchema';
 
 export const api = axios.create({
   baseURL: '/api',
@@ -223,5 +224,31 @@ export async function postAdubacaoBulk(data: {
   amostras: any[];
 }) {
   const res = await api.post('/adubacao/bulk', data);
+  return res.data;
+}
+
+// ── Feedback ──────────────────────────────────────────────────────────────────
+
+export async function postFeedback(dados: EntradaFeedback) {
+  const res = await api.post('/feedback', {
+    ...dados,
+    email: dados.email ? dados.email : undefined,
+  });
+  return res.data;
+}
+
+export interface FeedbackItem {
+  id: string;
+  nome: string;
+  telefone: string;
+  uf: string;
+  cidade: string;
+  email: string | null;
+  descricao: string;
+  criado_em: string;
+}
+
+export async function getFeedbacksAdmin(): Promise<FeedbackItem[]> {
+  const res = await api.get('/admin/feedbacks');
   return res.data;
 }
