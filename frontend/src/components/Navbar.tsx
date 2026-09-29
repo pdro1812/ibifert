@@ -1,5 +1,5 @@
 import { Link, NavLink } from 'react-router-dom';
-import { Layers, Leaf, LogOut } from 'lucide-react';
+import { Layers, Leaf, LogOut, MessageSquareWarning } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 export function Navbar() {
@@ -48,11 +48,20 @@ export function Navbar() {
           </NavLink>
           <NavLink
             to="/monitoramento"
-            className={({ isActive }) => 
+            className={({ isActive }) =>
               `text-sm font-bold transition-all hover:text-green-600 ${isActive ? 'text-green-600' : ''}`
             }
           >
             Monitoramento Regional
+          </NavLink>
+          <NavLink
+            to="/feedback"
+            className={({ isActive }) =>
+              `flex items-center gap-1.5 text-sm font-bold transition-all hover:text-green-600 ${isActive ? 'text-green-600' : ''}`
+            }
+          >
+            <MessageSquareWarning size={15} />
+            Feedback
           </NavLink>
         </nav>
 
