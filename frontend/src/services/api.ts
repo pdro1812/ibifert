@@ -86,7 +86,11 @@ export function sanitizarPayloadCalagem(dados: EntradaCalagem): CalagemPayload {
     PRNT: dados.PRNT,
   };
 
-  if (metodo === 'POLINOMIAL') {
+  if (dados.calcular_polinomial === true) {
+    payload.calcular_polinomial = true;
+  }
+
+  if (metodo === 'POLINOMIAL' || dados.calcular_polinomial === true) {
     payload.MO = dados.MO;
     payload.Al_trocavel = dados.Al_trocavel;
   }

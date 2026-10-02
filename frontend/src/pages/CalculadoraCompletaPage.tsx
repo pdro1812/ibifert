@@ -261,7 +261,11 @@ export function CalculadoraCompletaPage() {
 
   const temSmpInformado = typeof smpValor === 'number';
   const metodoRoteado = temSmpInformado ? rotearMetodoCalagem(smpValor) : null;
-  const isPolinomial = metodoRoteado === 'POLINOMIAL';
+  // SMP é sempre o método em evidência. Acima de SMP 6,3 o Polinomial é
+  // calculado automaticamente; abaixo, só se o usuário marcar o checkbox.
+  const polinomialAutomatico = metodoRoteado === 'POLINOMIAL';
+  const polinomialSelecionado = useWatch({ control, name: 'calcular_polinomial' }) === true;
+  const isPolinomial = polinomialAutomatico || polinomialSelecionado;
   const isReaplicacaoSMP = metodoRoteado === 'SMP';
   const isPDConsolidado = sistemaSelecionado === 'PD_CONSOLIDADO';
   const isPDImplantacao = sistemaSelecionado === 'PD_IMPLANTACAO';
@@ -688,23 +692,41 @@ export function CalculadoraCompletaPage() {
                 </div>
               ) : null}
 
-              {/* Bloco B3 — Polinomial */}
-              {isPolinomial ? (
+              {/* Bloco B3 — Polinomial (complementar ao SMP) */}
+              {temSmpInformado ? (
                 <div className="space-y-4 rounded-2xl border border-green-200 bg-white p-5">
-                  <div>
-                    <h4 className="text-sm font-bold text-stone-800">Bloco B3 — Método Polinomial</h4>
-                    <p className="text-xs text-stone-500">O formulário exibe estes campos porque SMP &gt; 6,3.</p>
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <h4 className="text-sm font-bold text-stone-800">Bloco B3 — Método Polinomial (complementar)</h4>
+                      <p className="text-xs text-stone-500">
+                        {polinomialAutomatico
+                          ? 'SMP > 6,3: o Polinomial será calculado automaticamente. O valor em evidência segue o SMP.'
+                          : 'O valor em evidência é sempre o SMP; o Polinomial aparece como valor complementar.'}
+                      </p>
+                    </div>
+                    {!polinomialAutomatico ? (
+                      <label className="flex cursor-pointer items-center gap-3 rounded-full border border-stone-200 bg-white px-4 py-2 text-sm font-semibold text-stone-700">
+                        <input
+                          type="checkbox"
+                          {...register('calcular_polinomial')}
+                          className="h-4 w-4 rounded accent-green-600"
+                        />
+                        Calcular também o Polinomial
+                      </label>
+                    ) : null}
                   </div>
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    {!moJaExibidaFora ? (
-                      <CampoNumerico label="MO (%) *" name="MO" min={0} max={100} placeholder="Ex: 2,5" register={register} error={errors.MO} />
-                    ) : (
-                      <div className="flex items-center rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800">
-                        MO já informada acima e será reaproveitada.
-                      </div>
-                    )}
-                    <CampoNumerico label="Al trocável (cmolc/dm³) *" name="Al_trocavel" min={0} placeholder="Ex: 0,5" register={register} error={errors.Al_trocavel} />
-                  </div>
+                  {isPolinomial ? (
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      {!moJaExibidaFora ? (
+                        <CampoNumerico label="MO (%) *" name="MO" min={0} max={100} placeholder="Ex: 2,5" register={register} error={errors.MO} />
+                      ) : (
+                        <div className="flex items-center rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800">
+                          MO já informada acima e será reaproveitada.
+                        </div>
+                      )}
+                      <CampoNumerico label="Al trocável (cmolc/dm³) *" name="Al_trocavel" min={0} placeholder="Ex: 0,5" register={register} error={errors.Al_trocavel} />
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
 
@@ -1134,6 +1156,12 @@ export function CalculadoraCompletaPage() {
                         </div>
                       ))}
                     </div>
+
+                    {resultadoCalagem.NC_polinomial !== undefined ? (
+                      <div className="rounded-xl border border-green-200 bg-green-50 p-3 text-xs text-green-800">
+                        <strong>Complementar — Polinomial:</strong> {resultadoCalagem.NC_polinomial.toFixed(2)} t/ha
+                      </div>
+                    ) : null}
 
                     {resultadoCalagem.NC_vb !== undefined ? (
                       <div className="rounded-xl border border-yellow-200 bg-yellow-50 p-3 text-xs text-yellow-800">

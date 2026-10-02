@@ -16,3 +16,19 @@ export const MSG_NOTA_REAPLICACAO =
 export const MSG_SEM_REINICIO_PD =
   "Critérios de restrição do PD_COM_RESTRICAO não atendidos; não há indicação de reiniciar o sistema de plantio direto.";
 
+
+export const MSG_POLINOMIAL_AUTOMATICO =
+  "SMP > 6,3: o método Polinomial foi calculado automaticamente como valor complementar. O valor em evidência segue o SMP.";
+
+export function msgDivergenciaMetodos(
+  nomeMetodo: string,
+  valor: number,
+  referenciaSMP: number
+): string {
+  const desvio =
+    referenciaSMP > 0
+      ? ` (${Math.round((Math.abs(valor - referenciaSMP) / referenciaSMP) * 100)}% de diferença)`
+      : "";
+
+  return `Divergência entre métodos: ${nomeMetodo} (${valor.toFixed(2)} t/ha) difere do SMP (${referenciaSMP.toFixed(2)} t/ha)${desvio}, acima do limite de 20%. O valor em evidência segue o SMP; avalie com critério técnico.`;
+}

@@ -23,6 +23,28 @@ export enum AcaoRequerida {
 
 const SISTEMA_MANEJO_SCHEMA = z.nativeEnum(SistemaManejo);
 
+// Acima deste SMP o Polinomial é calculado mesmo sem seleção do usuário (o SMP
+// continua sendo o valor em evidência).
+export const SMP_LIMITE_POLINOMIAL = 6.3;
+
+export function polinomialAutomatico(SMP: number): boolean {
+  return SMP > SMP_LIMITE_POLINOMIAL;
+}
+
+export function precisaPolinomial(entrada: {
+  SMP: number;
+  calcular_polinomial?: boolean;
+}): boolean {
+  return entrada.calcular_polinomial === true || polinomialAutomatico(entrada.SMP);
+}
+
+export function precisaSatBases(entrada: {
+  SMP: number;
+  primeira_calagem?: boolean;
+}): boolean {
+  return entrada.primeira_calagem !== true && !polinomialAutomatico(entrada.SMP);
+}
+
 export function precisaAlSatPDConsolidado(
   sistema_manejo: SistemaManejo | undefined,
   pH_agua: number | undefined
@@ -104,6 +126,10 @@ export const CalagemSchema = z
     SMP: smpSchema,
     PRNT: prntSchema,
 
+    // Seleção explícita do Polinomial como valor complementar ao SMP.
+    // Acima de SMP 6.3 ele é calculado mesmo com este campo em false.
+    calcular_polinomial: z.boolean().default(false),
+
     V_atual: percentualSchema("V_atual").optional(),
     CTC_pH7: ctcSchema.optional(),
 
@@ -120,17 +146,16 @@ export const CalagemSchema = z
     monitoramento: Monitoramento10_20Schema.optional(),
   })
   .superRefine((entrada, ctx) => {
-    const metodo =
-      entrada.SMP > 6.3
-        ? MetodoCalcRoteado.POLINOMIAL
-        : MetodoCalcRoteado.SMP;
+    if (precisaPolinomial(entrada)) {
+      const motivo = polinomialAutomatico(entrada.SMP)
+        ? "SMP > 6.3"
+        : "Polinomial selecionado";
 
-    if (metodo === MetodoCalcRoteado.POLINOMIAL) {
       if (entrada.MO === undefined) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ["MO"],
-          message: "MO é obrigatória quando SMP > 6.3.",
+          message: `MO é obrigatória quando ${motivo}.`,
         });
       }
 
@@ -138,12 +163,12 @@ export const CalagemSchema = z
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ["Al_trocavel"],
-          message: "Al_trocavel é obrigatório quando SMP > 6.3.",
+          message: `Al_trocavel é obrigatório quando ${motivo}.`,
         });
       }
     }
 
-    if (!entrada.primeira_calagem && metodo === MetodoCalcRoteado.SMP) {
+    if (precisaSatBases(entrada)) {
       if (entrada.V_atual === undefined) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
@@ -214,10 +239,14 @@ export interface ResultadoCalagem {
   aplicar_calcario: boolean;
   metodo_calc_roteado: MetodoCalcRoteado;
   calcular_tambem_sat_bases: boolean;
+  // Polinomial como valor complementar ao SMP (nunca é o valor em evidência).
+  polinomial_calculado: boolean;
+  polinomial_automatico: boolean;
 
   NC_base: number;
   NC_smp?: number;
   NC_vb?: number;
+  NC_polinomial?: number;
   NC_final: number;
   NC_ajustada: number;
 
