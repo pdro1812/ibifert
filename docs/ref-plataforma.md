@@ -13,14 +13,13 @@
 ### 1.1 Registro (`POST /api/auth/register`)
 
 ```
-RegistroSchema: nome (>=3), cpf (11 dígitos), cidade, estado (sigla 2 letras),
+RegistroSchema: nome (>=3), cidade, estado (sigla 2 letras),
                 email, telefone (opcional), senha (>=6)
 ```
 Fluxo (`authRoutes.ts:22-68`):
 1. Valida payload (`RegistroSchema`, zod).
-2. Verifica se `email` **ou** `cpf` já existem (`OR`, uma única query) — se
-   sim, `400 "E-mail ou CPF já cadastrados."` (mensagem genérica, não diz
-   qual dos dois colidiu).
+2. Verifica se `email` já existe — se sim,
+   `400 "E-mail já cadastrado."`.
 3. Hash da senha com `bcrypt` (custo 10).
 4. Insere usuário — `role` sempre nasce `PRODUTOR` (default da coluna,
    `schema.ts:28`; não há como se auto-cadastrar como `ADMIN` pela rota
@@ -90,10 +89,6 @@ Fluxo (`authRoutes.ts:71-104`):
 - Formulário com `react-hook-form` + `zod` (schema local — mesmos campos
   do `RegistroSchema` do backend, ver duplicação de schemas já registrada
   em achados anteriores).
-- CPF é enviado ao backend **sem pontuação** (`data.cpf.replace(/\D/g,
-  '')`) — a validação do backend (`length(11)`) depende dessa limpeza
-  prévia no client; um CPF formatado (`123.456.789-00`) chegaria com 14
-  caracteres e falharia na validação do backend.
 - Ao dar certo, chama `cadastrar()` do `AuthContext` — que já loga o
   usuário automaticamente (backend retorna token no próprio `/register`,
   §1.1) e redireciona para `location.state.from` ou `/dashboard`.
@@ -339,5 +334,4 @@ Duas observações pontuais:
    depois que criei o login"** → ver o comportamento assimétrico
    documentado em §3.4 entre calagem (só recalcula) e adubação (recalcula
    e salva).
-5. **"CPF/e-mail duplicado dá erro genérico"** → é intencional (§1.1) —
-   a mensagem não diferencia qual dos dois campos colidiu.
+5. **"E-mail duplicado no cadastro"** → retorna `400 "E-mail já cadastrado."` (§1.1).

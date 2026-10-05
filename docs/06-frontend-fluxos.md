@@ -167,12 +167,9 @@ arquivos.
 ## 6. `LoginPage` / `RegisterPage` — consistente com Etapa 1
 
 Validação client-side com zod local (schemas próprios, não importam de
-`shared-schemas` — mais uma confirmação do achado da Etapa 3). CPF no
-`RegisterSchema` do frontend usa `.min(11)` (permite mais de 11 dígitos),
-enquanto o backend usa `.length(11)` (exatamente 11) — divergência
-pequena, mas sem risco: o backend é quem valida de verdade antes de
-gravar, o pior caso é o usuário só descobrir o erro depois de enviar em
-vez de na hora. Login/registro tratam erro de API de forma amigável,
+`shared-schemas` — mais uma confirmação do achado da Etapa 3). O CPF foi
+removido do cadastro (campo, schema e API), o que eliminou a antiga
+divergência de validação entre front e back. Login/registro tratam erro de API de forma amigável,
 sem vazar detalhes internos além da mensagem que o backend já formatou.
 
 ## 7. Resumo de achados desta etapa
@@ -183,7 +180,7 @@ sem vazar detalhes internos além da mensagem que o backend já formatou.
 | 2.1 | Botão "Salvar" da calagem é decorativo quando logado (não erra, mas engana) | Baixo |
 | 2.2 | Fluxo "login para salvar" descarta o resultado calculado (calagem) | Alto (perda de trabalho do usuário) |
 | 3.1 | Mesmo problema na adubação, pior — chave nunca é lida, e adubação não tem salvamento automático de reserva | Alto (perda de trabalho do usuário, sem rede de segurança) |
-| 6 | Pequena divergência de validação de CPF entre front e back | Baixo |
+| 6 | ~~Pequena divergência de validação de CPF entre front e back~~ — resolvido: CPF removido do cadastro | — |
 
 Nenhum achado novo de segurança propriamente dito nesta etapa — os
 riscos de auth/IDOR já estavam mapeados; o que essa etapa trouxe de novo
