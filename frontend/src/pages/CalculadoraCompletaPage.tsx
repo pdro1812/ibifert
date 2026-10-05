@@ -22,7 +22,6 @@ import {
   CalagemSchema,
   detectarRestricaoMonitoramento,
   precisaAlSatPDConsolidado,
-  resolverSistemaEfetivo,
   rotearMetodoCalagem,
   type CalagemResultado,
   type EntradaCalagem,
@@ -230,7 +229,7 @@ export function CalculadoraCompletaPage() {
     resolver: criarResolverCompleto(modo),
     shouldUnregister: true,
     defaultValues: {
-      sistema_manejo: 'CONVENCIONAL',
+      sistema_manejo: 'PD_CONSOLIDADO',
       primeira_calagem: false,
       opcao_superficial_campo_natural: false,
       metodo_P: 'Mehlich-1',
@@ -276,7 +275,6 @@ export function CalculadoraCompletaPage() {
   const modoAlSatAtual = precisaAlSat ? modoAlSat : 'direto';
   const restricao10_20 =
     isPDConsolidado && monitoramentoAtivo && detectarRestricaoMonitoramento(monitoramento);
-  const sistemaEfetivo = resolverSistemaEfetivo({ sistema_manejo: sistemaSelecionado, monitoramento });
 
   // MO e CTC_pH7 já aparecem em algum lugar da tela sempre que a adubação
   // está ativa (no bloco compartilhado, em modo AMBOS, ou no Grupo A, em
@@ -296,6 +294,15 @@ export function CalculadoraCompletaPage() {
   const exigeCultAnt = watchCultura ? CULTURAS_COM_ANTECEDENTE.includes(watchCultura) : false;
   const disableCorrecaoTotal =
     (watchArgila !== undefined && watchArgila < 20) || (watchCtc !== undefined && watchCtc < 7.5);
+
+  // Com calagem + adubação, o Sistema de Cultivo é derivado do Sistema de
+  // Manejo (mesma informação) e vai ao cálculo por um campo oculto registrado.
+  const derivarCultivoDoManejo = calagemAtiva && adubacaoAtiva;
+  useEffect(() => {
+    if (derivarCultivoDoManejo) {
+      setValue('sistema_cultivo', sistemaSelecionado === 'CONVENCIONAL' ? 'Convencional' : 'Plantio Direto');
+    }
+  }, [derivarCultivoDoManejo, sistemaSelecionado, setValue]);
 
   useEffect(() => {
     if (disableCorrecaoTotal && watchTipoCorrecao === 'Total') {
@@ -563,7 +570,7 @@ export function CalculadoraCompletaPage() {
           {calagemAtiva ? (
             <div className="space-y-5 rounded-2xl border border-stone-100 bg-stone-50 p-6">
               <h3 className="text-sm font-bold uppercase tracking-wider text-stone-500">
-                Configuração do Sistema (Calagem)
+                Manejo e calcário
               </h3>
 
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -575,9 +582,9 @@ export function CalculadoraCompletaPage() {
                       <div className="space-y-2">
                         <div><strong className="block text-white">Convencional</strong>Revolvimento anual com aração e gradagem.</div>
                         <div className="h-px bg-stone-700" />
-                        <div><strong className="block text-white">PD Implantação</strong>Fase inicial de transição para plantio direto.</div>
+                        <div><strong className="block text-white">Plantio Direto — Implantação</strong>Fase inicial de transição para plantio direto.</div>
                         <div className="h-px bg-stone-700" />
-                        <div><strong className="block text-white">PD Consolidado</strong>Sistema maduro, sem revolvimento e com boa palhada.</div>
+                        <div><strong className="block text-white">Plantio Direto — Consolidado</strong>Sistema maduro, sem revolvimento e com boa palhada.</div>
                       </div>
                       <div className="absolute left-6 top-full -mt-1 border-4 border-transparent border-t-stone-800" />
                     </div>
@@ -630,24 +637,13 @@ export function CalculadoraCompletaPage() {
           {/* ── Bloco: Dados de Solo (calagem — pH/SMP + B1/B2/B3) ───── */}
           {calagemAtiva ? (
             <div className="space-y-5 rounded-2xl border border-stone-100 bg-stone-50 p-6">
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="space-y-1">
                 <h3 className="text-sm font-bold uppercase tracking-wider text-stone-500">
-                  Dados de Solo (Calagem)
+                  Análise de solo — Calagem
                 </h3>
-                {isPDConsolidado ? (
-                  <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
-                    Camada principal: 0–10 cm
-                  </span>
-                ) : (
-                  <span className="rounded-full bg-stone-200 px-3 py-1 text-xs font-semibold text-stone-600">
-                    Camada principal: 0–20 cm
-                  </span>
-                )}
-                {sistemaEfetivo === 'PD_COM_RESTRICAO' ? (
-                  <span className="rounded-full bg-orange-100 px-3 py-1 text-xs font-semibold text-orange-700">
-                    Fluxo efetivo: PD com Restrição
-                  </span>
-                ) : null}
+                <p className="text-xs text-stone-500">
+                  {isPDConsolidado ? 'Use a amostra da camada de 0–10 cm.' : 'Use a amostra da camada de 0–20 cm.'}
+                </p>
               </div>
 
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -678,13 +674,8 @@ export function CalculadoraCompletaPage() {
               </div>
 
               {mostrarBlocoSoloCompartilhado ? (
-                <div className="space-y-4 rounded-2xl border border-emerald-200 bg-white p-5">
-                  <div>
-                    <h4 className="text-sm font-bold text-stone-800">Matéria Orgânica e CTC</h4>
-                    <p className="text-xs text-stone-500">
-                      Usados tanto na calagem quanto na adubação — preenchidos uma única vez aqui.
-                    </p>
-                  </div>
+                <div className="space-y-3 pt-2">
+                  <h4 className="text-sm font-bold text-stone-800">Matéria orgânica e CTC</h4>
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <CampoNumerico label="MO (%) *" name="MO" min={0} max={100} placeholder="Ex: 2,5" register={register} error={errors.MO} />
                     <CampoNumerico label="CTC pH7 (cmolc/dm³) *" name="CTC_pH7" min={0.1} placeholder="Ex: 10" register={register} error={errors.CTC_pH7} />
@@ -694,14 +685,14 @@ export function CalculadoraCompletaPage() {
 
               {/* Bloco B3 — Polinomial (complementar ao SMP) */}
               {temSmpInformado ? (
-                <div className="space-y-4 rounded-2xl border border-green-200 bg-white p-5">
+                <div data-testid="bloco-polinomial" className="space-y-3 pt-2">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
-                      <h4 className="text-sm font-bold text-stone-800">Bloco B3 — Método Polinomial (complementar)</h4>
+                      <h4 className="text-sm font-bold text-stone-800">Cálculo complementar (Polinomial)</h4>
                       <p className="text-xs text-stone-500">
                         {polinomialAutomatico
-                          ? 'SMP > 6,3: o Polinomial será calculado automaticamente. O valor em evidência segue o SMP.'
-                          : 'O valor em evidência é sempre o SMP; o Polinomial aparece como valor complementar.'}
+                          ? 'Com SMP acima de 6,3 o Polinomial é calculado automaticamente.'
+                          : 'Com SMP até 6,3, marque se quiser ver o Polinomial como valor complementar.'}
                       </p>
                     </div>
                     {!polinomialAutomatico ? (
@@ -719,11 +710,7 @@ export function CalculadoraCompletaPage() {
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                       {!moJaExibidaFora ? (
                         <CampoNumerico label="MO (%) *" name="MO" min={0} max={100} placeholder="Ex: 2,5" register={register} error={errors.MO} />
-                      ) : (
-                        <div className="flex items-center rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800">
-                          MO já informada acima e será reaproveitada.
-                        </div>
-                      )}
+                      ) : null}
                       <CampoNumerico label="Al trocável (cmolc/dm³) *" name="Al_trocavel" min={0} placeholder="Ex: 0,5" register={register} error={errors.Al_trocavel} />
                     </div>
                   ) : null}
@@ -732,50 +719,39 @@ export function CalculadoraCompletaPage() {
 
               {/* Bloco B1 — Reaplicação SMP / Saturação por Bases */}
               {isReaplicacaoSMP ? (
-                <div className="space-y-4 rounded-2xl border border-blue-200 bg-white p-5">
-                  <div>
-                    <h4 className="text-sm font-bold text-stone-800">Bloco B1 — Saturação por Bases (referência)</h4>
-                    <p className="text-xs text-stone-500">Campos exibidos em reaplicação com método roteado para SMP.</p>
-                  </div>
+                <div data-testid="bloco-saturacao-bases" className="space-y-3 pt-2">
+                  <h4 className="text-sm font-bold text-stone-800">Saturação por bases</h4>
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <CampoNumerico label="V atual (%) *" name="V_atual" min={0} max={100} placeholder="Ex: 55" register={register} error={errors.V_atual} />
+                    <CampoNumerico label="Saturação por bases atual — V (%) *" name="V_atual" min={0} max={100} placeholder="Ex: 55" register={register} error={errors.V_atual} />
                     {!ctcJaExibidaFora ? (
                       <CampoNumerico label="CTC pH7 (cmolc/dm³) *" name="CTC_pH7" min={0.1} placeholder="Ex: 10" register={register} error={errors.CTC_pH7} />
-                    ) : (
-                      <div className="flex items-center rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800">
-                        CTC pH7 já informada acima e será reaproveitada.
-                      </div>
-                    )}
+                    ) : null}
                   </div>
                 </div>
               ) : null}
 
               {/* Bloco B2 — Trava PD Consolidado */}
               {precisaAlSat ? (
-                <div className="space-y-4 rounded-2xl border border-orange-200 bg-white p-5">
+                <div data-testid="bloco-necessidade-calagem" className="space-y-3 pt-2">
                   <div className="space-y-1">
-                    <h4 className="text-sm font-bold text-stone-800">Bloco B2 — Verificação da trava do PD Consolidado</h4>
+                    <h4 className="text-sm font-bold text-stone-800">Necessidade de calagem no Plantio Direto</h4>
                     <p className="text-xs text-stone-500">
-                      Sistema PD_CONSOLIDADO com pH_agua &lt; 5,5 — coleta de Al_sat liberada.
+                      Com pH abaixo de 5,5 em Plantio Direto Consolidado, precisamos de mais um dado para avaliar se a calagem é necessária.
                     </p>
                   </div>
 
-                  {isReaplicacaoSMP ? (
-                    <div className="rounded-xl border border-blue-200 bg-blue-50 p-3 text-xs text-blue-800">
-                      V_atual já foi coletado no Bloco B1 e será reaproveitado aqui.
-                    </div>
-                  ) : (
+                  {!isReaplicacaoSMP ? (
                     <CampoNumerico
-                      label="V atual (%) *"
+                      label="Saturação por bases atual — V (%) *"
                       name="V_atual"
                       min={0}
                       max={100}
                       placeholder="Ex: 66"
                       register={register}
                       error={errors.V_atual}
-                      dica="Necessário para verificar a trava RN-04/TRAVA-03."
+                      dica="Usado para avaliar se a calagem é necessária."
                     />
-                  )}
+                  ) : null}
 
                   <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                     <button
@@ -785,8 +761,8 @@ export function CalculadoraCompletaPage() {
                         modoAlSatAtual === 'direto' ? 'border-green-500 bg-green-50' : 'border-stone-200 bg-stone-50 hover:border-stone-300'
                       }`}
                     >
-                      <div className="text-sm font-bold text-stone-800">Opção 1</div>
-                      <div className="text-xs text-stone-500">Informar Al_sat diretamente</div>
+                      <div className="text-sm font-bold text-stone-800">Já tenho o Al saturação</div>
+                      <div className="text-xs text-stone-500">Informar o valor diretamente</div>
                     </button>
                     <button
                       type="button"
@@ -795,29 +771,26 @@ export function CalculadoraCompletaPage() {
                         modoAlSatAtual === 'calculado' ? 'border-green-500 bg-green-50' : 'border-stone-200 bg-stone-50 hover:border-stone-300'
                       }`}
                     >
-                      <div className="text-sm font-bold text-stone-800">Opção 2</div>
-                      <div className="text-xs text-stone-500">Calcular Al_sat = (Al_trocavel / CTC_pH7) × 100</div>
+                      <div className="text-sm font-bold text-stone-800">Calcular a partir do Al trocável e da CTC</div>
+                      <div className="text-xs text-stone-500">Al saturação = Al trocável ÷ CTC pH 7 × 100</div>
                     </button>
                   </div>
 
                   {modoAlSatAtual === 'direto' ? (
                     <CampoNumerico label="Al saturação (%) *" name="Al_sat" min={0} max={100} placeholder="Ex: 8" register={register} error={errors.Al_sat} />
                   ) : (
-                    <div className="space-y-4 rounded-2xl border border-stone-200 bg-stone-50 p-4">
+                    <div className="space-y-3">
                       {!isPolinomial ? (
                         <CampoNumerico label="Al trocável (cmolc/dm³) *" name="Al_trocavel" min={0} placeholder="Ex: 0,8" register={register} error={errors.Al_trocavel} />
-                      ) : (
-                        <div className="rounded-xl border border-green-200 bg-green-50 p-3 text-xs text-green-800">
-                          Al_trocavel já está visível no Bloco B3 e será reaproveitado.
-                        </div>
-                      )}
+                      ) : null}
                       {!isReaplicacaoSMP && !ctcJaExibidaFora ? (
                         <CampoNumerico label="CTC pH7 (cmolc/dm³) *" name="CTC_pH7" min={0.1} placeholder="Ex: 10" register={register} error={errors.CTC_pH7} />
-                      ) : (
-                        <div className="rounded-xl border border-blue-200 bg-blue-50 p-3 text-xs text-blue-800">
-                          CTC_pH7 já foi coletada acima e será reutilizada.
-                        </div>
-                      )}
+                      ) : null}
+                      {isPolinomial || isReaplicacaoSMP || ctcJaExibidaFora ? (
+                        <p className="text-xs text-stone-500">
+                          Usaremos os valores de Al trocável e CTC pH 7 já informados nesta tela.
+                        </p>
+                      ) : null}
                     </div>
                   )}
                 </div>
@@ -847,10 +820,10 @@ export function CalculadoraCompletaPage() {
               </div>
 
               {monitoramentoAtivo ? (
-                <div className="space-y-4 rounded-2xl border border-stone-200 bg-white p-5">
+                <div className="space-y-4">
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <CampoNumerico label="pH em água 10–20 cm *" name="monitoramento.pH_agua_10_20" min={3.5} max={8} placeholder="Ex: 4,8" register={register} error={errors.monitoramento?.pH_agua_10_20} />
-                    <CampoNumerico label="Al_sat 10–20 cm (%) *" name="monitoramento.Al_sat_10_20" min={0} max={100} placeholder="Ex: 35" register={register} error={errors.monitoramento?.Al_sat_10_20} />
+                    <CampoNumerico label="Al saturação 10–20 cm (%) *" name="monitoramento.Al_sat_10_20" min={0} max={100} placeholder="Ex: 35" register={register} error={errors.monitoramento?.Al_sat_10_20} />
                   </div>
 
                   <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
@@ -859,7 +832,7 @@ export function CalculadoraCompletaPage() {
                       { name: 'monitoramento.compactacao_restringindo_raiz' as const, label: 'Compactação restringindo raiz' },
                       { name: 'monitoramento.produtividade_abaixo_media' as const, label: 'Produtividade abaixo da média' },
                     ].map(({ name, label }) => (
-                      <label key={name} className="flex items-start gap-3 rounded-xl border border-stone-200 bg-stone-50 p-4 text-sm text-stone-700">
+                      <label key={name} className="flex items-start gap-3 text-sm text-stone-700">
                         <input type="checkbox" {...register(name)} className="mt-0.5 h-4 w-4 rounded accent-green-600" />
                         <span>{label}</span>
                       </label>
@@ -876,10 +849,6 @@ export function CalculadoraCompletaPage() {
                       </div>
                       <CampoNumerico label="SMP camada 10–20 cm *" name="SMP_10_20" min={4.4} max={7.1} placeholder="Ex: 4,8" register={register} error={errors.SMP_10_20} dica="Necessário para montar o SMP médio do fluxo PD com Restrição." />
                     </div>
-                  ) : monitoramento ? (
-                    <div className="rounded-xl border border-stone-200 bg-stone-50 p-3 text-xs text-stone-600">
-                      Sem restrição 10–20 cm detectada. Nenhum campo adicional é solicitado.
-                    </div>
                   ) : null}
                 </div>
               ) : null}
@@ -890,7 +859,7 @@ export function CalculadoraCompletaPage() {
           {adubacaoAtiva ? (
             <div className="space-y-5 rounded-2xl border border-stone-100 bg-stone-50 p-6">
               <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-stone-500">
-                <Landmark size={16} /> {calagemAtiva ? 'Adubação — Nutrientes' : 'Grupo A: Análise de Solo'}
+                <Landmark size={16} /> Análise de solo — Adubação
               </h3>
 
               <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -972,13 +941,17 @@ export function CalculadoraCompletaPage() {
               </div>
 
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <SelectPadrao
-                  label="Sistema de Cultivo"
-                  name="sistema_cultivo"
-                  register={register}
-                  error={errors.sistema_cultivo}
-                  options={[{ value: 'Plantio Direto', label: 'Plantio Direto' }, { value: 'Convencional', label: 'Convencional' }]}
-                />
+                {derivarCultivoDoManejo ? (
+                  <input type="hidden" {...register('sistema_cultivo')} />
+                ) : (
+                  <SelectPadrao
+                    label="Sistema de Cultivo"
+                    name="sistema_cultivo"
+                    register={register}
+                    error={errors.sistema_cultivo}
+                    options={[{ value: 'Plantio Direto', label: 'Plantio Direto' }, { value: 'Convencional', label: 'Convencional' }]}
+                  />
+                )}
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-stone-600">Tipo de Correção (P e K)</label>
                   <select className="w-full rounded-xl border border-stone-200 bg-white px-4 py-3 shadow-sm outline-none focus:border-green-500" {...register('tipo_correcao')}>
