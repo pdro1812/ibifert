@@ -25,8 +25,8 @@
 |---|--------|--------|
 | 1 | CSV de alertas (texto + condição de disparo) | em análise — conteúdo levantado |
 | 2 | Unificar calculadora com seletor calagem/adubação/ambos | **implementado** (nova tela, `/` e `/adubacao` intactas) |
-| 3 | Adubação na Inserção Rápida ("amostras rápidas") | em análise — já existe, ver achado |
-| 4 | Inserção Rápida: gerar calagem+adubação juntas | em análise |
+| 3 | Adubação na Inserção Rápida ("amostras rápidas") | **implementado** junto com o item 4 |
+| 4 | Inserção Rápida: gerar calagem+adubação juntas | **implementado** na branch `feature/insercao-rapida-ambos` |
 | 5 | Seleção explícita de método (SMP/Polinomial/Sat. por Bases) | **implementado** na branch `feature/selecao-metodo-calagem` (escopo reduzido, ver item) |
 | 6 | Campo de feedback/erro para o usuário, visível ao admin | **implementado** |
 | 7 | Levantamento de dados sensíveis / LGPD | em análise — achados de risco |
@@ -307,9 +307,8 @@ juntos pediam.
 linhas), `backend/src/routes/analisesRoutes.ts:67-114` (bulk calagem),
 `backend/src/routes/adubacaoRoutes.ts:94-163` (bulk adubação).
 
-**Decisão / próximos passos:** sugiro fundir este item com o item 4 no
-registro (mantenho os dois números por rastreabilidade, mas o trabalho
-real é um só — ver item 4).
+**Decisão / próximos passos:** fundido com o item 4 (mantidos os dois números
+por rastreabilidade) e implementado — ver item 4.
 
 ---
 
@@ -360,7 +359,33 @@ no frontend. Vale confirmar isso quando for implementar (o levantamento
 não teve como testar o comportamento real de concorrência das duas
 chamadas).
 
-**Decisão / próximos passos:** nenhuma implementação ainda.
+**Implementado (2026-10-05, branch `feature/insercao-rapida-ambos`):** itens 3 e 4
+tratados como um trabalho só — só frontend (`NovaAnalisePage.tsx` e teste),
+backend intacto.
+- Terceiro modo `AMBOS` ("Calagem + Adubação"), **padrão** ao abrir a tela.
+  Colunas compartilhadas (pH, MO, CTC) uma única vez, depois calagem e adubação,
+  com cabeçalho agrupado e `#`/Amostra fixos ao rolar (16 colunas).
+- Configurações globais dos dois módulos empilhadas; "Exemplo Teste" preenche os dois.
+- `isCellEnabled`: em `AMBOS`, colunas específicas seguem a regra do módulo;
+  compartilhadas ficam ativas se qualquer um exigir. Passou a usar
+  `rotearMetodoCalagem` em vez do `6.3` escrito à mão.
+- Checkbox global "Calcular também o Polinomial" (decisão A): habilita MO/Al
+  com SMP ≤ 6,3 e envia `calcular_polinomial` no lote.
+- Envio: cada linha validada nos dois schemas (qualquer erro bloqueia o lote
+  inteiro, como antes); depois os dois bulks em paralelo.
+- Falha parcial (decisão C): resumo por módulo e reenvio só das linhas ainda
+  não salvas (controle por id de linha), evitando duplicar registros.
+- Correção (decisão D): o bulk de adubação responde 200 mesmo com amostras
+  falhando (`resultados[].sucesso`); a tela mostrava "sucesso" sempre. Agora
+  confere cada amostra — vale também para o modo só adubação.
+- Testes: `NovaAnalisePage.test.ts` reescrito (removido `primeiraCalagem`
+  obsoleto) e estendido para `AMBOS`, Polinomial e campo `S` — 60/60 passando.
+- Teste ao vivo (Docker + Playwright): lote em `AMBOS` gravou 1 análise de
+  calagem e 1 de adubação; submit vazio não chama nenhum bulk; falha simulada
+  da adubação mostrou o resumo e o reenvio chamou só a adubação (sem duplicar
+  a calagem).
+- Os dois registros ficam independentes (`analises` e `analises_adubacao`),
+  sem vínculo entre si — igual à Calculadora Completa.
 
 ---
 

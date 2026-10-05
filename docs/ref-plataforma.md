@@ -153,9 +153,13 @@ adubação, diferente do histórico geral da §3.1).
 ### 3.3 Inserção rápida / lote (`NovaAnalisePage.tsx`)
 
 Interface de planilha (uma linha por amostra) para lançar várias análises
-de uma vez, para um talhão. Suporta os dois modos (`CALAGEM` /
-`ADUBACAO`, mutuamente exclusivos por linha) — habilita/desabilita células
-conforme o modo e os campos preenchidos (`isCellEnabled`). Envia para:
+de uma vez, para os talhões de uma fazenda. Suporta três modos (`CALAGEM`,
+`ADUBACAO` e, desde 2026-10-05, `AMBOS` — padrão ao abrir a tela): em
+`AMBOS` as colunas compartilhadas (pH, MO, CTC) aparecem uma vez só, seguidas
+das colunas de calagem e de adubação, e cada linha é validada contra os dois
+schemas. Há ainda o checkbox global "Calcular também o Polinomial" (modos com
+calagem; ver item 5 do registro). Habilita/desabilita células conforme o modo
+e os campos preenchidos (`isCellEnabled`). Envia para:
 - `POST /api/analises/bulk` (calagem) — exige token, valida cada amostra
   com `CalagemSchema` e roda `executarMotorCalagem` por linha antes de
   persistir em lote (`salvarLoteAnalises`).
@@ -164,6 +168,13 @@ conforme o modo e os campos preenchidos (`isCellEnabled`). Envia para:
   se a amostra 3 de 10 falhar na validação, as 1 e 2 já foram
   persistidas e o array de resultado marca só a 3 como `sucesso: false`;
   não há rollback do lote).
+
+No modo `AMBOS` os dois bulks são enviados em paralelo e **gravam registros
+independentes** (uma linha em `analises` e outra em `analises_adubacao`, sem
+vínculo entre si além do talhão e da identificação). O frontend confere
+`resultados[].sucesso` do bulk de adubação (que responde 200 mesmo com falhas
+individuais) e, numa falha parcial, mostra o resumo por módulo e reenvia
+apenas as linhas que ainda não foram salvas, para não duplicar registros.
 
 ### 3.4 Cálculo avulso (guest) + recuperação pós-login
 
