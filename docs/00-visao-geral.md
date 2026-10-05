@@ -42,7 +42,8 @@ Usuário preenche formulário (CalculadoraPage)
   → POST /api/analises/calcular (sem auth obrigatória)
       → validação zod no servidor (backend/src/schemas/calagemSchema.ts)
       → executarMotorCalagem() (backend/src/services/motorCalagem.ts)
-          → lookup Tabela SMP (RS/SC 2016) ou fórmula polinomial
+          → lookup Tabela SMP (RS/SC 2016) sempre; fórmula polinomial como valor
+            complementar (checkbox ou SMP > 6,3) + alerta se divergir >20% do SMP
       → salvarAnalise() — grava em `analises` (com ou sem usuario_id)
   → resposta renderizada na tela + botão PDF (jsPDF, client-side)
 ```

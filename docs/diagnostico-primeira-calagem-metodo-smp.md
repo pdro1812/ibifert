@@ -7,7 +7,15 @@
 > continua existindo (schema/banco, por compatibilidade) e o que mudou de
 > fato no comportamento estão no §1 abaixo, que passa a descrever o estado
 > **anterior à mudança** — mantido como registro do porquê da decisão.
-> Item 2 (SMP sempre, Polinomial opcional) segue **não implementado**.
+> **Item 2 implementado em 2026-10-02 (PR #13, item 5 do
+> `registro-alteracoes-propostas.md`), numa versão intermediária:** o SMP é
+> sempre o valor em evidência (a coordenadora pediu), mas o Polinomial **não
+> foi removido** — é calculado como valor complementar quando o técnico marca
+> o checkbox ou automaticamente quando SMP > 6,3, com aviso leve e alerta de
+> divergência (> 20%). O risco descrito no §2.3(b) (dose subestimada sem
+> alerta) fica mitigado pelo alerta, mas o valor em evidência com SMP > 6,3
+> continua sendo o da tabela SMP. O texto abaixo descreve o estado
+> **anterior** a essa mudança.
 >
 > Fase de leitura — nenhum código alterado. Objetivo deste documento: mapear
 > o comportamento **atual** do sistema nos dois pontos levantados pela
