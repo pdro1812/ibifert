@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ArrowRight, Plus, TableProperties, Tractor, MapPin, AlertCircle, CheckCircle2, Leaf, Sprout, FlaskConical } from 'lucide-react';
+import { ArrowRight, Plus, TableProperties, Tractor, MapPin, AlertCircle, CheckCircle2, Leaf, Sprout, FlaskConical, Layers } from 'lucide-react';
 import { getFazendas, postAnalisesBulk, postAdubacaoBulk } from '../services/api';
-import { CalagemSchema, precisaAlSatPDConsolidado } from '../schemas/calagemSchema';
+import { CalagemSchema, precisaAlSatPDConsolidado, rotearMetodoCalagem, type SistemaManejo } from '../schemas/calagemSchema';
 import { AdubacaoSchema } from '../schemas/adubacaoSchema';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -50,44 +50,60 @@ export interface LinhaAmostra {
   mn: string;
 }
 
-export type ModoInsercao = 'CALAGEM' | 'ADUBACAO';
+export type ModoInsercao = 'CALAGEM' | 'ADUBACAO' | 'AMBOS';
 
 // ─── Helpers Dinâmicos ────────────────────────────────────────────────────────
 
-export function isCellEnabled(modo: ModoInsercao, campo: keyof LinhaAmostra, linha: LinhaAmostra, configGlobais: any): boolean {
-  if (modo === 'CALAGEM') {
-    if (['ph', 'smp'].includes(campo)) return true;
-    
-    const phVal = Number(linha.ph);
-    const smpVal = Number(linha.smp);
-    
-    if (['mo', 'al_trocavel'].includes(campo)) {
-      return smpVal > 6.3; 
-    }
-    
-    if (['v_atual', 'ctc'].includes(campo)) {
-      // Toda calagem é tratada como reaplicação (não é mais uma opção do
-      // formulário) — ver docs/diagnostico-primeira-calagem-metodo-smp.md.
-      const isReaplicacao = smpVal <= 6.3;
-      const precisaTravaPDConsolidado =
-        configGlobais.sistemaManejo === 'PD_CONSOLIDADO' && phVal < 5.5;
-      return isReaplicacao || (campo === 'v_atual' && precisaTravaPDConsolidado);
-    }
-    
-    if (campo === 'al_sat') {
-      return precisaAlSatPDConsolidado(configGlobais.sistemaManejo, phVal);
-    }
-    return false;
-  } 
-  
-  if (modo === 'ADUBACAO') {
-    if (campo === 's') {
-      const culturasComS = ['soja', 'ervilha', 'ervilhaca', 'canola', 'nabo_forrageiro'];
-      return culturasComS.includes(configGlobais.cultura);
-    }
-    return true; // Demais sempre ativos
+type ConfigGlobais = Record<string, unknown>;
+
+const CAMPOS_CALAGEM: Array<keyof LinhaAmostra> = ['smp', 'al_trocavel', 'v_atual', 'al_sat'];
+const CAMPOS_ADUBACAO: Array<keyof LinhaAmostra> = ['argila', 'p', 'k', 'ca', 'mg', 's', 'cu', 'zn', 'b', 'mn'];
+
+function isCellEnabledCalagem(campo: keyof LinhaAmostra, linha: LinhaAmostra, configGlobais: ConfigGlobais): boolean {
+  if (['ph', 'smp'].includes(campo)) return true;
+
+  const phVal = Number(linha.ph);
+  const smpVal = Number(linha.smp);
+  // SMP > 6,3 calcula o Polinomial automaticamente; abaixo disso, só se o
+  // lote marcar "Calcular também o Polinomial".
+  const polinomial = rotearMetodoCalagem(smpVal) === 'POLINOMIAL' || configGlobais.calcularPolinomial === true;
+
+  if (['mo', 'al_trocavel'].includes(campo)) {
+    return polinomial;
   }
-  return true;
+
+  if (['v_atual', 'ctc'].includes(campo)) {
+    // Toda calagem é tratada como reaplicação (não é mais uma opção do
+    // formulário) — ver docs/diagnostico-primeira-calagem-metodo-smp.md.
+    const isReaplicacao = rotearMetodoCalagem(smpVal) === 'SMP';
+    const precisaTravaPDConsolidado =
+      configGlobais.sistemaManejo === 'PD_CONSOLIDADO' && phVal < 5.5;
+    return isReaplicacao || (campo === 'v_atual' && precisaTravaPDConsolidado);
+  }
+
+  if (campo === 'al_sat') {
+    return precisaAlSatPDConsolidado(configGlobais.sistemaManejo as SistemaManejo | undefined, phVal);
+  }
+  return false;
+}
+
+function isCellEnabledAdubacao(campo: keyof LinhaAmostra, configGlobais: ConfigGlobais): boolean {
+  if (campo === 's') {
+    const culturasComS = ['soja', 'ervilha', 'ervilhaca', 'canola', 'nabo_forrageiro'];
+    return culturasComS.includes(configGlobais.cultura as string);
+  }
+  return true; // Demais sempre ativos
+}
+
+export function isCellEnabled(modo: ModoInsercao, campo: keyof LinhaAmostra, linha: LinhaAmostra, configGlobais: ConfigGlobais): boolean {
+  if (modo === 'CALAGEM') return isCellEnabledCalagem(campo, linha, configGlobais);
+  if (modo === 'ADUBACAO') return isCellEnabledAdubacao(campo, configGlobais);
+
+  // AMBOS: colunas específicas seguem a regra do próprio módulo; as
+  // compartilhadas (pH, MO, CTC) ficam ativas se qualquer módulo as exigir.
+  if (CAMPOS_CALAGEM.includes(campo)) return isCellEnabledCalagem(campo, linha, configGlobais);
+  if (CAMPOS_ADUBACAO.includes(campo)) return isCellEnabledAdubacao(campo, configGlobais);
+  return isCellEnabledCalagem(campo, linha, configGlobais) || isCellEnabledAdubacao(campo, configGlobais);
 }
 
 const COLS_CALAGEM: Array<{ key: keyof LinhaAmostra; label: string; placeholder: string }> = [
@@ -116,6 +132,31 @@ const COLS_ADUBACAO: Array<{ key: keyof LinhaAmostra; label: string; placeholder
   { key: 'mn',     label: 'Mn',         placeholder: 'mg' },
 ];
 
+type Coluna = { key: keyof LinhaAmostra; label: string; placeholder: string };
+
+// Modo AMBOS: colunas compartilhadas uma única vez, depois as de cada módulo.
+const COLS_AMBOS_GRUPOS: Array<{ nome: string; cor: string; colunas: Coluna[] }> = [
+  {
+    nome: 'Compartilhados',
+    cor: 'text-stone-500',
+    colunas: [
+      { key: 'ph',  label: 'pH',     placeholder: '5.2' },
+      { key: 'mo',  label: 'MO (%)', placeholder: '2.5' },
+      { key: 'ctc', label: 'CTC',    placeholder: '10'  },
+    ],
+  },
+  {
+    nome: 'Calagem',
+    cor: 'text-green-600',
+    colunas: COLS_CALAGEM.filter((c) => CAMPOS_CALAGEM.includes(c.key)),
+  },
+  {
+    nome: 'Adubação',
+    cor: 'text-emerald-600',
+    colunas: COLS_ADUBACAO.filter((c) => CAMPOS_ADUBACAO.includes(c.key)),
+  },
+];
+
 const GERAR_LINHA_VAZIA = (talhao_id: string, index: number): LinhaAmostra => ({
   id: Math.random().toString(36).substr(2, 9),
   talhao_id,
@@ -132,7 +173,7 @@ export function NovaAnalisePage() {
   const stateTalhaoId = location.state?.talhaoId as string | undefined;
 
   // ── Data state
-  const [modo, setModo] = useState<ModoInsercao>('CALAGEM');
+  const [modo, setModo] = useState<ModoInsercao>('AMBOS');
   const [fazendas, setFazendas] = useState<Fazenda[]>([]);
   const [fazendaId, setFazendaId] = useState('');
   const [loading, setLoading] = useState(true);
@@ -140,10 +181,25 @@ export function NovaAnalisePage() {
   const [sucesso, setSucesso] = useState(false);
   const [erroEnvio, setErroEnvio] = useState('');
   const [errosGlobais, setErrosGlobais] = useState<Record<string, Record<string, string>>>({});
+  // Linhas já gravadas por módulo (ids das linhas) — numa falha parcial, o
+  // reenvio manda só o que ainda não foi salvo, para não duplicar registros.
+  const [salvas, setSalvas] = useState<{ calagem: string[]; adubacao: string[] }>({ calagem: [], adubacao: [] });
+  const [resumoEnvio, setResumoEnvio] = useState<string[]>([]);
+
+  const mostraCalagem = modo !== 'ADUBACAO';
+  const mostraAdubacao = modo !== 'CALAGEM';
+
+  const trocarModo = (novo: ModoInsercao) => {
+    setModo(novo);
+    setSalvas({ calagem: [], adubacao: [] });
+    setResumoEnvio([]);
+    setErrosGlobais({});
+  };
 
   // ── Config Globais: Calagem
   const [sistemaManejo, setSistemaManejo] = useState<'CONVENCIONAL' | 'PD_IMPLANTACAO' | 'PD_CONSOLIDADO'>('CONVENCIONAL');
   const [prnt, setPrnt] = useState('90');
+  const [calcularPolinomial, setCalcularPolinomial] = useState(false);
 
   // ── Config Globais: Adubacao
   const [cultura, setCultura] = useState('soja');
@@ -156,9 +212,12 @@ export function NovaAnalisePage() {
   const [culturaAntecedente, setCulturaAntecedente] = useState('Gramínea');
   const [finalidadeCevada, setFinalidadeCevada] = useState('cervejeira_malte_unico');
 
-  const configGlobais = modo === 'CALAGEM'
-    ? { sistemaManejo, prnt }
-    : { cultura, rendimento, numCultivo, sistemaCultivo, tipoCorrecao, metodoP, metodoK, culturaAntecedente, finalidadeCevada };
+  const configGlobais = {
+    ...(mostraCalagem ? { sistemaManejo, prnt, calcularPolinomial } : {}),
+    ...(mostraAdubacao
+      ? { cultura, rendimento, numCultivo, sistemaCultivo, tipoCorrecao, metodoP, metodoK, culturaAntecedente, finalidadeCevada }
+      : {}),
+  };
 
   // ── Amostras
   const [linhas, setLinhas] = useState<LinhaAmostra[]>([]);
@@ -213,8 +272,9 @@ export function NovaAnalisePage() {
   };
 
   const preencherExemplo = () => {
-    if (modo === 'CALAGEM') {
-      const linha = GERAR_LINHA_VAZIA(talhoesDisponiveis[0]?.id || '', 1);
+    const linha = GERAR_LINHA_VAZIA(talhoesDisponiveis[0]?.id || '', 1);
+
+    if (mostraCalagem) {
       linha.ph = '5.2';
       linha.smp = '5.5';
       linha.mo = '2.5';
@@ -222,43 +282,90 @@ export function NovaAnalisePage() {
       linha.v_atual = '55';
       linha.ctc = '10';
       linha.al_sat = '15';
-      
+
       setSistemaManejo('CONVENCIONAL');
       setPrnt('90');
-      setLinhas([linha]);
-    } else {
-      const linha = GERAR_LINHA_VAZIA(talhoesDisponiveis[0]?.id || '', 1);
+    }
+
+    if (mostraAdubacao) {
       linha.argila = '40';
-      linha.mo = '3.5';
-      linha.ctc = '12';
       linha.p = '5';
       linha.k = '80';
       linha.ca = '4.5';
       linha.mg = '2.5';
-      linha.ph = '5.8';
       linha.s = '15';
       linha.cu = '1';
       linha.zn = '2';
       linha.b = '0.5';
       linha.mn = '5';
-      
+      if (!mostraCalagem) {
+        linha.ph = '5.8';
+        linha.mo = '3.5';
+        linha.ctc = '12';
+      }
+
       setCultura('soja');
       setRendimento('4.5');
-      setLinhas([linha]);
     }
+
+    setLinhas([linha]);
     setErrosGlobais({});
   };
 
+  const numOuUndef = (v: string) => (v !== '' ? Number(v) : undefined);
+
+  const montarPayloadCalagem = (l: LinhaAmostra) => ({
+    sistema_manejo: sistemaManejo,
+    // Não é mais uma opção do formulário — sempre reaplicação
+    // (ver docs/diagnostico-primeira-calagem-metodo-smp.md).
+    primeira_calagem: false,
+    PRNT: prnt ? Number(prnt) : undefined,
+    pH_agua: numOuUndef(l.ph),
+    SMP: numOuUndef(l.smp),
+    MO: numOuUndef(l.mo),
+    Al_trocavel: numOuUndef(l.al_trocavel),
+    V_atual: numOuUndef(l.v_atual),
+    CTC_pH7: numOuUndef(l.ctc),
+    Al_sat: numOuUndef(l.al_sat),
+    calcular_polinomial: calcularPolinomial ? true : undefined,
+  });
+
+  const montarPayloadAdubacao = (l: LinhaAmostra) => ({
+    cultura,
+    rendimento_esperado: rendimento ? Number(rendimento) : undefined,
+    num_cultivo: numCultivo,
+    sistema_cultivo: sistemaCultivo,
+    tipo_correcao: tipoCorrecao,
+    cultura_antecedente: culturaAntecedente,
+    finalidade_cevada: cultura === 'cevada' ? finalidadeCevada : undefined,
+    metodo_P: metodoP,
+    metodo_K: metodoK,
+    argila: numOuUndef(l.argila),
+    MO: numOuUndef(l.mo),
+    CTC_pH7: numOuUndef(l.ctc),
+    P: numOuUndef(l.p),
+    K: numOuUndef(l.k),
+    Ca: numOuUndef(l.ca),
+    Mg: numOuUndef(l.mg),
+    pH_agua: numOuUndef(l.ph),
+    S: numOuUndef(l.s),
+    Cu: numOuUndef(l.cu),
+    Zn: numOuUndef(l.zn),
+    B: numOuUndef(l.b),
+    Mn: numOuUndef(l.mn),
+  });
+
   const handleSalvarTudo = async () => {
     setErrosGlobais({});
-    
+    setResumoEnvio([]);
+
     if (!fazendaSelecionada) {
       alert('Selecione uma fazenda para prosseguir.');
       return;
     }
 
     // Filtra linhas que têm pelo menos um dado preenchido ou talhão
-    const amostrasParaProcessar = linhas.filter(l => 
+    const amostrasParaProcessar = linhas.filter(l =>
       l.talhao_id || Object.keys(l).some(k => !['id', 'identificacao', 'talhao_id'].includes(k) && l[k as keyof LinhaAmostra] !== '')
     );
 
@@ -267,102 +374,82 @@ export function NovaAnalisePage() {
       setTimeout(() => setErroEnvio(''), 5000);
       return;
     }
-    
+
+    type Pendente = { rowId: string; identificacao: string; payload: any };
     const novosErros: Record<string, Record<string, string>> = {};
     let temErro = false;
-    const amostrasAgrupadas: Record<string, any[]> = {};
+    const gruposCalagem: Record<string, Pendente[]> = {};
+    const gruposAdubacao: Record<string, Pendente[]> = {};
 
     amostrasParaProcessar.forEach(l => {
       novosErros[l.id] = {};
-      
+
       if (!l.talhao_id) {
         novosErros[l.id]['talhao_id'] = "Talhão é obrigatório";
         temErro = true;
       }
 
-      if (modo === 'CALAGEM') {
-        const payload = {
-          sistema_manejo: sistemaManejo,
-          // Não é mais uma opção do formulário — sempre reaplicação
-          // (ver docs/diagnostico-primeira-calagem-metodo-smp.md).
-          primeira_calagem: false,
-          PRNT: prnt ? Number(prnt) : undefined,
-          pH_agua: l.ph !== '' ? Number(l.ph) : undefined,
-          SMP: l.smp !== '' ? Number(l.smp) : undefined,
-          MO: l.mo !== '' ? Number(l.mo) : undefined,
-          Al_trocavel: l.al_trocavel !== '' ? Number(l.al_trocavel) : undefined,
-          V_atual: l.v_atual !== '' ? Number(l.v_atual) : undefined,
-          CTC_pH7: l.ctc !== '' ? Number(l.ctc) : undefined,
-          Al_sat: l.al_sat !== '' ? Number(l.al_sat) : undefined,
-        };
-        
-        const parseResult = CalagemSchema.safeParse(payload);
+      let calagemOk = true;
+      let adubacaoOk = true;
+      const payloadCalagem = mostraCalagem ? montarPayloadCalagem(l) : null;
+      const payloadAdubacao = mostraAdubacao ? montarPayloadAdubacao(l) : null;
+
+      if (payloadCalagem) {
+        const parseResult = CalagemSchema.safeParse(payloadCalagem);
         if (!parseResult.success) {
-          temErro = true;
-          const errosZod = parseResult.error?.issues || [];
-          errosZod.forEach(err => {
+          calagemOk = false;
+          const mapa: Record<string, string> = {
+            pH_agua: 'ph', SMP: 'smp', MO: 'mo', Al_trocavel: 'al_trocavel',
+            V_atual: 'v_atual', CTC_pH7: 'ctc', Al_sat: 'al_sat',
+          };
+          (parseResult.error?.issues || []).forEach(err => {
             const path = err.path[0] as string;
-            let key = path;
-            if (path === 'pH_agua') key = 'ph';
-            if (path === 'SMP') key = 'smp';
-            if (path === 'MO') key = 'mo';
-            if (path === 'Al_trocavel') key = 'al_trocavel';
-            if (path === 'V_atual') key = 'v_atual';
-            if (path === 'CTC_pH7') key = 'ctc';
-            if (path === 'Al_sat') key = 'al_sat';
-            novosErros[l.id][key] = err.message;
+            novosErros[l.id][mapa[path] ?? path] = err.message;
           });
-        } else if (l.talhao_id) {
-          if (!amostrasAgrupadas[l.talhao_id]) amostrasAgrupadas[l.talhao_id] = [];
-          amostrasAgrupadas[l.talhao_id].push({ ...payload, identificacao: l.identificacao, modo: 'avancado' });
         }
-      } else {
-        // MODO ADUBACAO
-        const payload = {
-          cultura,
-          rendimento_esperado: rendimento ? Number(rendimento) : undefined,
-          num_cultivo: numCultivo,
-          sistema_cultivo: sistemaCultivo,
-          tipo_correcao: tipoCorrecao,
-          cultura_antecedente: culturaAntecedente,
-          finalidade_cevada: cultura === 'cevada' ? finalidadeCevada : undefined,
-          metodo_P: metodoP,
-          metodo_K: metodoK,
-          argila: l.argila !== '' ? Number(l.argila) : undefined,
-          MO: l.mo !== '' ? Number(l.mo) : undefined,
-          CTC_pH7: l.ctc !== '' ? Number(l.ctc) : undefined,
-          P: l.p !== '' ? Number(l.p) : undefined,
-          K: l.k !== '' ? Number(l.k) : undefined,
-          Ca: l.ca !== '' ? Number(l.ca) : undefined,
-          Mg: l.mg !== '' ? Number(l.mg) : undefined,
-          pH_agua: l.ph !== '' ? Number(l.ph) : undefined,
-          S: l.s !== '' ? Number(l.s) : undefined,
-          Cu: l.cu !== '' ? Number(l.cu) : undefined,
-          Zn: l.zn !== '' ? Number(l.zn) : undefined,
-          B: l.b !== '' ? Number(l.b) : undefined,
-          Mn: l.mn !== '' ? Number(l.mn) : undefined
-        };
-        
-        const parseResult = AdubacaoSchema.safeParse(payload);
+      }
+
+      if (payloadAdubacao) {
+        const parseResult = AdubacaoSchema.safeParse(payloadAdubacao);
         if (!parseResult.success) {
-          temErro = true;
-          const errosZod = parseResult.error?.issues || [];
-          errosZod.forEach(err => {
+          adubacaoOk = false;
+          (parseResult.error?.issues || []).forEach(err => {
             const path = err.path[0] as string;
             let key = path.toLowerCase();
             if (path === 'CTC_pH7') key = 'ctc';
             if (path === 'pH_agua') key = 'ph';
-            novosErros[l.id][key] = err.message;
-          });
-        } else if (l.talhao_id) {
-          if (!amostrasAgrupadas[l.talhao_id]) amostrasAgrupadas[l.talhao_id] = [];
-          amostrasAgrupadas[l.talhao_id].push({ 
-            ...payload, 
-            identificacao: l.identificacao,
-            uf: fazendaSelecionada.uf,
-            cidade: fazendaSelecionada.municipio
+            // No modo AMBOS, o erro de calagem (já registrado) tem prioridade na célula compartilhada
+            if (!novosErros[l.id][key]) novosErros[l.id][key] = err.message;
           });
         }
+      }
+
+      if (!calagemOk || !adubacaoOk) {
+        temErro = true;
+        return;
+      }
+
+      if (!l.talhao_id) return;
+
+      if (payloadCalagem && !salvas.calagem.includes(l.id)) {
+        (gruposCalagem[l.talhao_id] ??= []).push({
+          rowId: l.id,
+          identificacao: l.identificacao,
+          payload: { ...payloadCalagem, identificacao: l.identificacao, modo: 'avancado' },
+        });
+      }
+
+      if (payloadAdubacao && !salvas.adubacao.includes(l.id)) {
+        (gruposAdubacao[l.talhao_id] ??= []).push({
+          rowId: l.id,
+          identificacao: l.identificacao,
+          payload: {
+            ...payloadAdubacao,
+            identificacao: l.identificacao,
+            uf: fazendaSelecionada.uf,
+            cidade: fazendaSelecionada.municipio,
+          },
+        });
       }
     });
 
@@ -372,29 +459,80 @@ export function NovaAnalisePage() {
       setTimeout(() => setErroEnvio(''), 5000);
       return;
     }
-    
+
     setProcessando(true);
     try {
-      if (modo === 'CALAGEM') {
-        await Promise.all(
-          Object.entries(amostrasAgrupadas).map(([tId, amostras]) => 
-            postAnalisesBulk({ talhao_id: tId, uf: fazendaSelecionada.uf, cidade: fazendaSelecionada.municipio, amostras })
-          )
+      const novasSalvas = { calagem: [...salvas.calagem], adubacao: [...salvas.adubacao] };
+      const falhasCalagem: string[] = [];
+      const falhasAdubacao: string[] = [];
+      let okCalagem = 0;
+      let okAdubacao = 0;
+
+      const enviarCalagem = Promise.allSettled(
+        Object.entries(gruposCalagem).map(async ([tId, itens]) => {
+          try {
+            await postAnalisesBulk({
+              talhao_id: tId,
+              uf: fazendaSelecionada.uf,
+              cidade: fazendaSelecionada.municipio,
+              amostras: itens.map(i => i.payload),
+            });
+            okCalagem += itens.length;
+            itens.forEach(i => novasSalvas.calagem.push(i.rowId));
+          } catch (err) {
+            console.error(err);
+            itens.forEach(i => falhasCalagem.push(i.identificacao));
+          }
+        })
+      );
+
+      const enviarAdubacao = Promise.allSettled(
+        Object.entries(gruposAdubacao).map(async ([tId, itens]) => {
+          try {
+            const res = await postAdubacaoBulk({ talhao_id: tId, amostras: itens.map(i => i.payload) });
+            // O bulk responde 200 mesmo com falhas individuais — conferir cada amostra.
+            const resultados: Array<{ sucesso: boolean; erro?: string }> = res?.resultados ?? [];
+            itens.forEach((item, idx) => {
+              if (resultados[idx]?.sucesso) {
+                okAdubacao += 1;
+                novasSalvas.adubacao.push(item.rowId);
+              } else {
+                falhasAdubacao.push(item.identificacao);
+              }
+            });
+          } catch (err) {
+            console.error(err);
+            itens.forEach(i => falhasAdubacao.push(i.identificacao));
+          }
+        })
+      );
+
+      await Promise.all([enviarCalagem, enviarAdubacao]);
+      setSalvas(novasSalvas);
+
+      const resumo: string[] = [];
+      if (mostraCalagem && (okCalagem > 0 || falhasCalagem.length > 0)) {
+        resumo.push(
+          falhasCalagem.length === 0
+            ? `Calagem: ${okCalagem} amostra(s) salva(s).`
+            : `Calagem: ${okCalagem} salva(s), ${falhasCalagem.length} com erro (${falhasCalagem.join(', ')}).`
         );
-      } else {
-        await Promise.all(
-          Object.entries(amostrasAgrupadas).map(([tId, amostras]) => 
-            postAdubacaoBulk({ talhao_id: tId, amostras })
-          )
+      }
+      if (mostraAdubacao && (okAdubacao > 0 || falhasAdubacao.length > 0)) {
+        resumo.push(
+          falhasAdubacao.length === 0
+            ? `Adubação: ${okAdubacao} amostra(s) salva(s).`
+            : `Adubação: ${okAdubacao} salva(s), ${falhasAdubacao.length} com erro (${falhasAdubacao.join(', ')}).`
         );
       }
 
-      setSucesso(true);
-      setTimeout(() => navigate('/dashboard'), 2000);
-    } catch (err) {
-      console.error(err);
-      setErroEnvio('Erro ao processar e salvar análises.');
-      setTimeout(() => setErroEnvio(''), 5000);
+      if (falhasCalagem.length === 0 && falhasAdubacao.length === 0) {
+        setSucesso(true);
+        setTimeout(() => navigate('/dashboard'), 2000);
+      } else {
+        resumo.push('Clique em "Salvar" novamente: só o que falhou será reenviado.');
+        setResumoEnvio(resumo);
+      }
     } finally {
       setProcessando(false);
     }
@@ -408,7 +546,10 @@ export function NovaAnalisePage() {
     );
   }
 
-  const colunas = modo === 'CALAGEM' ? COLS_CALAGEM : COLS_ADUBACAO;
+  const gruposColunas = modo === 'AMBOS'
+    ? COLS_AMBOS_GRUPOS
+    : [{ nome: '', cor: '', colunas: modo === 'CALAGEM' ? COLS_CALAGEM : COLS_ADUBACAO }];
+  const colunas = gruposColunas.flatMap((g) => g.colunas);
   const exigeCultAnt = ['aveia_branca', 'aveia_preta', 'centeio', 'cevada', 'trigo', 'triticale', 'milho'].includes(cultura);
 
   // ── Render ───────────────────────────────────────────────────────────────
@@ -420,7 +561,7 @@ export function NovaAnalisePage() {
         <div className="relative z-10 flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
           <div>
             <h2 className="flex items-center gap-3 text-2xl font-bold">
-              <TableProperties className={modo === 'CALAGEM' ? 'text-green-400' : 'text-emerald-400'} />
+              <TableProperties className={modo === 'ADUBACAO' ? 'text-emerald-400' : modo === 'AMBOS' ? 'text-teal-400' : 'text-green-400'} />
               Inserção Rápida de Lotes
             </h2>
             <p className="mt-1 text-stone-400 text-sm">
@@ -430,7 +571,7 @@ export function NovaAnalisePage() {
           
           <div className="flex bg-stone-800 p-1 rounded-xl">
             <button
-              onClick={() => setModo('CALAGEM')}
+              onClick={() => trocarModo('CALAGEM')}
               className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-lg transition-all ${
                 modo === 'CALAGEM' ? 'bg-green-500 text-white shadow-lg' : 'text-stone-400 hover:text-stone-200'
               }`}
@@ -438,12 +579,20 @@ export function NovaAnalisePage() {
               <Leaf size={16} /> Calagem
             </button>
             <button
-              onClick={() => setModo('ADUBACAO')}
+              onClick={() => trocarModo('ADUBACAO')}
               className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-lg transition-all ${
                 modo === 'ADUBACAO' ? 'bg-emerald-500 text-white shadow-lg' : 'text-stone-400 hover:text-stone-200'
               }`}
             >
               <Sprout size={16} /> Adubação
+            </button>
+            <button
+              onClick={() => trocarModo('AMBOS')}
+              className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-lg transition-all ${
+                modo === 'AMBOS' ? 'bg-teal-500 text-white shadow-lg' : 'text-stone-400 hover:text-stone-200'
+              }`}
+            >
+              <Layers size={16} /> Calagem + Adubação
             </button>
           </div>
         </div>
@@ -476,7 +625,10 @@ export function NovaAnalisePage() {
               <Tractor size={16} /> Configurações Globais (Aplicado a todo o lote)
             </h3>
             
-            {modo === 'CALAGEM' ? (
+            <div className="space-y-4">
+              {mostraCalagem ? (
+                <div className="space-y-2">
+                  {modo === 'AMBOS' ? <p className="text-xs font-bold uppercase tracking-wider text-green-600">Calagem</p> : null}
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-stone-600">Manejo</label>
@@ -499,8 +651,21 @@ export function NovaAnalisePage() {
                     className="w-full rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm outline-none shadow-sm"
                   />
                 </div>
+                <label className="flex cursor-pointer items-center gap-2 self-end rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-stone-700 shadow-sm sm:col-span-2">
+                  <input
+                    type="checkbox"
+                    checked={calcularPolinomial}
+                    onChange={(e) => setCalcularPolinomial(e.target.checked)}
+                    className="h-4 w-4 rounded accent-green-600"
+                  />
+                  Calcular também o Polinomial (valor complementar; automático com SMP &gt; 6,3)
+                </label>
               </div>
-            ) : (
+                </div>
+              ) : null}
+              {mostraAdubacao ? (
+                <div className="space-y-2">
+                  {modo === 'AMBOS' ? <p className="text-xs font-bold uppercase tracking-wider text-emerald-600">Adubação</p> : null}
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-stone-600">Cultura</label>
@@ -559,21 +724,38 @@ export function NovaAnalisePage() {
                   </select>
                 </div>
               </div>
-            )}
+                </div>
+              ) : null}
+            </div>
           </div>
         </div>
 
         {/* Planilha de Amostras */}
         <div className="relative overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm">
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm whitespace-nowrap">
+            <table className="w-full min-w-max text-left text-sm whitespace-nowrap">
               <thead className="border-b border-stone-200 bg-stone-50 text-[10px] font-bold uppercase tracking-wider text-stone-500">
+                {modo === 'AMBOS' ? (
+                  <tr className="border-b border-stone-100">
+                    <th colSpan={3} className="px-3 py-2" />
+                    {gruposColunas.map((g) => (
+                      <th
+                        key={g.nome}
+                        colSpan={g.colunas.length}
+                        className={`border-l border-stone-200 px-2 py-2 text-center text-[10px] font-bold uppercase tracking-wider ${g.cor}`}
+                      >
+                        {g.nome}
+                      </th>
+                    ))}
+                    <th className="px-3 py-2" />
+                  </tr>
+                ) : null}
                 <tr>
-                  <th className="w-10 px-3 py-4 text-center">#</th>
-                  <th className="w-40 px-3 py-4">Gleba / Amostra</th>
+                  <th className="sticky left-0 z-10 w-10 bg-stone-50 px-3 py-4 text-center">#</th>
+                  <th className="sticky left-10 z-10 w-40 bg-stone-50 px-3 py-4">Gleba / Amostra</th>
                   <th className="w-40 px-3 py-4">Talhão Vinculado</th>
                   {colunas.map(({ key, label }) => (
-                    <th key={key} className="w-24 px-2 py-4 text-center">{label}</th>
+                    <th key={key} className={`${modo === 'AMBOS' ? 'min-w-[5rem]' : 'w-24'} px-2 py-4 text-center`}>{label}</th>
                   ))}
                   <th className="w-12 px-3 py-4" />
                 </tr>
@@ -581,10 +763,10 @@ export function NovaAnalisePage() {
               <tbody className="divide-y divide-stone-100">
                 {linhas.map((linha, index) => (
                   <tr key={linha.id} className="group hover:bg-stone-50/50 transition-colors">
-                    <td className="px-3 py-3 text-center font-mono text-[10px] text-stone-400 font-bold">
+                    <td className="sticky left-0 z-10 bg-white px-3 py-3 text-center font-mono text-[10px] text-stone-400 font-bold">
                       {index + 1}
                     </td>
-                    <td className="px-2 py-2">
+                    <td className="sticky left-10 z-10 bg-white px-2 py-2">
                       <input
                         type="text"
                         value={linha.identificacao}
@@ -623,7 +805,7 @@ export function NovaAnalisePage() {
                             value={enabled ? (linha[key] || '') : ''}
                             onChange={(e) => enabled && atualizarCampo(linha.id, key, e.target.value)}
                             disabled={!enabled}
-                            className={`w-full rounded-lg border px-2 py-2 text-center font-mono text-sm outline-none transition-all
+                            className={`${modo === 'AMBOS' ? 'w-[4.75rem]' : 'w-full'} rounded-lg border px-2 py-2 text-center font-mono text-sm outline-none transition-all
                               ${enabled 
                                 ? erroStr
                                   ? 'border-red-500 bg-red-50 text-red-600 focus:border-red-500 shadow-sm'
@@ -665,6 +847,16 @@ export function NovaAnalisePage() {
             </button>
           </div>
         </div>
+
+        {resumoEnvio.length > 0 ? (
+          <div className="space-y-1 rounded-xl border border-orange-200 bg-orange-50 p-4 text-sm text-orange-900">
+            {resumoEnvio.map((linha, i) => (
+              <p key={i} className="flex items-start gap-2">
+                <AlertCircle size={14} className="mt-0.5 shrink-0" /> {linha}
+              </p>
+            ))}
+          </div>
+        ) : null}
 
         {/* Rodapé informativo e Ações */}
         <div className="flex flex-col gap-6 pt-4 md:flex-row md:items-center md:justify-between">
