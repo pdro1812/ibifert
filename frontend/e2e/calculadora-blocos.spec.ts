@@ -39,11 +39,10 @@ async function configurarFormulario(
 }
 
 async function blocosVisiveis(page: Page) {
-  const texto = await page.locator('body').innerText();
   return {
-    b1: texto.includes('Bloco B1'),
-    b2: texto.includes('Bloco B2'),
-    b3: texto.includes('Bloco B3'),
+    b1: (await page.getByTestId('bloco-saturacao-bases').count()) > 0,
+    b2: (await page.getByTestId('bloco-necessidade-calagem').count()) > 0,
+    b3: (await page.getByTestId('bloco-polinomial').count()) > 0,
     camposPolinomial: (await page.locator('input[name="Al_trocavel"]').count()) > 0,
     checkboxPolinomial: (await page.locator('input[name="calcular_polinomial"]').count()) > 0,
   };
@@ -89,5 +88,26 @@ test.describe('Polinomial selecionado manualmente (SMP <= 6.3)', () => {
     await expect(page.locator('input[name="Al_trocavel"]')).toHaveCount(1);
     await page.locator('input[name="calcular_polinomial"]').uncheck();
     await expect(page.locator('input[name="Al_trocavel"]')).toHaveCount(0);
+  });
+});
+
+test.describe('Sistema de Cultivo derivado do Sistema de Manejo', () => {
+  test('Calagem + Adubação: campo oculto acompanha o manejo', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.locator('select[name="sistema_manejo"]')).toHaveValue('PD_CONSOLIDADO');
+    const cultivo = page.locator('input[name="sistema_cultivo"]');
+    await expect(cultivo).toHaveValue('Plantio Direto');
+    await page.locator('select[name="sistema_manejo"]').selectOption('CONVENCIONAL');
+    await expect(cultivo).toHaveValue('Convencional');
+    await page.locator('select[name="sistema_manejo"]').selectOption('PD_IMPLANTACAO');
+    await expect(cultivo).toHaveValue('Plantio Direto');
+  });
+
+  test('Apenas Adubação: Sistema de Cultivo continua visível', async ({ page }) => {
+    await page.goto('/');
+    await page.getByRole('button', { name: /Apenas Adubação/ }).click();
+    await expect(page.locator('select[name="sistema_cultivo"]')).toBeVisible();
+    await page.getByRole('button', { name: /Apenas Calagem/ }).click();
+    await expect(page.locator('select[name="sistema_cultivo"]')).toHaveCount(0);
   });
 });
