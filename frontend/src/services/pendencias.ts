@@ -7,7 +7,7 @@ interface CalagemPendente {
   localizacao: { uf: string; cidade: string };
   // Página de origem para onde voltar após o login. Opcional por
   // compatibilidade: páginas antigas que não enviam este campo continuam
-  // caindo no destino padrão de sempre ('/').
+  // caindo no destino da tela antiga ('/calagem').
   destino?: string;
 }
 
@@ -34,7 +34,7 @@ export async function recuperarAnalisePendente(): Promise<AnalisePendenteRecuper
     try {
       const pendente: CalagemPendente = JSON.parse(calagemRaw);
       const resultado = await calcularCalagem(pendente.dados, pendente.localizacao);
-      return { tipo: 'CALAGEM', destino: pendente.destino ?? '/', resultado };
+      return { tipo: 'CALAGEM', destino: pendente.destino ?? '/calagem', resultado };
     } catch {
       return null;
     }

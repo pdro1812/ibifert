@@ -19,7 +19,8 @@ export function Navbar() {
         {/* Links Centrais (Desktop) */}
         <nav className="hidden items-center gap-8 md:flex text-stone-600">
           <NavLink
-            to="/calculadora-completa"
+            to="/"
+            end
             className={({ isActive }) =>
               `text-sm font-bold transition-all hover:text-green-600 ${isActive ? 'text-green-600' : ''}`
             }

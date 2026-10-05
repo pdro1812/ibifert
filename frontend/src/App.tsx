@@ -33,9 +33,11 @@ export default function App() {
         <Routes>
           {/* ── Public routes (PublicLayout wraps all) ─────────────────── */}
           <Route element={<PublicLayout />}>
-            <Route path="/" element={<CalculadoraPage />} />
-            <Route path="/adubacao" element={<AdubacaoPage />} />
+            <Route path="/" element={<CalculadoraCompletaPage />} />
             <Route path="/calculadora-completa" element={<CalculadoraCompletaPage />} />
+            {/* Telas antigas, mantidas como backup (sem link na navbar) */}
+            <Route path="/calagem" element={<CalculadoraPage />} />
+            <Route path="/adubacao" element={<AdubacaoPage />} />
             <Route path="/monitoramento" element={<MonitoramentoPage />} />
             <Route path="/feedback" element={<FeedbackPage />} />
             <Route path="/login" element={<LoginPage />} />
