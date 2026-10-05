@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ArrowRight, Plus, TableProperties, Tractor, MapPin, AlertCircle, CheckCircle2, Leaf, Sprout, FlaskConical, Layers } from 'lucide-react';
-import { getFazendas, postAnalisesBulk, postAdubacaoBulk } from '../services/api';
+import { getFazendas, postFazenda, postTalhao, postAnalisesBulk, postAdubacaoBulk } from '../services/api';
+import { ibgeService, type Estado, type Municipio } from '../services/ibge';
 import { CalagemSchema, precisaAlSatPDConsolidado, rotearMetodoCalagem, type SistemaManejo } from '../schemas/calagemSchema';
 import { AdubacaoSchema } from '../schemas/adubacaoSchema';
 
@@ -246,6 +247,68 @@ export function NovaAnalisePage() {
 
   const fazendaSelecionada = fazendas.find(f => f.id === fazendaId);
   const talhoesDisponiveis = fazendaSelecionada?.talhoes ?? [];
+
+  // ── Criação rápida de fazenda (botão "+" ao lado do seletor de fazenda)
+  const [modalFazendaOpen, setModalFazendaOpen] = useState(false);
+  const [estados, setEstados] = useState<Estado[]>([]);
+  const [municipios, setMunicipios] = useState<Municipio[]>([]);
+  const [novaFazendaNome, setNovaFazendaNome] = useState('');
+  const [novaFazendaUf, setNovaFazendaUf] = useState('RS');
+  const [novaFazendaMunicipio, setNovaFazendaMunicipio] = useState('');
+  const [salvandoFazenda, setSalvandoFazenda] = useState(false);
+
+  useEffect(() => {
+    if (modalFazendaOpen && estados.length === 0) ibgeService.getEstados().then(setEstados).catch(console.error);
+  }, [modalFazendaOpen, estados.length]);
+
+  useEffect(() => {
+    if (modalFazendaOpen && novaFazendaUf) ibgeService.getMunicipios(novaFazendaUf).then(setMunicipios).catch(console.error);
+  }, [modalFazendaOpen, novaFazendaUf]);
+
+  const salvarNovaFazenda = async () => {
+    if (!municipios.some((m) => m.nome === novaFazendaMunicipio)) {
+      alert('Por favor, selecione uma cidade válida da lista.');
+      return;
+    }
+    setSalvandoFazenda(true);
+    try {
+      const nova = await postFazenda({ nome: novaFazendaNome.trim(), uf: novaFazendaUf, municipio: novaFazendaMunicipio });
+      setFazendas((prev) => [...prev, { ...nova, talhoes: [] }]);
+      setFazendaId(nova.id);
+      setLinhas((prev) => (prev.length ? prev.map((l) => ({ ...l, talhao_id: '' })) : [GERAR_LINHA_VAZIA('', 1)]));
+      setModalFazendaOpen(false);
+      setNovaFazendaNome('');
+      setNovaFazendaMunicipio('');
+    } catch (err) {
+      console.error(err);
+      alert('Erro ao salvar fazenda.');
+    } finally {
+      setSalvandoFazenda(false);
+    }
+  };
+
+  // ── Criação rápida de talhão (botão "+" na coluna Talhão Vinculado)
+  const [novoTalhaoLinhaId, setNovoTalhaoLinhaId] = useState<string | null>(null);
+  const [novoTalhaoNome, setNovoTalhaoNome] = useState('');
+  const [novoTalhaoCultura, setNovoTalhaoCultura] = useState('Soja');
+  const [salvandoTalhao, setSalvandoTalhao] = useState(false);
+
+  const salvarNovoTalhao = async () => {
+    if (!novoTalhaoNome.trim() || !fazendaId || !novoTalhaoLinhaId) return;
+    setSalvandoTalhao(true);
+    try {
+      const novo = await postTalhao(fazendaId, { nome: novoTalhaoNome.trim(), cultura: novoTalhaoCultura });
+      setFazendas((prev) => prev.map((f) => (f.id === fazendaId ? { ...f, talhoes: [...f.talhoes, novo] } : f)));
+      setLinhas((prev) => prev.map((l) => (l.id === novoTalhaoLinhaId ? { ...l, talhao_id: novo.id } : l)));
+      setNovoTalhaoLinhaId(null);
+      setNovoTalhaoNome('');
+    } catch (err) {
+      console.error(err);
+      alert('Erro ao salvar talhão.');
+    } finally {
+      setSalvandoTalhao(false);
+    }
+  };
 
   // ── Handlers
   const adicionarLinha = () => {
@@ -609,13 +672,23 @@ export function NovaAnalisePage() {
             </h3>
             <div className="space-y-1">
               <label className="text-xs font-bold text-stone-600">Selecione a Fazenda</label>
+              <div className="flex items-center gap-2">
               <select 
                 value={fazendaId}
                 onChange={(e) => setFazendaId(e.target.value)}
-                className="w-full rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm outline-none focus:border-green-500 shadow-sm"
+                className="min-w-0 flex-1 rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm outline-none focus:border-green-500 shadow-sm"
               >
                 {fazendas.map((f) => <option key={f.id} value={f.id}>{f.nome}</option>)}
               </select>
+              <button
+                type="button"
+                title="Adicionar nova fazenda"
+                onClick={() => setModalFazendaOpen(true)}
+                className="shrink-0 rounded-xl border border-stone-200 bg-white p-2 text-stone-500 shadow-sm transition-all hover:border-green-500 hover:bg-green-50 hover:text-green-700"
+              >
+                <Plus size={16} />
+              </button>
+              </div>
             </div>
           </div>
 
@@ -776,6 +849,7 @@ export function NovaAnalisePage() {
                       />
                     </td>
                     <td className="px-2 py-2">
+                      <div className="flex items-center gap-1">
                       <select
                         title={errosGlobais[linha.id]?.talhao_id || 'Selecione o talhão'}
                         value={linha.talhao_id}
@@ -791,6 +865,15 @@ export function NovaAnalisePage() {
                           <option key={t.id} value={t.id}>{t.nome}</option>
                         ))}
                       </select>
+                      <button
+                        type="button"
+                        title="Adicionar novo talhão"
+                        onClick={() => { setNovoTalhaoNome(''); setNovoTalhaoLinhaId(linha.id); }}
+                        className="shrink-0 rounded-lg border border-stone-200 p-1.5 text-stone-500 transition-all hover:border-green-500 hover:bg-green-50 hover:text-green-700"
+                      >
+                        <Plus size={14} />
+                      </button>
+                      </div>
                     </td>
                     {colunas.map(({ key, label, placeholder }) => {
                       const enabled = isCellEnabled(modo, key, linha, configGlobais);
@@ -902,6 +985,97 @@ export function NovaAnalisePage() {
            </div>
         )}
       </div>
+      {novoTalhaoLinhaId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-900/50 p-4">
+          <form
+            onSubmit={(e) => { e.preventDefault(); salvarNovoTalhao(); }}
+            className="w-full max-w-sm space-y-4 rounded-2xl bg-white p-6 shadow-2xl"
+          >
+            <h3 className="text-lg font-bold text-stone-900">Novo talhão</h3>
+            <p className="text-xs text-stone-500">Fazenda: {fazendaSelecionada?.nome}</p>
+            <div>
+              <label className="text-sm font-semibold text-stone-700">Nome</label>
+              <input
+                autoFocus
+                required
+                value={novoTalhaoNome}
+                onChange={(e) => setNovoTalhaoNome(e.target.value)}
+                className="mt-1 w-full rounded-xl border border-stone-200 bg-stone-50 px-4 py-2.5 outline-none focus:border-green-500"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-semibold text-stone-700">Cultura principal</label>
+              <select
+                value={novoTalhaoCultura}
+                onChange={(e) => setNovoTalhaoCultura(e.target.value)}
+                className="mt-1 w-full rounded-xl border border-stone-200 bg-stone-50 px-4 py-2.5 outline-none focus:border-green-500"
+              >
+                {['Soja', 'Milho', 'Trigo', 'Aveia', 'Cevada', 'Feijão', 'Sorgo', 'Canola', 'Girassol', 'Outros grãos'].map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setNovoTalhaoLinhaId(null)} className="flex-1 rounded-xl border border-stone-200 py-2.5 font-semibold text-stone-600 hover:bg-stone-50">Cancelar</button>
+              <button type="submit" disabled={salvandoTalhao} className="flex-1 rounded-xl bg-stone-900 py-2.5 font-bold text-white hover:bg-stone-800 disabled:opacity-50">{salvandoTalhao ? 'Salvando...' : 'Salvar'}</button>
+            </div>
+          </form>
+        </div>
+      )}
+      {modalFazendaOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-900/50 p-4">
+          <form
+            onSubmit={(e) => { e.preventDefault(); salvarNovaFazenda(); }}
+            className="w-full max-w-md space-y-4 rounded-2xl bg-white p-6 shadow-2xl"
+          >
+            <h3 className="text-lg font-bold text-stone-900">Nova fazenda</h3>
+            <div>
+              <label className="text-sm font-semibold text-stone-700">Nome da Fazenda</label>
+              <input
+                autoFocus
+                required
+                value={novaFazendaNome}
+                onChange={(e) => setNovaFazendaNome(e.target.value)}
+                placeholder="Ex: Sítio São José"
+                className="mt-1 w-full rounded-xl border border-stone-200 bg-stone-50 px-4 py-2.5 outline-none focus:border-green-500"
+              />
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <label className="text-sm font-semibold text-stone-700">Estado</label>
+                <select
+                  value={novaFazendaUf}
+                  onChange={(e) => { setNovaFazendaUf(e.target.value); setNovaFazendaMunicipio(''); if (!e.target.value) setMunicipios([]); }}
+                  className="mt-1 w-full rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 outline-none focus:border-green-500"
+                >
+                  <option value="">UF</option>
+                  {estados.map((e) => <option key={e.id} value={e.sigla}>{e.sigla}</option>)}
+                </select>
+              </div>
+              <div className="col-span-2">
+                <label className="text-sm font-semibold text-stone-700">Município</label>
+                <input
+                  required
+                  list="lista-municipios-nova-analise"
+                  value={novaFazendaMunicipio}
+                  onChange={(e) => setNovaFazendaMunicipio(e.target.value)}
+                  disabled={municipios.length === 0}
+                  placeholder={novaFazendaUf ? 'Digite para buscar...' : 'Selecione o Estado'}
+                  autoComplete="off"
+                  className="mt-1 w-full rounded-xl border border-stone-200 bg-stone-50 px-4 py-2.5 outline-none focus:border-green-500 disabled:opacity-50"
+                />
+                <datalist id="lista-municipios-nova-analise">
+                  {municipios.map((m) => <option key={m.id} value={m.nome} />)}
+                </datalist>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setModalFazendaOpen(false)} className="flex-1 rounded-xl border border-stone-200 py-2.5 font-semibold text-stone-600 hover:bg-stone-50">Cancelar</button>
+              <button type="submit" disabled={salvandoFazenda} className="flex-1 rounded-xl bg-green-600 py-2.5 font-bold text-white hover:bg-green-700 disabled:opacity-50">{salvandoFazenda ? 'Salvando...' : 'Salvar'}</button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   );
 }
