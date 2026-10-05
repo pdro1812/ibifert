@@ -4,9 +4,10 @@ import {
   CalagemSchema,
   CalagemValidationError,
   EntradaCalagem,
-  MetodoCalcRoteado,
   SistemaManejo,
   precisaAlSatPDConsolidado,
+  precisaPolinomial,
+  precisaSatBases,
   temAlSatResolvido,
 } from "../schemas/calagemSchema";
 
@@ -66,8 +67,20 @@ export function ajustarDosePorPRNT(NC_final: number, PRNT: number): number {
   return NC_final * (100.0 / PRNT);
 }
 
-export function rotearMetodoCalagem(SMP: number): MetodoCalcRoteado {
-  return SMP > 6.3 ? MetodoCalcRoteado.POLINOMIAL : MetodoCalcRoteado.SMP;
+// Divergência entre métodos: desvio relativo ao SMP acima de 20% (e de pelo
+// menos 0,5 t/ha, para não alertar em doses muito pequenas). Os valores
+// comparados são brutos (antes do PRNT), já com o fator de manejo.
+export const LIMITE_DIVERGENCIA_METODOS = 0.2;
+export const PISO_DIVERGENCIA_T_HA = 0.5;
+
+export function divergeDoSMP(valor: number, referenciaSMP: number): boolean {
+  const diferenca = Math.abs(valor - referenciaSMP);
+
+  if (diferenca < PISO_DIVERGENCIA_T_HA) {
+    return false;
+  }
+
+  return referenciaSMP <= 0 || diferenca / referenciaSMP > LIMITE_DIVERGENCIA_METODOS;
 }
 
 export function resolverAlSat(entrada: Partial<EntradaCalagem>): number | undefined {
@@ -106,14 +119,20 @@ export function determinarCamposNecessarios(
 
 
   if (entrada.SMP !== undefined) {
-    const metodo = rotearMetodoCalagem(entrada.SMP);
-
-    if (metodo === MetodoCalcRoteado.POLINOMIAL) {
+    if (
+      precisaPolinomial({
+        SMP: entrada.SMP,
+        calcular_polinomial: entrada.calcular_polinomial,
+      })
+    ) {
       adicionar("MO", entrada.MO === undefined);
       adicionar("Al_trocavel", entrada.Al_trocavel === undefined);
     }
 
-    if (entrada.primeira_calagem === false && metodo === MetodoCalcRoteado.SMP) {
+    if (
+      entrada.primeira_calagem === false &&
+      precisaSatBases({ SMP: entrada.SMP, primeira_calagem: false })
+    ) {
       adicionar("V_atual", entrada.V_atual === undefined);
       adicionar("CTC_pH7", entrada.CTC_pH7 === undefined);
     }

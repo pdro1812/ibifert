@@ -45,9 +45,10 @@ Arquivos envolvidos:
 | `pH_agua` | sim | — | 3.5 – 8.0 |
 | `SMP` | sim | — | número (sem faixa fixa) |
 | `PRNT` | sim | — | > 0 e ≤ 100 |
-| `MO` (matéria orgânica) | não | `SMP > 6.3` (método Polinomial) | 0 – 100 |
-| `Al_trocavel` | não | `SMP > 6.3`, ou PD_CONSOLIDADO+pH<5.5 sem Al_sat direto | ≥ 0 |
-| `V_atual` | não | método roteado é SMP; **ou** `PD_CONSOLIDADO` com `pH_agua < 5.5` (necessário para a trava §6.3, independente do método roteado) — em ambos os casos, todo cálculo é tratado como reaplicação (`primeira_calagem=false`) | 0 – 100 |
+| `calcular_polinomial` | não (padrão `false`) | — | boolean — seleciona o Polinomial como valor complementar ao SMP (item 5, 2026-10-02) |
+| `MO` (matéria orgânica) | não | `SMP > 6.3` **ou** `calcular_polinomial = true` | 0 – 100 |
+| `Al_trocavel` | não | `SMP > 6.3` ou `calcular_polinomial = true`, ou PD_CONSOLIDADO+pH<5.5 sem Al_sat direto | ≥ 0 |
+| `V_atual` | não | `SMP <= 6.3` (Saturação por Bases); **ou** `PD_CONSOLIDADO` com `pH_agua < 5.5` (necessário para a trava §6.3, independente do método roteado) — em ambos os casos, todo cálculo é tratado como reaplicação (`primeira_calagem=false`) | 0 – 100 |
 | `CTC_pH7` | não | método SMP; ou PD_CONSOLIDADO+pH<5.5 sem Al_sat direto | > 0 |
 | `Al_sat` | não | PD_CONSOLIDADO com `pH_agua < 5.5` (alternativa a Al_trocavel+CTC_pH7) | 0 – 100 |
 | `SMP_10_20` | não | `PD_COM_RESTRICAO` | número |
@@ -75,7 +76,8 @@ que o backend exige — checar os dois ao alterar regra de obrigatoriedade.
 ```
 entrada validada
   │
-  ├─ roteamento do método: SMP > 6.3 ? POLINOMIAL : SMP        (rotearMetodoCalagem)
+  ├─ SMP é sempre o método em evidência; Polinomial é complementar quando
+  │  `calcular_polinomial` ou SMP > 6.3 (automático, com aviso leve)
   │
   ├─ CONVENCIONAL ou PD_IMPLANTACAO?
   │     └─ pH_agua >= 5.5 → PARA AQUI, não aplicar calcário
@@ -89,10 +91,10 @@ entrada validada
   │
   │  (nenhuma trava disparou — segue para o cálculo)
   │
-  ├─ SMP <= 6.3 → lookup Tabela 5.2 (tabelaSmpLookup) → NC_base
-  │     └─ calcula também NC_vb (saturação por bases), em paralelo — sempre,
-  │        já que todo cálculo é tratado como reaplicação
-  ├─ SMP > 6.3  → fórmula Polinomial (MO, Al_trocavel) → NC_base
+  ├─ SEMPRE: lookup Tabela 5.2 (tabelaSmpLookup) → NC_base (SMP)
+  │     ├─ SMP <= 6.3 → calcula também NC_vb (saturação por bases), referência
+  │     └─ Polinomial selecionado ou SMP > 6.3 → NC_polinomial (complementar)
+  │     └─ NC_vb/NC_polinomial com |Δ| > 20% do SMP (e ≥ 0,5 t/ha) → alerta
   │
   ├─ aplica fator de manejo (1.0 ou 0.25) → NC_calculada
   │
@@ -109,12 +111,12 @@ entrada validada
 
 ## 4. Fórmulas
 
-### 4.1 Necessidade de Calcário — Método Polinomial (SMP > 6.3, pH-alvo 6.0)
+### 4.1 Necessidade de Calcário — Método Polinomial (complementar; automático se SMP > 6.3, pH-alvo 6.0)
 
 ```
 NC_base = -0.516 + 0.805 * MO + 2.435 * Al_trocavel      (mínimo 0)
 ```
-- Aplica-se quando `SMP > 6.3`.
+- Calculado quando `calcular_polinomial = true` ou `SMP > 6.3`; vira `NC_polinomial` (valor complementar, nunca o `NC_final`).
 - Fonte: `calculadoraCalagem.ts:34-40` (`calcularNCPolinomial6_0`).
 - Exemplo: `MO = 3.0`, `Al_trocavel = 1.5` → `NC_base = -0.516 + 2.415 + 3.6525 = 5.55` t/ha.
 
@@ -266,8 +268,10 @@ Polinomial.
 | Campo | Tipo | Sempre presente? | Descrição |
 |---|---|---|---|
 | `aplicar_calcario` | boolean | sim | `false` se alguma trava da §6 disparou; `true` caso contrário |
-| `metodo_calc_roteado` | `"SMP"` \| `"POLINOMIAL"` | sim | qual método foi roteado a partir do SMP (§3) — presente mesmo quando `aplicar_calcario=false` |
-| `calcular_tambem_sat_bases` | boolean | sim | `true` quando o método roteado é SMP (indica se `NC_vb` deveria vir preenchido) — na prática, sempre que o método é SMP, já que todo cálculo é tratado como reaplicação |
+| `metodo_calc_roteado` | `"SMP"` \| `"POLINOMIAL"` | sim | **sempre `"SMP"`** desde 2026-10-02 (o SMP é o valor em evidência) — presente mesmo quando `aplicar_calcario=false` |
+| `polinomial_calculado` / `polinomial_automatico` | boolean | sim | Polinomial foi calculado / foi calculado por SMP > 6.3 sem seleção |
+| `NC_polinomial` | number \| undefined | só quando `polinomial_calculado=true` e sem trava | valor complementar, com fator de manejo e antes do PRNT |
+| `calcular_tambem_sat_bases` | boolean | sim | `true` quando `SMP <= 6.3` (indica se `NC_vb` deveria vir preenchido) — na prática, sempre que o método é SMP, já que todo cálculo é tratado como reaplicação |
 | `NC_base` | number | sim | dose bruta antes de fator de manejo/travas/PRNT (0 se trava disparou) |
 | `NC_smp` | number \| undefined | só quando método=SMP e sem trava | `NC_base * fator_manejo`, antes dos ajustes de §4.5/§4.6 |
 | `NC_vb` | number \| undefined | só quando `calcular_tambem_sat_bases=true` e sem trava | ver §4.3 — referência paralela, não é o valor usado como `NC_final` |
@@ -328,8 +332,8 @@ visível na tela) e espelham a spec `docs_antigos/regras_calagem_graos_v2.md`
 
 | Bloco | Campos pedidos | Condição de exibição | Fonte (frontend) |
 |---|---|---|---|
-| **B1** — Saturação por Bases | `V_atual`, `CTC_pH7` | método roteado = `SMP` (`SMP <= 6.3`) — independente do `sistema_manejo`. Não depende mais de `primeira_calagem` (removido da UI, sempre tratado como reaplicação) | `CalculadoraPage.tsx:661-673`, condição `isReaplicacaoSMP` (linha 318) |
+| **B1** — Saturação por Bases | `V_atual`, `CTC_pH7` | `SMP <= 6.3` — independente do `sistema_manejo`. Não depende mais de `primeira_calagem` (removido da UI, sempre tratado como reaplicação) | `CalculadoraPage.tsx:661-673`, condição `isReaplicacaoSMP` (linha 318) |
 | **B2** — Trava do PD Consolidado | `Al_sat` (direto, ou via `Al_trocavel`+`CTC_pH7`); `V_atual` também (sempre, já que todo cálculo é tratado como reaplicação) | `sistema_manejo === 'PD_CONSOLIDADO'` **e** `pH_agua < 5.5` | `CalculadoraPage.tsx:676-774`, condição `precisaAlSat` |
-| **B3** — Método Polinomial | `MO`, `Al_trocavel` | método roteado = `POLINOMIAL` (`SMP > 6.3`) | `CalculadoraPage.tsx:513-525`, condição `isPolinomial` (linha 194) |
+| **B3** — Método Polinomial | `MO`, `Al_trocavel` | `SMP > 6.3` (automático) ou checkbox "Calcular também o Polinomial" marcado (só na Calculadora Completa) | `CalculadoraPage.tsx:513-525`, condição `isPolinomial` (linha 194) |
 | **B4** — Monitoramento 10–20cm | `SMP_10_20`, `Al_sat_10_20` (ou via `monitoramento`) | exclusivo do `PD_CONSOLIDADO`, fluxo de reavaliação para `PD_COM_RESTRICAO` (ver §2, nota sobre `PD_COM_RESTRICAO`) | `CalculadoraPage.tsx:643+` |
 

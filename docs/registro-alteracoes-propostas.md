@@ -27,10 +27,10 @@
 | 2 | Unificar calculadora com seletor calagem/adubação/ambos | **implementado** (nova tela, `/` e `/adubacao` intactas) |
 | 3 | Adubação na Inserção Rápida ("amostras rápidas") | em análise — já existe, ver achado |
 | 4 | Inserção Rápida: gerar calagem+adubação juntas | em análise |
-| 5 | Seleção explícita de método (SMP/Polinomial/Sat. por Bases) | em análise — mudança maior do que parecia |
+| 5 | Seleção explícita de método (SMP/Polinomial/Sat. por Bases) | **implementado** na branch `feature/selecao-metodo-calagem` (escopo reduzido, ver item) |
 | 6 | Campo de feedback/erro para o usuário, visível ao admin | **implementado** |
 | 7 | Levantamento de dados sensíveis / LGPD | em análise — achados de risco |
-| 8 | Bug no cálculo de adubação em cenário específico | aguardando detalhes do usuário |
+| 8 | Bug no cálculo de adubação em cenário específico | diagnosticado — aguardando confirmação da coordenadora |
 
 **Dependências entre itens:** 2 → 5 (ambos mexem no layout/agrupamento de
 campos da calculadora de calagem, fazem sentido desenhados juntos); 3 → 4
@@ -453,8 +453,38 @@ que replicam a mesma coisa) — já sinalizado como risco de divergência em
 (schema back e front, motor, roteador, warnings, docs de referência).
 Este é o item com maior superfície de mudança dos 8.
 
-**Decisão / próximos passos:** nenhuma implementação ainda. Pontos em
-aberto na seção final.
+**Decisões do usuário (2026-10-02) que redefiniram o escopo:**
+- SMP é a base e **sempre** roda e fica em evidência (pedido da coordenadora).
+  Polinomial e Sat. por Bases ficam "menores" em destaque visual.
+- **Sat. por Bases não vira método selecionável** — continua referência,
+  só quando `SMP <= 6.3` (`V_atual`/`CTC_pH7` como hoje).
+- Única seleção nova: checkbox "Calcular também o Polinomial". Com
+  `SMP > 6.3` o Polinomial é gerado mesmo sem marcar, com aviso leve.
+- Alerta de divergência: > 20% contra o SMP.
+- Só a Calculadora Completa recebe a UI nova; o backend é compartilhado,
+  então `/` (antiga) e a Inserção Rápida **mudam de comportamento** acima
+  de SMP 6.3 (SMP em evidência + Polinomial complementar, em vez de
+  Polinomial como valor oficial). Aceito pelo usuário.
+
+**Implementado (branch `feature/selecao-metodo-calagem`):**
+- Backend: campo `calcular_polinomial` (default `false`); `metodo_calc_roteado`
+  agora é sempre `SMP`; novos `NC_polinomial`, `polinomial_calculado`,
+  `polinomial_automatico`; `rotearMetodoCalagem` removido do backend;
+  alertas `MSG_POLINOMIAL_AUTOMATICO` e divergência (`msgDivergenciaMetodos`).
+- Divergência: `|Δ| > 20%` do SMP **e** `≥ 0,5 t/ha` (piso para não alertar em
+  doses minúsculas); valores brutos (antes do PRNT, com fator de manejo),
+  referência = `NC_base × fator` sem o teto de 5 t/ha do PD.
+- Frontend: schema/payload/`api.ts`, bloco B3 com checkbox na Calculadora
+  Completa, card "Complementar — Polinomial" no resultado, linha no PDF.
+- Testes: CT-10/11/21 ajustados; CT-23 a CT-27 novos (29/29 backend, 31/31 frontend).
+- Docs: `ref-calagem.md` e `02-calculo-calagem.md` atualizados.
+
+**Limitações conhecidas:**
+- `NC_polinomial` **não é persistido** (sem coluna em `analises`) — aparece
+  no resultado imediato e no PDF, não no histórico. O alerta de divergência
+  é persistido (vai em `alertas[]`).
+- `docs/auditoria-calagem-manual-vs-codigo.md` não foi revisado.
+- Inserção Rápida e página antiga `/` não ganharam o checkbox.
 
 ---
 
@@ -633,17 +663,147 @@ do lançamento.
 
 ### 8. Bug no cálculo de adubação em cenário específico
 
-**Status:** aguardando detalhes do usuário
-**Data:** 2026-09-28
+**Status:** diagnosticado — **nada alterado no código**; aguardando
+confirmação da coordenadora sobre as regras (ver "Perguntas")
+**Data:** 2026-09-28 (diagnóstico em 2026-10-02)
 
-**O que muda:** a definir — você vai descrever o cenário específico em
-que o cálculo de adubação está errado.
+**Resumo:** a coordenadora passou 3 cenários com a dose esperada. O
+motor (`backend/src/services/motorAdubacao.ts`) diverge dela nos três.
+A causa principal é o tratamento da classe **"muito alto"** de P e K:
+o código zera a dose e nunca consulta a tabela de dose por classe nem
+soma o ajuste de rendimento. Há também duas divergências no cenário A3
+(correção "Total" e densidade de plantas do milho) cuja causa provável
+é de regra, não de bug, e precisam da resposta dela.
 
-**Próximos passos:** assim que você passar o cenário, mapeio a causa em
-`backend/src/services/motorAdubacao.ts`/`calculadoraAdubacao.ts`/
-`tabelasAdubacaoGraos.ts` e registro aqui: o que está errado, por que,
-o que mais depende daquele trecho (testes existentes, outros cálculos
-que reaproveitam a mesma função) antes de qualquer correção.
+#### Valores: coordenadora x aplicação
+
+| Cenário | Coordenadora (N / P₂O₅ / K₂O) | Aplicação hoje | Diverge em |
+|---|---|---|---|
+| Print (soja, 1º cultivo, P muito alto) | 0 / 30 / 125 | 0 / **0** / 125 | P |
+| A3 (milho, correção Total) | 120 / 230 / 160 | **130 / 280 / 200** | N, P e K |
+| A4 (soja, 2º cultivo, P e K muito altos) | — / 45 / 75 | 0 / **0 / 0** | P e K |
+
+Obs. A4: a coordenadora não indicou N; soja usa FBN, então 0. O "45P"
+do manuscrito estava de leitura duvidosa — a conta confirma **45** (e
+não 15), ver abaixo.
+
+Os cenários A3 e A4 são os pré-definidos em `AdubacaoPage.tsx`
+(botões de cenário); o do print foi digitado à mão.
+
+#### Cenário do print — entradas e conta
+
+Entradas: argila 20, MO 7,9, CTC 20,73, P 80 (Mehlich-1), K 220
+(Mehlich-1), Ca 52,36, Mg 34,06, S 54,9, pH 5,82; soja, 5 t/ha, 1º
+cultivo, plantio direto, correção Gradual.
+
+- Argila 20% → classe 4. CTC 20,73 → "alta".
+- P 80 em classe de argila 4: limite de "alto" é 60 → **muito_alto**.
+- K 220 com CTC "alta": limite de "alto" é 240 → **alto**.
+- N: soja → FBN → 0 (bate).
+- **K = 125 (bate):** tabela soja, K alto, 1º cultivo = 75; rendimento
+  5 t passa 2 t da referência (3 t) → 2 × 25 = 50; 75 + 50 = 125.
+- **P esperado = 30:** tabela soja, P muito_alto, 1º cultivo = 0;
+  ajuste 2 × 15 = 30; 0 + 30 = 30. O motor devolve 0.
+
+#### A3 — entradas e conta
+
+Entradas: argila 25, MO 2,0, CTC 8, P 5, K 25 (Mehlich-1), Ca 3, Mg 1;
+milho, antecedente Gramínea, 8 t/ha, 1º cultivo, correção **Total**,
+densidade 70.000. Classes: argila 3, MO baixo, CTC média, P muito_baixo,
+K muito_baixo.
+
+| Nutriente | Aplicação (como calcula) | Coordenadora (hipótese que bate) |
+|---|---|---|
+| N | 90 (MO baixo, gramínea) + 30 (2 t × 15) + 10 (densidade) = **130** | 90 + 30 = **120** (sem bônus de densidade) |
+| P₂O₅ | Total: 160 (TAB-04) + 90 (manutenção) + 30 (2 t × 15) = **280** | tabela milho muito_baixo 1º cultivo = 200, + 30 = **230** |
+| K₂O | Total: 120 (TAB-04) + 60 (manutenção) + 20 (2 t × 10) = **200** (80 semeadura + 120 cobertura) | tabela = 140, + 20 = **160** |
+
+Os números dela batem exatamente com "usar a tabela por classe +
+ajuste de rendimento" (a mesma conta usada no modo Gradual) e sem o
+bônus de densidade. É uma **hipótese**: bate neste cenário, mas pode
+haver outra regra dela que dê os mesmos números aqui e diferentes em
+outros casos.
+
+#### A4 — entradas e conta
+
+Entradas: argila 30, MO 3,0, CTC 10, P 40, K 200 (Mehlich-1), Ca 3,
+Mg 1, S 15; soja, 3 t/ha, **2º cultivo**. Classes: argila 3, CTC média,
+P 40 (> 36) → muito_alto, K 200 (> 180) → muito_alto.
+
+- Aplicação: dose 0 com texto "Reposição parcial — a critério do
+  técnico" (sem valor numérico).
+- Coordenadora: tabela soja, muito_alto, 2º cultivo = **P 45 / K 75**;
+  rendimento 3 t = referência → sem ajuste. Bate exatamente (e confirma
+  45 no manuscrito).
+- O próprio plano de testes (A4, "atenção especial") já apontava essa
+  ambiguidade: o número mostrado é zero, não um valor sugerido.
+
+#### Causa no código
+
+`motorAdubacao.ts`, ramo `classeP === 'muito_alto'` (linhas ~96-104) e
+`classeK === 'muito_alto'` (~127-133):
+
+- 1º cultivo: `dose = 0` fixo, sem somar o ajuste de rendimento
+  (`(rend − rend_ref) × p2o5_adic_t` / `k2o_adic_t`). O ajuste só é
+  calculado no `else` (classes muito_baixo…alto), por isso o K "alto"
+  do print sai certo e o P "muito alto" sai errado.
+- 2º cultivo: a dose nem é atribuída (fica 0) e a tabela
+  `TABELA_PK_CULTURA` — que já tem os valores de muito_alto no 2º
+  cultivo (soja: P 45, K 75) — não é consultada.
+- Efeito colateral no aviso: `P_MUITO_ALTO_REP` mostra a reposição por
+  exportação (soja 14 kg P₂O₅/t × 5 t = 70) — número diferente do 30 da
+  coordenadora, pode confundir.
+
+Para A3, o desvio vem de dois comportamentos *intencionais* hoje:
+(a) o ramo `tipo_correcao === 'Total'` (linhas ~111-113 e ~140-142) usa
+TAB-04 + manutenção em vez da tabela por classe; (b) o bônus de
+densidade do milho (linhas ~72-76: +10 kg N a cada 5.000 plantas acima
+de 65.000).
+
+#### Alterações candidatas (NÃO aplicadas)
+
+1. **Muito alto = tabela + ajuste de rendimento, para P e K.**
+   Resolve print (P 30) e A4 (P 45, K 75). Sustentada por dois cenários
+   independentes; os valores já estão na tabela. **Recomendada.**
+2. **"Total" passa a usar a tabela por classe** (na prática, igual a
+   Gradual). Resolve P 230 e K 160 de A3. Apoio de um único cenário;
+   alcance grande (afeta todas as culturas e esvazia a opção "Total").
+3. **Remover o bônus de densidade do milho.** Resolve N 120 de A3.
+   Apoio de um único cenário.
+
+Com as 3 aplicadas, os três cenários batem exatamente com os valores da
+coordenadora. Sugestão: aplicar só a 1 e deixar 2 e 3 para depois da
+resposta dela.
+
+#### Impacto a verificar antes de corrigir
+
+- Testes existentes que esperam 0 em muito_alto (ainda **não** verifiquei).
+- `docs/03-calculo-adubacao.md` (linha ~93 e ~203-212) e
+  `docs/ref-adubacao.md` (linhas ~101, ~192-198, ~301) descrevem
+  "muito_alto = dose 0" e precisariam ser atualizados.
+- `docs/plano-testes-validacao-agronoma.md`: A3 traz esperado
+  130 / 280 / 200 (parece ter sido extraído do próprio código, não da
+  coordenadora) e A4 traz a nota de ambiguidade — ambos a rever.
+- Qualquer outro cálculo/tela que reaproveite o motor (calculadora
+  completa, Inserção Rápida, PDF) herda a mudança.
+
+#### Perguntas para a coordenadora
+
+1. Em **muito_alto**, a regra é "valor da tabela para a classe/cultivo
+   + ajuste de rendimento (só se rendimento > referência)"? Vale para P
+   e K, e para os dois cultivos (1º = 0 + ajuste; 2º = valor da tabela)?
+2. A opção **"Total"** deve existir como regra separada (TAB-04 +
+   manutenção) ou a tabela por classe já cobre? Se existir, em que
+   classes se aplica?
+3. O **bônus de densidade** do milho deve existir? A partir de quantas
+   plantas e com quanto por faixa?
+4. Em A3, o N de 120 considera a antecedente Gramínea (90 de base)?
+5. No aviso de P muito alto, a reposição por exportação deve continuar
+   sendo exibida ou some, já que a dose passa a vir da tabela?
+
+**Próximos passos:** alinhar as perguntas acima com a coordenadora;
+após a resposta, aplicar a alteração 1 (e 2/3 conforme resposta),
+atualizar testes e documentos listados e revalidar os 3 cenários.
 
 ---
 
@@ -688,8 +848,8 @@ que reaproveitam a mesma função) antes de qualquer correção.
    opcional / mascarar no admin), ou por ora só registrar o risco e
    decidir depois?
 
-6. **Item 8:** aguardando você descrever o cenário do bug de adubação
-   para eu mapear o impacto.
+6. **Item 8:** diagnosticado; precisa da resposta da coordenadora às 5
+   perguntas listadas na seção do item 8 antes de qualquer correção.
 
 7. ~~**Doc de teste desatualizado (achado ao validar o item 2):**~~
    **Resolvido em 2026-09-28** — `docs/plano-testes-validacao-agronoma.md`

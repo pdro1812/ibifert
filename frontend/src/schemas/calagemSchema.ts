@@ -70,6 +70,9 @@ export const CalagemSchema = z
       { message: 'SMP_10_20 inválido: deve estar entre 4.4 e 7.1.' }
     ),
 
+    // Polinomial como valor complementar ao SMP. Acima de SMP 6,3 ele é
+    // calculado mesmo sem marcar (o backend decide) — ver rotearMetodoCalagem.
+    calcular_polinomial: z.boolean().optional(),
     opcao_superficial_campo_natural: z.boolean().optional(),
     monitoramento: MonitoramentoSchema.optional(),
     identificacao: z.string().trim().max(120, 'Identificação muito longa.').optional(),
@@ -78,16 +81,17 @@ export const CalagemSchema = z
     const metodo = rotearMetodoCalagem(entrada.SMP);
     const precisaAlSat = precisaAlSatPDConsolidado(entrada.sistema_manejo, entrada.pH_agua);
     const precisaSatBases = !entrada.primeira_calagem && metodo === 'SMP';
+    const precisaPolinomial = metodo === 'POLINOMIAL' || entrada.calcular_polinomial === true;
     const monitoramentoComRestricao =
       entrada.sistema_manejo === 'PD_CONSOLIDADO' &&
       detectarRestricaoMonitoramento(entrada.monitoramento);
 
-    if (metodo === 'POLINOMIAL') {
+    if (precisaPolinomial) {
       if (entrada.MO === undefined) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ['MO'],
-          message: 'MO é obrigatória quando SMP > 6.3.',
+          message: 'MO é obrigatória para o cálculo do Polinomial.',
         });
       }
 
@@ -95,7 +99,7 @@ export const CalagemSchema = z
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ['Al_trocavel'],
-          message: 'Al_trocavel é obrigatório quando SMP > 6.3.',
+          message: 'Al_trocavel é obrigatório para o cálculo do Polinomial.',
         });
       }
     }
@@ -174,15 +178,19 @@ export interface CalagemPayload {
   SMP_0_10?: number;
   SMP_10_20?: number;
   opcao_superficial_campo_natural?: boolean;
+  calcular_polinomial?: boolean;
 }
 
 export interface CalagemResultado {
   aplicar_calcario: boolean;
   metodo_calc_roteado: MetodoCalcRoteado;
   calcular_tambem_sat_bases: boolean;
+  polinomial_calculado?: boolean;
+  polinomial_automatico?: boolean;
   NC_base: number;
   NC_smp?: number;
   NC_vb?: number;
+  NC_polinomial?: number;
   NC_final: number;
   NC_ajustada: number;
   fator_manejo: number;
@@ -194,6 +202,8 @@ export interface CalagemResultado {
   campos_necessarios: string[];
 }
 
+// SMP é sempre o método em evidência; aqui "POLINOMIAL" significa apenas que
+// SMP > 6,3 e o Polinomial será calculado automaticamente (sem Sat. por Bases).
 export function rotearMetodoCalagem(smp: number): MetodoCalcRoteado {
   return smp > 6.3 ? 'POLINOMIAL' : 'SMP';
 }

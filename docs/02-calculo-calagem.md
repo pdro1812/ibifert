@@ -21,8 +21,8 @@ obrigatoriedade muda de acordo com outras respostas):
 
 | Condição | Campos extra exigidos |
 |---|---|
-| `SMP > 6.3` (roteia para método Polinomial) | `MO`, `Al_trocavel` |
-| Reaplicação (`primeira_calagem = false`) + método SMP | `V_atual`, `CTC_pH7` |
+| `SMP > 6.3` **ou** `calcular_polinomial = true` (Polinomial complementar) | `MO`, `Al_trocavel` |
+| Reaplicação (`primeira_calagem = false`) + `SMP <= 6.3` (Saturação por Bases) | `V_atual`, `CTC_pH7` |
 | `sistema_manejo = PD_CONSOLIDADO` e `pH_agua < 5.5` | `Al_sat` **ou** (`Al_trocavel` + `CTC_pH7`) |
 | `sistema_manejo = PD_COM_RESTRICAO` | `SMP_10_20`, `Al_sat_10_20` (direto ou via `monitoramento`) |
 
@@ -34,10 +34,18 @@ inputs mostrar antes mesmo de validar contra o zod.
 
 ## 2. Roteamento do método de cálculo
 
-`rotearMetodoCalagem(SMP)`:
-- `SMP > 6.3` → método **Polinomial** (`calcularNCPolinomial6_0`).
-- `SMP <= 6.3` → método **SMP** (lookup na `tabelaSmp.ts`, Tabela 5.2 do
-  manual RS/SC).
+**Atualizado em 2026-10-02 (item 5 do registro de alterações):** não há
+mais roteamento excludente. O **SMP é sempre o método em evidência**
+(lookup na `tabelaSmp.ts`, Tabela 5.2 do manual RS/SC) e `metodo_calc_roteado`
+é sempre `"SMP"`.
+- **Polinomial** (`calcularNCPolinomial6_0`) é um valor **complementar**
+  (`NC_polinomial`): calculado quando o usuário marca `calcular_polinomial`
+  ou, automaticamente, quando `SMP > 6.3` (com aviso leve).
+- **Saturação por Bases** (`NC_vb`) continua só como referência, e só
+  quando `SMP <= 6.3`.
+- **Alerta de divergência:** se `NC_polinomial` ou `NC_vb` diferirem do
+  SMP em mais de 20% (e ao menos 0,5 t/ha), um alerta é adicionado.
+  Comparação sempre contra o SMP, antes do PRNT e sem o teto de 5 t/ha do PD.
 
 ## 3. Fórmulas
 
