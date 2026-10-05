@@ -100,7 +100,7 @@ Essa é a tela principal de entrada de dados de solo — permite cadastrar
 várias amostras de uma vez, para calagem ou adubação, vinculadas a
 talhões de uma fazenda:
 
-1. Usuário escolhe o modo (`CALAGEM` ou `ADUBACAO`), preenche
+1. Usuário escolhe o modo (`CALAGEM`, `ADUBACAO` ou `AMBOS` — padrão, desde 2026-10-05), preenche
    "configurações globais" (aplicadas a todas as linhas: sistema de
    manejo, PRNT, cultura, rendimento etc.) e uma planilha de linhas
    (cada linha = 1 amostra, com seu próprio `talhao_id`).
@@ -127,6 +127,10 @@ talhões de uma fazenda:
 4. Amostras válidas são agrupadas por `talhao_id` e enviadas em paralelo
    via `postAnalisesBulk` / `postAdubacaoBulk` → `POST /api/analises/bulk`
    ou `POST /api/adubacao/bulk` (ambas exigem `verificarToken`, corretas).
+   No modo `AMBOS`, a linha só é enviada se passar nos dois schemas, e os
+   dois bulks rodam juntos; falha parcial → resumo por módulo + reenvio só
+   do que falhou (o bulk de adubação responde 200 com `sucesso:false` por
+   amostra, e agora o frontend lê isso).
 5. O backend **revalida tudo de novo** com o zod do lado do servidor
    (`validarEntrada` / `AdubacaoSchema.parse`) antes de calcular e salvar
    — a validação client-side é só UX, não é a fonte de verdade, o que é o
