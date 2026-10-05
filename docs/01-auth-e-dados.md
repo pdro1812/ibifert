@@ -24,7 +24,7 @@ Drizzle + Postgres. Tabelas:
 | `users` | `id` uuid | Conta do usuário: `nome`, `cpf` (único), `email` (único), `senha` (hash bcrypt), `cidade`, `estado`, `telefone?`, `role` (`ADMIN`\|`PRODUTOR`, default `PRODUTOR`), `createdAt`. |
 | `fazendas` | `id` uuid | `usuario_id` (FK **lógica**, não há `references()` no schema), `nome`, `municipio`, `uf`. |
 | `talhoes` | `id` uuid | `fazenda_id` (FK lógica), `nome`, `cultura`. |
-| `analises` | `id` uuid | Resultado de **calagem**: dados de entrada da amostra de solo (`pH_agua`, `SMP`, `Al_trocavel`, `CTC_pH7`, `V_atual`, monitoramento 10-20cm) + resultado calculado (`NC_base/final/ajustada/vb`, `metodo_calc_roteado`, `alertas[]`). `usuario_id`/`talhao_id` opcionais (permite análise "convidado", sem login). |
+| `analises` | `id` uuid | Resultado de **calagem**: dados de entrada da amostra de solo (`pH_agua`, `SMP`, `Al_trocavel`, `CTC_pH7`, `V_atual`, monitoramento 10-20cm) + resultado calculado (`NC_base/final/ajustada/vb`, `metodo_calc_roteado` — sempre `SMP` desde 2026-10-02, `alertas[]`; o `NC_polinomial` complementar **não** é persistido). `usuario_id`/`talhao_id` opcionais (permite análise "convidado", sem login). |
 | `analisesAdubacao` | `id` uuid | Resultado de **adubação**: dados de solo (Grupo A: argila, MO, CTC, P, K, Ca, Mg, micros) + cultura/manejo (Grupo B) + `recomendacao_json` (resultado bruto do motor, como JSONB). `usuario_id`/`talhao_id` opcionais. |
 
 **Observações de modelagem:**

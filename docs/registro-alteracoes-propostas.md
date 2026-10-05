@@ -479,6 +479,16 @@ Este é o item com maior superfície de mudança dos 8.
 - Testes: CT-10/11/21 ajustados; CT-23 a CT-27 novos (29/29 backend, 31/31 frontend).
 - Docs: `ref-calagem.md` e `02-calculo-calagem.md` atualizados.
 
+**Status pós-merge (2026-10-05):** PR #13 mergeado na `main`. Documentação
+sincronizada em `ref-calagem.md`, `02-calculo-calagem.md`, `00-visao-geral.md`,
+`01-auth-e-dados.md`, `plano-testes-validacao-agronoma.md` (C3 e C9),
+`diagnostico-primeira-calagem-metodo-smp.md` e `auditoria-calagem-manual-vs-codigo.md`.
+
+**⚠️ Efeito a confirmar com a coordenadora:** no cenário C3 (SMP 6,8) o valor
+em evidência agora é ≈ 0,3 t/ha (SMP) contra ≈ 5,55 t/ha do Polinomial
+(complementar). O alerta de divergência dispara, mas a dose "oficial" na tela
+é a menor. O diagnóstico de 2026-09-15 apontava esse risco.
+
 **Limitações conhecidas:**
 - `NC_polinomial` **não é persistido** (sem coluna em `analises`) — aparece
   no resultado imediato e no PDF, não no histórico. O alerta de divergência
