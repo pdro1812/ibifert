@@ -21,7 +21,7 @@ Drizzle + Postgres. Tabelas:
 
 | Tabela | Chave | Descrição |
 |---|---|---|
-| `users` | `id` uuid | Conta do usuário: `nome`, `cpf` (único), `email` (único), `senha` (hash bcrypt), `cidade`, `estado`, `telefone?`, `role` (`ADMIN`\|`PRODUTOR`, default `PRODUTOR`), `createdAt`. |
+| `users` | `id` uuid | Conta do usuário: `nome`, `email` (único), `senha` (hash bcrypt), `cidade`, `estado`, `telefone?`, `role` (`ADMIN`\|`PRODUTOR`, default `PRODUTOR`), `createdAt`. |
 | `fazendas` | `id` uuid | `usuario_id` (FK **lógica**, não há `references()` no schema), `nome`, `municipio`, `uf`. |
 | `talhoes` | `id` uuid | `fazenda_id` (FK lógica), `nome`, `cultura`. |
 | `analises` | `id` uuid | Resultado de **calagem**: dados de entrada da amostra de solo (`pH_agua`, `SMP`, `Al_trocavel`, `CTC_pH7`, `V_atual`, monitoramento 10-20cm) + resultado calculado (`NC_base/final/ajustada/vb`, `metodo_calc_roteado` — sempre `SMP` desde 2026-10-02, `alertas[]`; o `NC_polinomial` complementar **não** é persistido). `usuario_id`/`talhao_id` opcionais (permite análise "convidado", sem login). |
@@ -44,10 +44,9 @@ Drizzle + Postgres. Tabelas:
 ## 2. Fluxo de autenticação
 
 **Registro** (`POST /api/auth/register`):
-1. Valida payload com `RegistroSchema` (zod): nome ≥3, CPF com 11 dígitos
-   (só tamanho, **sem validação de dígito verificador**), estado com 2
+1. Valida payload com `RegistroSchema` (zod): nome ≥3, estado com 2
    letras, email, senha ≥6 caracteres.
-2. Confere se `email` OU `cpf` já existe (`or(...)`) — bloqueia duplicata.
+2. Confere se `email` já existe — bloqueia duplicata.
 3. Hash da senha com `bcrypt.hash(senha, 10)`.
 4. Insere no banco, role default `PRODUTOR`.
 5. Assina JWT `{ id, role }`, expira em `7d`.
@@ -100,7 +99,7 @@ Drizzle + Postgres. Tabelas:
 
 ## 4. Dados sensíveis expostos
 
-- `adminRoutes.get('/users')` retorna `cpf`, `email`, `cidade`, `estado` de
+- `adminRoutes.get('/users')` retorna `email`, `cidade`, `estado` de
   todos os usuários — correto para uma tela de admin, mas confirma que
   **qualquer erro na checagem de role vira vazamento de PII em massa**
   (motivo a mais pra tratar `verificarRole` como código crítico).

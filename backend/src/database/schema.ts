@@ -19,7 +19,6 @@ export const rolesEnum = pgEnum('user_role', ['ADMIN', 'PRODUTOR']);
 export const users = pgTable('users', {
   id:        uuid('id').defaultRandom().primaryKey(),
   nome:      text('nome').notNull(),
-  cpf:       text('cpf').notNull().unique(),
   email:     text('email').notNull().unique(),
   senha:     text('senha').notNull(),
   cidade:    text('cidade').notNull(),
