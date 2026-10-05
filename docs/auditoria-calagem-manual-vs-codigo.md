@@ -9,6 +9,13 @@
 > fica como registro de como os problemas foram encontrados; o comportamento
 > **atual** do sistema já reflete as correções descritas abaixo.
 
+> **Nota (2026-10-02):** desde o item 5 do registro de alterações, o método
+> em evidência é **sempre SMP** (`metodo_calc_roteado = "SMP"`) e o Polinomial
+> é complementar (checkbox ou automático com SMP > 6,3). Onde este documento
+> diz "método roteado" / "roteia para Polinomial", leia o estado anterior.
+> As correções 1.1 e 1.2 continuam valendo: a trava do PD Consolidado segue
+> independente do método e continua exigindo `V_atual`.
+
 **Status original: 2026-09-16.** Comparação linha a linha entre `extracao_claude_calagem.md`
 (transcrição independente das p. 65–87 do manual, feita por uma sessão separada
 do Claude a partir do PDF, sem acesso ao código) e o comportamento real do

@@ -4,6 +4,17 @@
 
 ## Parte 1 — Calagem (Calculadora de Calcário)
 
+> **Mudança de comportamento (2026-10-02, item 5 do registro):** o **SMP é
+> sempre o valor em evidência**; o Polinomial passou a ser um valor
+> **complementar** (checkbox "Calcular também o Polinomial" na Calculadora
+> Completa, ou automático quando SMP > 6,3), e a Saturação por Bases segue
+> como referência só com SMP ≤ 6,3. Além disso, o sistema agora emite um
+> **alerta de divergência** quando Polinomial ou Saturação por Bases diferem
+> do SMP em mais de 20% (e ao menos 0,5 t/ha) — então cenários com SMP e
+> Saturação por Bases distantes (ex.: C2, C4, C9) passam a exibir esse alerta
+> adicional além do que está descrito abaixo. O cenário **C3** mudou de
+> resultado esperado (ver C3).
+
 Tela: **Calculadora de Calagem** (menu público / dashboard).
 
 > **Mudança de comportamento (2026-09-15):** o campo "Tipo de Aplicação"
@@ -78,9 +89,20 @@ Tela: **Calculadora de Calagem** (menu público / dashboard).
 | Al trocável (cmolc/dm³) | `1.5` |
 | PRNT (%) | `80` |
 
-**Resultado esperado:** método usado = Polinomial, **NC base ≈ 5,55 t/ha**,
-**NC ajustada (PRNT) ≈ 6,94 t/ha**, modo Incorporado, 20 cm. Sem
-referência de Saturação por Bases (só se aplica ao método SMP).
+**Resultado esperado (atualizado em 2026-10-02):** o valor em evidência é
+o do **SMP**: **NC base ≈ 0,3 t/ha**, **NC ajustada (PRNT 80%) ≈ 0,38 t/ha**,
+modo Incorporado, 20 cm. O Polinomial é calculado **automaticamente**
+(SMP > 6,3) e aparece como **"Complementar — Polinomial" ≈ 5,55 t/ha**
+(com PRNT 80% seria ≈ 6,94 t/ha, mas o valor complementar é mostrado antes
+do PRNT). Alertas esperados: (1) aviso de que o Polinomial foi calculado
+automaticamente; (2) **alerta de divergência** (Polinomial ≈ 1.750% acima
+do SMP). Sem referência de Saturação por Bases (só com SMP ≤ 6,3).
+
+> ⚠️ **Antes desta mudança** o valor oficial deste cenário era o Polinomial
+> (NC ajustada ≈ 6,94 t/ha). O SMP em evidência foi pedido pela coordenadora;
+> o `docs/diagnostico-primeira-calagem-metodo-smp.md` §2 já apontava que, em
+> solos com SMP > 6,3, a tabela SMP subestima a dose (aqui ~18×). Vale a
+> coordenadora confirmar que é isso mesmo que quer ver neste cenário.
 
 ☐ Bateu ☐ Não bateu — Observações: ___________________________________
 
@@ -213,7 +235,7 @@ de referência).
 | CTC pH7 | `10` |
 | PRNT (%) | `100` |
 
-**Resultado esperado:** o sistema mostra **duas doses de referência**:
+**Resultado esperado:** (a partir de 2026-10-02 também aparece o alerta de divergência, pois 2,5 t/ha difere >20% de 5,4 t/ha) o sistema mostra **duas doses de referência**:
 pelo método SMP ≈ **5,4 t/ha** e pela Saturação de Bases (NC_vb) ≈
 **2,5 t/ha**, com um texto explicando que a escolha entre as duas é
 decisão do técnico. O resultado final adotado (NC ajustada) deve ser o do
