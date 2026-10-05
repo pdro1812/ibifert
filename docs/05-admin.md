@@ -51,8 +51,7 @@ amostras (calagem) totais, total de adubação, amostras logadas vs
 convidado, gráfico de amostras por UF e por sistema de manejo, e lista
 dos 5 últimos cadastros. Sem interação de escrita — é só leitura,
 renderizado com `recharts`. Nada a apontar aqui além do que já foi
-descrito na Etapa 1 (a rota devolve `cpf`/`email` de outros usuários, mas
-essa tela específica não chega a renderizar `cpf`).
+descrito na Etapa 1 (a rota devolve `email` de outros usuários).
 
 ## 4. `AdminUsersPage` — achado: adubação não entra nas métricas por usuário
 

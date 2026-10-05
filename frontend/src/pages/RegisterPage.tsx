@@ -11,7 +11,6 @@ import { recuperarAnalisePendente } from '../services/pendencias';
 
 const RegisterSchema = z.object({
   nome: z.string().min(3, 'Nome deve ter no mínimo 3 caracteres'),
-  cpf: z.string().min(11, 'CPF inválido'),
   email: z.string().email('E-mail inválido'),
   senha: z.string().min(6, 'Mínimo de 6 caracteres'),
   cidade: z.string().min(2, 'Cidade é obrigatória'),
@@ -41,7 +40,6 @@ export function RegisterPage() {
     resolver: zodResolver(RegisterSchema),
     defaultValues: { 
       nome: '', 
-      cpf: '', 
       email: '', 
       senha: '', 
       cidade: '', 
@@ -53,11 +51,7 @@ export function RegisterPage() {
   const onSubmit = async (data: RegisterFormValues) => {
     setApiError(null);
     try {
-      const payload = {
-        ...data,
-        cpf: data.cpf.replace(/\D/g, '')
-      };
-      await cadastrar(payload);
+      await cadastrar(data);
 
       // Se havia uma análise calculada antes do cadastro, recupera e salva agora
       const recuperada = await recuperarAnalisePendente();
@@ -126,46 +120,24 @@ export function RegisterPage() {
             ) : null}
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            {/* CPF */}
-            <div className="space-y-1">
-              <label className="text-sm font-semibold text-stone-700">CPF</label>
-              <input
-                type="text"
-                placeholder="Apenas números"
-                {...register('cpf')}
-                className={`w-full rounded-xl border px-4 py-3 outline-none transition-all ${
-                  errors.cpf
-                    ? 'border-red-400 bg-red-50'
-                    : 'border-stone-200 bg-stone-50 focus:border-green-500 focus:bg-white'
-                }`}
-              />
-              {errors.cpf ? (
-                <span className="flex items-center gap-1 text-xs text-red-500">
-                  <AlertCircle size={11} /> {errors.cpf.message}
-                </span>
-              ) : null}
-            </div>
-
-            {/* Telefone */}
-            <div className="space-y-1">
-              <label className="text-sm font-semibold text-stone-700">Telefone <span className="text-stone-400 font-normal">(Opcional)</span></label>
-              <input
-                type="tel"
-                autoComplete="tel"
-                {...register('telefone')}
-                className={`w-full rounded-xl border px-4 py-3 outline-none transition-all ${
-                  errors.telefone
-                    ? 'border-red-400 bg-red-50'
-                    : 'border-stone-200 bg-stone-50 focus:border-green-500 focus:bg-white'
-                }`}
-              />
-              {errors.telefone ? (
-                <span className="flex items-center gap-1 text-xs text-red-500">
-                  <AlertCircle size={11} /> {errors.telefone.message}
-                </span>
-              ) : null}
-            </div>
+          {/* Telefone */}
+          <div className="space-y-1">
+            <label className="text-sm font-semibold text-stone-700">Telefone <span className="text-stone-400 font-normal">(Opcional)</span></label>
+            <input
+              type="tel"
+              autoComplete="tel"
+              {...register('telefone')}
+              className={`w-full rounded-xl border px-4 py-3 outline-none transition-all ${
+                errors.telefone
+                  ? 'border-red-400 bg-red-50'
+                  : 'border-stone-200 bg-stone-50 focus:border-green-500 focus:bg-white'
+              }`}
+            />
+            {errors.telefone ? (
+              <span className="flex items-center gap-1 text-xs text-red-500">
+                <AlertCircle size={11} /> {errors.telefone.message}
+              </span>
+            ) : null}
           </div>
 
           {/* Email */}

@@ -13,7 +13,6 @@ interface User {
 
 export interface RegisterData {
   nome: string;
-  cpf: string;
   email: string;
   senha: string;
   cidade: string;

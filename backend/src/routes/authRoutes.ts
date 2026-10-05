@@ -2,7 +2,7 @@ import { Router } from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { rateLimit } from 'express-rate-limit';
-import { eq, or } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { db } from '../database/db';
 import { users } from '../database/schema';
 import { RegistroSchema, LoginSchema } from '../schemas/authSchema';
@@ -23,15 +23,15 @@ authRoutes.post('/register', limitadorAuth, async (req, res) => {
   try {
     const dados = RegistroSchema.parse(req.body);
 
-    // Verifica se email ou CPF já existem
+    // Verifica se email já existe
     const existente = await db
       .select()
       .from(users)
-      .where(or(eq(users.email, dados.email), eq(users.cpf, dados.cpf)))
+      .where(eq(users.email, dados.email))
       .limit(1);
 
     if (existente.length > 0) {
-      return res.status(400).json({ erro: 'E-mail ou CPF já cadastrados.' });
+      return res.status(400).json({ erro: 'E-mail já cadastrado.' });
     }
 
     const senhaHash = await bcrypt.hash(dados.senha, 10);
@@ -40,7 +40,6 @@ authRoutes.post('/register', limitadorAuth, async (req, res) => {
       .insert(users)
       .values({
         nome:     dados.nome,
-        cpf:      dados.cpf,
         email:    dados.email,
         cidade:   dados.cidade,
         estado:   dados.estado,
