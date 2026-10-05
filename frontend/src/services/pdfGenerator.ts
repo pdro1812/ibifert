@@ -320,6 +320,7 @@ export function gerarPDFRelatorio({
       ['NC ajustada (t/ha)', formatarNumero(resultado.NC_ajustada, 2)],
       ['NC SMP (t/ha)', formatarNumero(resultado.NC_smp, 2)],
       ['NC VB (t/ha)', formatarNumero(resultado.NC_vb, 2)],
+      ['NC Polinomial (t/ha)', formatarNumero(resultado.NC_polinomial, 2)],
       ['Fator de manejo', formatarNumero(resultado.fator_manejo, 2)],
       ['Método roteado', resultado.metodo_calc_roteado],
       ['Modo de aplicação', resultado.modo_aplicacao],

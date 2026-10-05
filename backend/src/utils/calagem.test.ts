@@ -5,6 +5,7 @@ import {
   ajustarDosePorPRNT,
   calcularAlSat,
   determinarCamposNecessarios,
+  divergeDoSMP,
 } from "../services/calculadoraCalagem";
 import {
   avaliarMonitoramento10_20,
@@ -129,7 +130,7 @@ test("CT-09: Saturação por bases — ajuste por CTC baixa", () => {
   assertClose(resultado.NC_vb!, 0.9);
 });
 
-test("CT-10: Roteamento automático → Polinomial", () => {
+test("CT-10: SMP > 6.3 → SMP em evidência + Polinomial automático", () => {
   const resultado = executarMotorCalagem({
     sistema_manejo: SistemaManejo.CONVENCIONAL,
     primeira_calagem: true,
@@ -148,14 +149,19 @@ test("CT-10: Roteamento automático → Polinomial", () => {
     PRNT: 100,
   });
 
-  assert.equal(resultado.metodo_calc_roteado, MetodoCalcRoteado.POLINOMIAL);
-  assertClose(resultado.NC_base, 2.3115);
+  assert.equal(resultado.metodo_calc_roteado, MetodoCalcRoteado.SMP);
+  assertClose(resultado.NC_base, 1.1); // Tabela 5.2, SMP 6.5, pH 6,0
+  assertClose(resultado.NC_final, 1.1);
+  assert.equal(resultado.polinomial_calculado, true);
+  assert.equal(resultado.polinomial_automatico, true);
+  assertClose(resultado.NC_polinomial!, 2.3115);
+  assert.equal(resultado.NC_vb, undefined);
   assert.equal(campos.includes("MO"), true);
   assert.equal(campos.includes("Al_trocavel"), true);
   assert.equal(campos.includes("V_atual"), false);
 });
 
-test("CT-11: Polinomial — trava de zero", () => {
+test("CT-11: Polinomial — trava de zero (valor complementar)", () => {
   const resultado = executarMotorCalagem({
     sistema_manejo: SistemaManejo.CONVENCIONAL,
     primeira_calagem: true,
@@ -166,7 +172,8 @@ test("CT-11: Polinomial — trava de zero", () => {
     Al_trocavel: 0.05,
   });
 
-  assertClose(resultado.NC_base, 0.0);
+  assertClose(resultado.NC_polinomial!, 0.0);
+  assertClose(resultado.NC_final, 0.2); // SMP 6.9 → Tabela 5.2
 });
 
 test("CT-12: Ajuste PRNT", () => {
@@ -319,7 +326,7 @@ test("CT-20: NC_vb recebe o fator 0.5 no campo natural (PD Implantação superfi
   assertClose(resultado.NC_vb!, 1.0);
 });
 
-test("CT-21: trava do PD Consolidado dispara mesmo roteando para o método Polinomial", () => {
+test("CT-21: trava do PD Consolidado dispara também com SMP > 6.3 (Polinomial automático)", () => {
   const resultado = executarMotorCalagem({
     sistema_manejo: SistemaManejo.PD_CONSOLIDADO,
     primeira_calagem: false,
@@ -333,7 +340,7 @@ test("CT-21: trava do PD Consolidado dispara mesmo roteando para o método Polin
     Al_sat: 8.0,
   });
 
-  assert.equal(resultado.metodo_calc_roteado, MetodoCalcRoteado.POLINOMIAL);
+  assert.equal(resultado.metodo_calc_roteado, MetodoCalcRoteado.SMP);
   assert.equal(resultado.aplicar_calcario, false);
 });
 
@@ -393,4 +400,92 @@ test("RN-05: Monitoramento 10–20 cm", () => {
     semRestricao.sistema_manejo_atualizado,
     SistemaManejo.PD_CONSOLIDADO
   );
+});
+
+test("CT-23: Polinomial selecionado com SMP <= 6.3 → complementar, sem alerta automático", () => {
+  const resultado = executarMotorCalagem({
+    sistema_manejo: SistemaManejo.CONVENCIONAL,
+    primeira_calagem: false,
+    pH_agua: 5.0,
+    SMP: 5.5,
+    PRNT: 100,
+    V_atual: 55.0,
+    CTC_pH7: 10.0,
+    calcular_polinomial: true,
+    MO: 3.0,
+    Al_trocavel: 1.0,
+  });
+
+  assertClose(resultado.NC_final, 6.1); // SMP 5.5 → Tabela 5.2 (pH 6,0)
+  assertClose(resultado.NC_vb!, 2.0);
+  assertClose(resultado.NC_polinomial!, 4.334);
+  assert.equal(resultado.polinomial_calculado, true);
+  assert.equal(resultado.polinomial_automatico, false);
+  assert.equal(
+    resultado.alertas.some((a) => a.includes("calculado automaticamente")),
+    false
+  );
+});
+
+test("CT-24: Polinomial selecionado exige MO e Al_trocavel", () => {
+  assert.throws(
+    () =>
+      executarMotorCalagem({
+        sistema_manejo: SistemaManejo.CONVENCIONAL,
+        primeira_calagem: false,
+        pH_agua: 5.0,
+        SMP: 5.5,
+        PRNT: 100,
+        V_atual: 55.0,
+        CTC_pH7: 10.0,
+        calcular_polinomial: true,
+      }),
+    /MO é obrigatória/
+  );
+});
+
+test("CT-25: sem selecionar Polinomial e SMP <= 6.3 → Polinomial não é calculado", () => {
+  const resultado = executarMotorCalagem({
+    sistema_manejo: SistemaManejo.CONVENCIONAL,
+    primeira_calagem: false,
+    pH_agua: 5.0,
+    SMP: 5.5,
+    PRNT: 100,
+    V_atual: 55.0,
+    CTC_pH7: 10.0,
+  });
+
+  assert.equal(resultado.polinomial_calculado, false);
+  assert.equal(resultado.NC_polinomial, undefined);
+});
+
+test("CT-26: alerta de divergência > 20% do SMP (Polinomial)", () => {
+  const resultado = executarMotorCalagem({
+    sistema_manejo: SistemaManejo.CONVENCIONAL,
+    primeira_calagem: false,
+    pH_agua: 5.0,
+    SMP: 5.5,
+    PRNT: 100,
+    V_atual: 55.0,
+    CTC_pH7: 10.0,
+    calcular_polinomial: true,
+    MO: 3.0,
+    Al_trocavel: 1.0,
+  });
+
+  // |4,33 - 6,1| = 1,77 t/ha = 29% do SMP → alerta; NC_vb (2,0) também diverge.
+  assert.equal(
+    resultado.alertas.some((a) => a.includes("Polinomial (4.33 t/ha)")),
+    true
+  );
+  assert.equal(
+    resultado.alertas.some((a) => a.includes("Saturação por Bases (2.00 t/ha)")),
+    true
+  );
+});
+
+test("CT-27: sem alerta quando a diferença é <= 20% ou < 0,5 t/ha", () => {
+  assert.equal(divergeDoSMP(4.9, 6.1), false); // 1,2 t/ha mas 19,7%
+  assert.equal(divergeDoSMP(0.3, 0.0), false); // abaixo do piso de 0,5 t/ha
+  assert.equal(divergeDoSMP(0.2, 0.9), true); // 0,7 t/ha e 78%
 });

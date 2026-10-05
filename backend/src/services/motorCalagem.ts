@@ -8,6 +8,9 @@ import {
   ResultadoCalagem,
   ResultadoMonitoramento,
   SistemaManejo,
+  polinomialAutomatico,
+  precisaPolinomial,
+  precisaSatBases,
 } from "../schemas/calagemSchema";
 import {
   ajustarDosePorPRNT,
@@ -16,7 +19,7 @@ import {
   determinarCamposNecessarios,
   resolverAlSat,
   resolverAlSat10_20,
-  rotearMetodoCalagem,
+  divergeDoSMP,
   validarEntrada,
 } from "./calculadoraCalagem";
 import { tabelaSmpLookup } from "./tabelaSmp";
@@ -24,6 +27,8 @@ import {
   MSG_AVALIACAO_AGRONOMICA,
   MSG_LIMITE_SUPERFICIAL_PD,
   MSG_NOTA_REAPLICACAO,
+  MSG_POLINOMIAL_AUTOMATICO,
+  msgDivergenciaMetodos,
   MSG_SEM_NECESSIDADE_CALAGEM,
   MSG_SEM_REINICIO_PD,
   MSG_TRAVA_PD_CONSOLIDADO,
@@ -43,6 +48,8 @@ function criarResultadoNaoAplicar(params: {
     aplicar_calcario: false,
     metodo_calc_roteado: params.metodo_calc_roteado,
     calcular_tambem_sat_bases: params.calcular_tambem_sat_bases,
+    polinomial_calculado: false,
+    polinomial_automatico: false,
     NC_base: 0.0,
     NC_smp: 0.0,
     NC_final: 0.0,
@@ -72,10 +79,13 @@ export function executarMotorCalagem(
     opcao_superficial_campo_natural,
   } = entrada;
 
-  const metodo_calc_roteado = rotearMetodoCalagem(SMP);
-
-  const calcular_tambem_sat_bases =
-    !primeira_calagem && metodo_calc_roteado === MetodoCalcRoteado.SMP;
+  // O SMP é sempre o método em evidência. O Polinomial entra como valor
+  // complementar quando selecionado pelo usuário ou quando SMP > 6.3; a
+  // Saturação por Bases segue como referência só quando SMP <= 6.3.
+  const metodo_calc_roteado = MetodoCalcRoteado.SMP;
+  const calcular_polinomial = precisaPolinomial(entrada);
+  const polinomial_automatico = polinomialAutomatico(SMP);
+  const calcular_tambem_sat_bases = precisaSatBases({ SMP, primeira_calagem });
 
   if (
     sistema_manejo === SistemaManejo.CONVENCIONAL ||
@@ -163,22 +173,19 @@ export function executarMotorCalagem(
       ? (SMP_0_10 + (entrada.SMP_10_20 ?? 0.0)) / 2.0
       : SMP;
 
-  let NC_base = 0.0;
-  let NC_smp: number | undefined;
+  let NC_polinomial: number | undefined;
   let NC_vb: number | undefined;
-  let NC_calculada = 0.0;
 
-  if (metodo_calc_roteado === MetodoCalcRoteado.SMP) {
-    NC_base = tabelaSmpLookup(smpParaTabela, 6.0);
-    NC_smp = NC_base * fator_manejo;
-    NC_calculada = NC_smp;
+  const NC_base = tabelaSmpLookup(smpParaTabela, 6.0);
+  const NC_smp = NC_base * fator_manejo;
+  const NC_calculada = NC_smp;
 
-    if (calcular_tambem_sat_bases) {
-      NC_vb = calcularNCVB(entrada.V_atual!, entrada.CTC_pH7!);
-    }
-  } else {
-    NC_base = calcularNCPolinomial6_0(entrada.MO!, entrada.Al_trocavel!);
-    NC_calculada = NC_base * fator_manejo;
+  if (calcular_tambem_sat_bases) {
+    NC_vb = calcularNCVB(entrada.V_atual!, entrada.CTC_pH7!);
+  }
+
+  if (calcular_polinomial) {
+    NC_polinomial = calcularNCPolinomial6_0(entrada.MO!, entrada.Al_trocavel!);
   }
 
   let NC_final = Math.max(0.0, NC_calculada);
@@ -227,13 +234,35 @@ export function executarMotorCalagem(
     NC_vb = NC_vb * fatorAjusteReferenciaVB;
   }
 
+  if (NC_polinomial !== undefined) {
+    NC_polinomial = NC_polinomial * fatorAjusteReferenciaVB;
+  }
+
+  if (polinomial_automatico) {
+    alertas.push(MSG_POLINOMIAL_AUTOMATICO);
+  }
+
+  // Comparação sempre contra o SMP, antes do PRNT e sem o teto de 5 t/ha do PD.
+  const referenciaSMP = NC_base * fatorAjusteReferenciaVB;
+
+  if (NC_polinomial !== undefined && divergeDoSMP(NC_polinomial, referenciaSMP)) {
+    alertas.push(msgDivergenciaMetodos("Polinomial", NC_polinomial, referenciaSMP));
+  }
+
+  if (NC_vb !== undefined && divergeDoSMP(NC_vb, referenciaSMP)) {
+    alertas.push(msgDivergenciaMetodos("Saturação por Bases", NC_vb, referenciaSMP));
+  }
+
   return {
     aplicar_calcario: true,
     metodo_calc_roteado,
     calcular_tambem_sat_bases,
+    polinomial_calculado: calcular_polinomial,
+    polinomial_automatico,
     NC_base,
     NC_smp,
     NC_vb,
+    NC_polinomial,
     NC_final,
     NC_ajustada,
     fator_manejo,
