@@ -88,7 +88,6 @@ adminRoutes.get('/users', async (req, res) => {
           id: users.id,
           nome: users.nome,
           email: users.email,
-          cpf: users.cpf,
           cidade: users.cidade,
           estado: users.estado,
           role: users.role,

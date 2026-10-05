@@ -21,7 +21,6 @@ interface UserItem {
   id: string;
   nome: string;
   email: string;
-  cpf: string;
   cidade: string;
   estado: string;
   role: string;
@@ -126,8 +125,7 @@ export function AdminUsersPage() {
 
   const filteredUsers = users.filter(u => 
     u.nome.toLowerCase().includes(busca.toLowerCase()) || 
-    u.email.toLowerCase().includes(busca.toLowerCase()) ||
-    u.cpf.includes(busca)
+    u.email.toLowerCase().includes(busca.toLowerCase())
   );
 
   if (loading && users.length === 0) {
@@ -357,7 +355,7 @@ export function AdminUsersPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" size={18} />
               <input 
                 type="text" 
-                placeholder="Nome, e-mail ou CPF..."
+                placeholder="Nome ou e-mail..."
                 value={busca}
                 onChange={(e) => setBusca(e.target.value)}
                 className="w-full rounded-xl border border-stone-200 bg-white py-2.5 pl-10 pr-4 text-sm outline-none focus:border-green-500"
