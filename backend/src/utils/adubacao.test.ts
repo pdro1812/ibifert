@@ -24,7 +24,7 @@ test('Motor de Adubação', async (t) => {
     };
 
     const resultado = executarMotorAdubacao(entrada);
-    
+
     assert.equal(resultado.recomendacao.n.dose_total_kg_ha, 0);
     assert.match(resultado.recomendacao.n.tipo, /FBN/);
 
@@ -62,7 +62,74 @@ test('Motor de Adubação', async (t) => {
 
     assert.equal(resultado.recomendacao.n.dose_total_kg_ha, 120);
 
-    assert.equal(resultado.recomendacao.p2o5.dose_total_kg_ha, 280);
-    assert.match(resultado.recomendacao.p2o5.tipo_adubacao, /Corretiva Total/);
+    // "Total" usa a mesma tabela por classe do Gradual (item 8 do registro)
+    assert.equal(resultado.recomendacao.p2o5.dose_total_kg_ha, 230);
+    assert.match(resultado.recomendacao.p2o5.tipo_adubacao, /Corretiva Gradual/);
+  });
+});
+
+// Valores calculados à mão pela coordenadora (docs/registro-alteracoes-propostas.md, item 8)
+test('Cenários validados pela coordenadora', async (t) => {
+  await t.test('Print — soja, 1º cultivo, P muito alto: 0 / 30 / 125', () => {
+    const resultado = executarMotorAdubacao({
+      argila: 20, MO: 7.9, CTC_pH7: 20.73,
+      P: 80, metodo_P: 'Mehlich-1', K: 220, metodo_K: 'Mehlich-1',
+      Ca: 52.36, Mg: 34.06, S: 54.9, pH_agua: 5.82,
+      cultura: 'soja', num_cultivo: '1', rendimento_esperado: 5,
+      sistema_cultivo: 'Plantio Direto', tipo_correcao: 'Gradual'
+    });
+
+    assert.equal(resultado.classificacao_solo.p_classe, 'muito_alto');
+    assert.equal(resultado.classificacao_solo.k_classe, 'alto');
+    assert.equal(resultado.recomendacao.n.dose_total_kg_ha, 0);
+    assert.equal(resultado.recomendacao.p2o5.dose_total_kg_ha, 30);
+    assert.equal(resultado.recomendacao.k2o.dose_total_kg_ha, 125);
+  });
+
+  await t.test('A3 — milho, correção Total, 70.000 plantas: 120 / 230 / 160', () => {
+    const resultado = executarMotorAdubacao({
+      argila: 25, MO: 2.0, CTC_pH7: 8.0,
+      P: 5, metodo_P: 'Mehlich-1', K: 25, metodo_K: 'Mehlich-1',
+      Ca: 3.0, Mg: 1.0,
+      cultura: 'milho', cultura_antecedente: 'Gramínea', num_cultivo: '1',
+      rendimento_esperado: 8, sistema_cultivo: 'Plantio Direto',
+      tipo_correcao: 'Total', densidade_plantas: 70000
+    });
+
+    assert.equal(resultado.recomendacao.n.dose_total_kg_ha, 120);
+    assert.equal(resultado.recomendacao.p2o5.dose_total_kg_ha, 230);
+    assert.equal(resultado.recomendacao.k2o.dose_total_kg_ha, 160);
+    assert.equal(resultado.recomendacao.k2o.k2o_semeadura_kg_ha, 80);
+    assert.equal(resultado.recomendacao.k2o.k2o_complementar_kg_ha, 80);
+  });
+
+  await t.test('A4 — soja, 2º cultivo, P e K muito altos: 0 / 45 / 75', () => {
+    const resultado = executarMotorAdubacao({
+      argila: 30, MO: 3.0, CTC_pH7: 10.0,
+      P: 40, metodo_P: 'Mehlich-1', K: 200, metodo_K: 'Mehlich-1',
+      Ca: 3.0, Mg: 1.0, S: 15,
+      cultura: 'soja', num_cultivo: '2', rendimento_esperado: 3,
+      sistema_cultivo: 'Plantio Direto', tipo_correcao: 'Gradual'
+    });
+
+    assert.equal(resultado.classificacao_solo.p_classe, 'muito_alto');
+    assert.equal(resultado.classificacao_solo.k_classe, 'muito_alto');
+    assert.equal(resultado.recomendacao.n.dose_total_kg_ha, 0);
+    assert.equal(resultado.recomendacao.p2o5.dose_total_kg_ha, 45);
+    assert.equal(resultado.recomendacao.k2o.dose_total_kg_ha, 75);
+  });
+
+  await t.test('Muito alto, 1º cultivo, rendimento na referência: dose zero', () => {
+    const resultado = executarMotorAdubacao({
+      argila: 30, MO: 3.0, CTC_pH7: 10.0,
+      P: 40, metodo_P: 'Mehlich-1', K: 200, metodo_K: 'Mehlich-1',
+      Ca: 3.0, Mg: 1.0, S: 15,
+      cultura: 'soja', num_cultivo: '1', rendimento_esperado: 3,
+      sistema_cultivo: 'Plantio Direto', tipo_correcao: 'Gradual'
+    });
+
+    assert.equal(resultado.recomendacao.p2o5.dose_total_kg_ha, 0);
+    assert.equal(resultado.recomendacao.k2o.dose_total_kg_ha, 0);
+    assert.match(resultado.recomendacao.p2o5.tipo_adubacao, /Sem Aplicação/);
   });
 });

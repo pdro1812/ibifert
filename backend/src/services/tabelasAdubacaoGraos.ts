@@ -103,15 +103,6 @@ export function classificarPotassio(k: number, classeCtc: ClasseCTC): ClasseDisp
   }
 }
 
-// TAB-04
-export const TABELA_CORRECAO_TOTAL = {
-  muito_baixo: { p2o5: 160, k2o: 120 },
-  baixo: { p2o5: 80, k2o: 60 },
-  medio: { p2o5: 40, k2o: 30 },
-  alto: { p2o5: 0, k2o: 0 },
-  muito_alto: { p2o5: 0, k2o: 0 },
-};
-
 // TAB-05 e TAB-06 e infos da cultura
 export interface CulturaInfo {
   rend_ref_t: number;
