@@ -1,5 +1,9 @@
 # Plano de Testes — Validação Agronômica (Calagem e Adubação)
 
+> **Atualização (12/10/2026):** todos os 17 cenários (C1–C9 e A1–A8) foram
+> validados pela coordenadora (informado pelo desenvolvedor); caixas marcadas
+> como "Bateu". As observações por cenário não foram preenchidas.
+
 ---
 
 ## Parte 1 — Calagem (Calculadora de Calcário)
@@ -54,7 +58,7 @@ Tela: **Calculadora de Calagem** (menu público / dashboard).
 **Resultado esperado:** sistema **não recomenda aplicar calcário** (dose
 = 0), com aviso de que o pH já está adequado.
 
-☐ Bateu ☐ Não bateu — Observações: ___________________________________
+☑ Bateu ☐ Não bateu — Observações: ___________________________________
 
 ---
 
@@ -74,7 +78,7 @@ Tela: **Calculadora de Calagem** (menu público / dashboard).
 20 cm, método usado = SMP. Referência de Saturação por Bases (NC_vb)
 ≈ **2,5 t/ha**.
 
-☐ Bateu ☐ Não bateu — Observações: ___________________________________
+☑ Bateu ☐ Não bateu — Observações: ___________________________________
 
 ---
 
@@ -104,7 +108,7 @@ do SMP). Sem referência de Saturação por Bases (só com SMP ≤ 6,3).
 > solos com SMP > 6,3, a tabela SMP subestima a dose (aqui ~18×). Vale a
 > coordenadora confirmar que é isso mesmo que quer ver neste cenário.
 
-☐ Bateu ☐ Não bateu — Observações: ___________________________________
+☑ Bateu ☐ Não bateu — Observações: ___________________________________
 
 ---
 
@@ -124,7 +128,7 @@ do SMP). Sem referência de Saturação por Bases (só com SMP ≤ 6,3).
 **NC ajustada ≈ 4,67 t/ha**, modo **Incorporado**, 20 cm. Referência de
 Saturação por Bases (NC_vb) ≈ **2,0 t/ha**.
 
-☐ Bateu ☐ Não bateu — Observações: ___________________________________
+☑ Bateu ☐ Não bateu — Observações: ___________________________________
 
 ---
 
@@ -146,7 +150,7 @@ profundidade de incorporação). Referência de Saturação por Bases (NC_vb)
 ≈ **1,0 t/ha** (valor bruto 2,0 t/ha × fator ½ do campo natural — ver nota
 de correção no topo do documento).
 
-☐ Bateu ☐ Não bateu — Observações: ___________________________________
+☑ Bateu ☐ Não bateu — Observações: ___________________________________
 
 ---
 
@@ -168,7 +172,7 @@ Referência de Saturação por Bases (NC_vb) ≈ **0,88 t/ha** (valor bruto
 3,5 t/ha × fator ¼ do PD Consolidado — ver nota de correção no topo do
 documento).
 
-☐ Bateu ☐ Não bateu — Observações: ___________________________________
+☑ Bateu ☐ Não bateu — Observações: ___________________________________
 
 ---
 
@@ -195,7 +199,7 @@ de novo.
 aparecer um aviso explicando o motivo ("solo tamponado").
 
 
-☐ Bateu ☐ Não bateu — Observações: ___________________________________
+☑ Bateu ☐ Não bateu — Observações: ___________________________________
 
 ---
 
@@ -220,7 +224,7 @@ nota de correção no topo do documento; a trava de 5 t/ha continua sendo
 lida como teto sobre a dose efetivamente aplicada, não sobre este valor
 de referência).
 
-☐ Bateu ☐ Não bateu — Observações: ___________________________________
+☑ Bateu ☐ Não bateu — Observações: ___________________________________
 
 ---
 
@@ -242,7 +246,7 @@ decisão do técnico. O resultado final adotado (NC ajustada) deve ser o do
 método SMP, **5,4 t/ha**. (Mesma entrada de C2 — mantido como cenário
 dedicado à checagem do texto de comparação entre os dois métodos.)
 
-☐ Bateu ☐ Não bateu — Observações: ___________________________________
+☑ Bateu ☐ Não bateu — Observações: ___________________________________
 
 ---
 
@@ -279,7 +283,7 @@ casos que os botões prontos não cobrem.
   60 kg/ha complementar** (cobertura/a lanço), com alerta explicando o
   limite de 80 kg/ha na linha.
 
-☐ Bateu ☐ Não bateu — Observações: ___________________________________
+☑ Bateu ☐ Não bateu — Observações: ___________________________________
 
 ---
 
@@ -305,7 +309,7 @@ casos que os botões prontos não cobrem.
 - **K₂O = 70 kg/ha**, tipo "Corretiva Total + Manutenção" (sem divisão,
   fica abaixo de 80).
 
-☐ Bateu ☐ Não bateu — Observações: ___________________________________
+☑ Bateu ☐ Não bateu — Observações: ___________________________________
 
 ---
 
@@ -333,7 +337,7 @@ casos que os botões prontos não cobrem.
 - **K₂O = 200 kg/ha no total**, dividido em **80 na semeadura + 120
   complementar**.
 
-☐ Bateu ☐ Não bateu — Observações: ___________________________________
+☑ Bateu ☐ Não bateu — Observações: ___________________________________
 
 ---
 
@@ -363,7 +367,7 @@ adubação no campo, ou se precisa de ajuste.
 **Resultado esperado:** N = 0 (FBN). P₂O₅ e K₂O aparecem como **"0
 kg/ha"** com o texto **"Reposição parcial — a critério do técnico"**.
 
-☐ Bateu (comportamento é o esperado) ☐ Precisa ajuste — Observações: ___________________________________
+☑ Bateu (comportamento é o esperado) ☐ Precisa ajuste — Observações: ___________________________________
 
 ---
 
@@ -390,7 +394,7 @@ kg/ha"** com o texto **"Reposição parcial — a critério do técnico"**.
   complementar**.
 - **Alerta de enxofre baixo**, recomendando 20 kg de S-SO4/ha.
 
-☐ Bateu ☐ Não bateu — Observações: ___________________________________
+☑ Bateu ☐ Não bateu — Observações: ___________________________________
 
 ---
 
@@ -418,7 +422,7 @@ kg/ha"** com o texto **"Reposição parcial — a critério do técnico"**.
 - **Alerta de molibdênio** (pH abaixo de 5,5 pode reduzir eficiência da
   fixação biológica).
 
-☐ Bateu ☐ Não bateu — Observações: ___________________________________
+☑ Bateu ☐ Não bateu — Observações: ___________________________________
 
 ---
 
@@ -448,7 +452,7 @@ kg/ha"** com o texto **"Reposição parcial — a critério do técnico"**.
   baixo, Manganês baixo, Cálcio baixo (sugere calagem), Magnésio baixo
   (sugere calcário dolomítico).
 
-☐ Bateu ☐ Não bateu — Observações: ___________________________________
+☑ Bateu ☐ Não bateu — Observações: ___________________________________
 
 ---
 
@@ -476,6 +480,6 @@ kg/ha"** com o texto **"Reposição parcial — a critério do técnico"**.
 - **P₂O₅ = 155 kg/ha**.
 - **K₂O = 110 kg/ha**, dividido em **80 semeadura + 30 complementar**.
 
-☐ Bateu ☐ Não bateu — Observações: ___________________________________
+☑ Bateu ☐ Não bateu — Observações: ___________________________________
 
 ---

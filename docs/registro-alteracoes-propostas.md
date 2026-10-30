@@ -30,7 +30,7 @@
 | 5 | Seleção explícita de método (SMP/Polinomial/Sat. por Bases) | **implementado** na branch `feature/selecao-metodo-calagem` (escopo reduzido, ver item) |
 | 6 | Campo de feedback/erro para o usuário, visível ao admin | **implementado** |
 | 7 | Levantamento de dados sensíveis / LGPD | em análise — achados de risco |
-| 8 | Bug no cálculo de adubação em cenário específico | diagnosticado — aguardando confirmação da coordenadora |
+| 8 | Bug no cálculo de adubação em cenário específico | diagnosticado — coordenadora validou os cenários (12/10/2026); desfecho a registrar |
 
 **Dependências entre itens:** 2 → 5 (ambos mexem no layout/agrupamento de
 campos da calculadora de calagem, fazem sentido desenhados juntos); 3 → 4
@@ -701,6 +701,11 @@ do lançamento.
 **Status:** diagnosticado — **nada alterado no código**; aguardando
 confirmação da coordenadora sobre as regras (ver "Perguntas")
 **Data:** 2026-09-28 (diagnóstico em 2026-10-02)
+
+> **Atualização (12/10/2026):** a coordenadora já validou todos os cenários do
+> plano de testes (informado pelo desenvolvedor). Falta registrar aqui o desfecho
+> dos 3 cenários divergentes (se o motor foi aceito como está ou se há regra a
+> mudar); `motorAdubacao.ts` não foi alterado desde 22/08.
 
 **Resumo:** a coordenadora passou 3 cenários com a dose esperada. O
 motor (`backend/src/services/motorAdubacao.ts`) diverge dela nos três.

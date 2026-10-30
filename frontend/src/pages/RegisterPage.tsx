@@ -1,21 +1,27 @@
-import { useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useEffect, useState } from 'react';
+import { useForm, useWatch } from 'react-hook-form';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { AlertCircle, Leaf, Loader2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { recuperarAnalisePendente } from '../services/pendencias';
+import { ibgeService } from '../services/ibge';
+import type { Estado, Municipio } from '../services/ibge';
 
 // ─── Schema ──────────────────────────────────────────────────────────────────
 
 const RegisterSchema = z.object({
   nome: z.string().min(3, 'Nome deve ter no mínimo 3 caracteres'),
   email: z.string().email('E-mail inválido'),
-  senha: z.string().min(6, 'Mínimo de 6 caracteres'),
   cidade: z.string().min(2, 'Cidade é obrigatória'),
   estado: z.string().length(2, 'Use a sigla do estado (Ex: RS)'),
   telefone: z.string().optional(),
+  senha: z.string().min(6, 'Mínimo de 6 caracteres'),
+  confirmarSenha: z.string().min(1, 'Confirme sua senha'),
+}).refine((d) => d.senha === d.confirmarSenha, {
+  message: 'As senhas não coincidem',
+  path: ['confirmarSenha'],
 });
 
 type RegisterFormValues = z.infer<typeof RegisterSchema>;
@@ -28,6 +34,8 @@ export function RegisterPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const [apiError, setApiError] = useState<string | null>(null);
+  const [estados, setEstados] = useState<Estado[]>([]);
+  const [municipiosCarregados, setMunicipios] = useState<Municipio[]>([]);
 
   // Redirecionamento após sucesso
   const from = (location.state as { from?: { pathname: string } })?.from?.pathname ?? '/dashboard';
@@ -35,23 +43,50 @@ export function RegisterPage() {
   const {
     register,
     handleSubmit,
+    control,
+    setValue,
+    setError,
     formState: { errors, isSubmitting },
   } = useForm<RegisterFormValues>({
     resolver: zodResolver(RegisterSchema),
     defaultValues: { 
       nome: '', 
       email: '', 
-      senha: '', 
       cidade: '', 
-      estado: '', 
-      telefone: '' 
+      estado: 'RS',
+      telefone: '',
+      senha: '',
+      confirmarSenha: '',
     },
   });
 
+  const ufSelecionada = useWatch({ control, name: 'estado' });
+  const municipios = ufSelecionada ? municipiosCarregados : [];
+
+  useEffect(() => {
+    ibgeService.getEstados().then(setEstados).catch(() => setApiError('Não foi possível carregar a lista de estados.'));
+  }, []);
+
+  useEffect(() => {
+    if (!ufSelecionada) return;
+    ibgeService.getMunicipios(ufSelecionada).then(setMunicipios).catch(() => setMunicipios([]));
+  }, [ufSelecionada]);
+
   const onSubmit = async (data: RegisterFormValues) => {
     setApiError(null);
+    if (!municipios.some((m) => m.nome === data.cidade)) {
+      setError('cidade', { message: 'Selecione uma cidade da lista' });
+      return;
+    }
     try {
-      await cadastrar(data);
+      await cadastrar({
+        nome: data.nome,
+        email: data.email,
+        senha: data.senha,
+        cidade: data.cidade,
+        estado: data.estado,
+        telefone: data.telefone,
+      });
 
       // Se havia uma análise calculada antes do cadastro, recupera e salva agora
       const recuperada = await recuperarAnalisePendente();
@@ -86,7 +121,6 @@ export function RegisterPage() {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-stone-800">Criar Conta</h1>
-            <p className="text-sm text-stone-500">Junte-se à Ibiferti</p>
           </div>
         </div>
 
@@ -160,6 +194,57 @@ export function RegisterPage() {
             ) : null}
           </div>
 
+          <div className="grid grid-cols-3 gap-4">
+            {/* Estado */}
+            <div className="col-span-1 space-y-1">
+              <label className="text-sm font-semibold text-stone-700">UF</label>
+              <select
+                {...register('estado', { onChange: () => setValue('cidade', '') })}
+                className={`w-full rounded-xl border px-4 py-3 outline-none transition-all disabled:opacity-50 ${
+                  errors.estado
+                    ? 'border-red-400 bg-red-50'
+                    : 'border-stone-200 bg-stone-50 focus:border-green-500 focus:bg-white'
+                }`}
+              >
+                <option value="">UF</option>
+                {estados.map((estado) => (
+                  <option key={estado.id} value={estado.sigla}>{estado.sigla}</option>
+                ))}
+              </select>
+              {errors.estado ? (
+                <span className="flex items-center gap-1 text-xs text-red-500">
+                  <AlertCircle size={11} /> {errors.estado.message}
+                </span>
+              ) : null}
+            </div>
+
+            {/* Cidade */}
+            <div className="col-span-2 space-y-1">
+              <label className="text-sm font-semibold text-stone-700">Cidade</label>
+              <input
+                type="text"
+                list="lista-municipios-cadastro"
+                autoComplete="off"
+                disabled={municipios.length === 0}
+                placeholder={ufSelecionada ? 'Digite para buscar...' : 'Selecione o Estado'}
+                {...register('cidade')}
+                className={`w-full rounded-xl border px-4 py-3 outline-none transition-all disabled:opacity-50 ${
+                  errors.cidade
+                    ? 'border-red-400 bg-red-50'
+                    : 'border-stone-200 bg-stone-50 focus:border-green-500 focus:bg-white'
+                }`}
+              />
+              <datalist id="lista-municipios-cadastro">
+                {municipios.map((m) => <option key={m.id} value={m.nome} />)}
+              </datalist>
+              {errors.cidade ? (
+                <span className="flex items-center gap-1 text-xs text-red-500">
+                  <AlertCircle size={11} /> {errors.cidade.message}
+                </span>
+              ) : null}
+            </div>
+          </div>
+
           {/* Senha */}
           <div className="space-y-1">
             <label className="text-sm font-semibold text-stone-700">Senha</label>
@@ -180,46 +265,24 @@ export function RegisterPage() {
             ) : null}
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
-            {/* Cidade */}
-            <div className="col-span-2 space-y-1">
-              <label className="text-sm font-semibold text-stone-700">Cidade</label>
-              <input
-                type="text"
-                {...register('cidade')}
-                className={`w-full rounded-xl border px-4 py-3 outline-none transition-all ${
-                  errors.cidade
-                    ? 'border-red-400 bg-red-50'
-                    : 'border-stone-200 bg-stone-50 focus:border-green-500 focus:bg-white'
-                }`}
-              />
-              {errors.cidade ? (
-                <span className="flex items-center gap-1 text-xs text-red-500">
-                  <AlertCircle size={11} /> {errors.cidade.message}
-                </span>
-              ) : null}
-            </div>
-
-            {/* Estado */}
-            <div className="col-span-1 space-y-1">
-              <label className="text-sm font-semibold text-stone-700">UF</label>
-              <input
-                type="text"
-                placeholder="RS"
-                maxLength={2}
-                {...register('estado')}
-                className={`w-full rounded-xl border px-4 py-3 outline-none transition-all uppercase ${
-                  errors.estado
-                    ? 'border-red-400 bg-red-50'
-                    : 'border-stone-200 bg-stone-50 focus:border-green-500 focus:bg-white'
-                }`}
-              />
-              {errors.estado ? (
-                <span className="flex items-center gap-1 text-xs text-red-500">
-                  <AlertCircle size={11} /> {errors.estado.message}
-                </span>
-              ) : null}
-            </div>
+          {/* Confirmar senha */}
+          <div className="space-y-1">
+            <label className="text-sm font-semibold text-stone-700">Confirme sua senha</label>
+            <input
+              type="password"
+              autoComplete="new-password"
+              {...register('confirmarSenha')}
+              className={`w-full rounded-xl border px-4 py-3 outline-none transition-all ${
+                errors.confirmarSenha
+                  ? 'border-red-400 bg-red-50'
+                  : 'border-stone-200 bg-stone-50 focus:border-green-500 focus:bg-white'
+              }`}
+            />
+            {errors.confirmarSenha ? (
+              <span className="flex items-center gap-1 text-xs text-red-500">
+                <AlertCircle size={11} /> {errors.confirmarSenha.message}
+              </span>
+            ) : null}
           </div>
 
           <button
