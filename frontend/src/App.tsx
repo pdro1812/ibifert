@@ -12,6 +12,7 @@ import { FeedbackPage } from './pages/FeedbackPage';
 import { MonitoramentoPage } from './pages/MonitoramentoPage';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
+import { MinhaContaPage } from './pages/MinhaContaPage';
 import { FazendasPage } from './pages/FazendasPage';
 import { NovaAnalisePage } from './pages/NovaAnalisePage';
 import { HistoricoAnalisesPage } from './pages/HistoricoAnalisesPage';
@@ -50,6 +51,7 @@ export default function App() {
               <Route path="/dashboard" element={<FazendasPage />} />
               <Route path="/dashboard/talhao/:id" element={<TalhaoDetalhesPage />} />
               <Route path="/dashboard/nova-analise" element={<NovaAnalisePage />} />
+              <Route path="/conta" element={<MinhaContaPage />} />
               
               {/* O histórico só é visível para PRODUTORES aqui. Admin usa a tela de Usuários */}
               <Route element={<ProtectedRoute roles={['PRODUTOR']} />}>

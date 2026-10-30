@@ -534,6 +534,7 @@ export function CalculadoraPage() {
                 {...register('identificacao')}
                 className="w-full rounded-xl border border-stone-200 bg-white px-4 py-3 shadow-sm outline-none focus:border-green-500"
               />
+              <p className="text-[11px] text-stone-400">Não inclua dados pessoais (nome, CPF, telefone) — use só um apelido do talhão ou da amostra.</p>
             </div>
           </div>
 

@@ -24,14 +24,30 @@ Fluxo (`authRoutes.ts:22-68`):
 4. Insere usuário — `role` sempre nasce `PRODUTOR` (default da coluna,
    `schema.ts:28`; não há como se auto-cadastrar como `ADMIN` pela rota
    pública).
-5. Emite JWT (`{ id, role }`, expira em `7d`) e retorna `201` com
-   `{ mensagem, token, usuario: { id, nome, email } }` — **nota**: a
-   resposta do registro não inclui `role`, diferente da resposta do login
-   (§1.2); o frontend assume `PRODUTOR` implicitamente até o próximo
-   login/reload.
+5. Emite JWT (`{ id, role }`, expira em `7d`), grava no cookie de sessão
+   (§1.3) e retorna `201` com `{ mensagem, usuario: { id, nome, email, role } }`
+   — o token **não** vai no corpo.
 
-Rate limit: `20 requisições / 15 min` por IP, compartilhado entre
-`/register` e `/login` (`limitadorAuth`, `authRoutes.ts:13-19`).
+Senha (desde 30/10/2026): mínimo 8 caracteres, com maiúscula, minúscula,
+número e caractere especial (`SenhaForteSchema` em `authSchema.ts`,
+espelhado em `frontend/src/schemas/senhaSchema.ts`, que também alimenta o
+checklist ao vivo do cadastro). O login não aplica a regra, para quem já
+tinha senha antiga continuar entrando.
+
+Rate limit (`middlewares/rateLimit.ts`, contadores em memória):
+| Rota | Limite |
+|---|---|
+| toda `/api` | 1000 req / 15 min por IP |
+| `POST /auth/login` | 20 falhas / 15 min por IP **e** 5 falhas / 15 min por conta (e-mail) — sucessos não contam |
+| `POST /auth/register` | 5 / hora por IP |
+| `DELETE /auth/conta` | 5 / hora por IP |
+| `POST /feedback` | 10 / hora por IP |
+| `POST /analises/calcular`, `POST /adubacao/calcular` | 100 / 15 min por IP |
+
+O IP real vem do `X-Forwarded-For` que o nginx envia; o Express só confia
+nesse header quando a conexão vem de rede privada/loopback (`trust proxy`
+em `server.ts`, sobrescrevível por `TRUST_PROXY`). Antes disso, todos os
+clientes apareciam com o IP do nginx e o limite era global.
 
 ### 1.2 Login (`POST /api/auth/login`)
 
@@ -43,13 +59,23 @@ Fluxo (`authRoutes.ts:71-104`):
 2. Usuário não existe **ou** senha não bate → mesma mensagem genérica
    `401 "Credenciais inválidas."` nos dois casos (não revela qual dos
    dois falhou).
-3. Emite JWT (`{ id, role }`, expira em `7d`) e retorna `200` com
-   `{ token, usuario: { id, nome, email, role } }`.
+3. Emite JWT (`{ id, role }`, expira em `7d`), grava no cookie de sessão
+   e retorna `200` com `{ usuario: { id, nome, email, role } }`. Quando o
+   e-mail não existe, compara com um hash fictício para o tempo de
+   resposta não revelar se a conta existe.
+
+Outras rotas: `POST /auth/logout` (apaga o cookie), `GET /auth/me`
+(devolve o usuário da sessão — usado para restaurar o login ao recarregar)
+e `DELETE /auth/conta` (pede a senha; apaga o usuário e suas fazendas,
+talhões e análises numa transação; bloqueado para `ADMIN`).
 
 ### 1.3 Token e middleware (`authMiddleware.ts`)
 
-- `verificarToken`: exige header `Authorization: Bearer <token>`. Sem
-  header → `401`. Token inválido/expirado → `401`. Se válido, popula
+- Sessão em cookie `ibiferti_sessao` (`httpOnly`, `SameSite=Strict`,
+  `Secure` em produção, `Path=/api`, 7 dias) — o JavaScript da página não
+  consegue ler o token (proteção contra roubo por XSS).
+- `verificarToken`: lê o token do cookie (ou, como alternativa para
+  scripts, do header `Authorization: Bearer <token>`). Sem token → `401`. Token inválido/expirado → `401`. Se válido, popula
   `req.userId` e `req.userRole` a partir do payload do JWT (não há
   consulta ao banco para confirmar que o usuário ainda existe/não foi
   removido — o token é a única fonte de verdade até expirar ou até o
@@ -63,19 +89,15 @@ Fluxo (`authRoutes.ts:71-104`):
 
 ### 1.4 Frontend — `AuthContext.tsx` + `ProtectedRoute.tsx`
 
-- Sessão vive em `localStorage`: chaves `@ibiferti:token` e
-  `@ibiferti:user` (objeto `{id, nome, email, role}` serializado).
-- Ao carregar a aplicação, `AuthContext` lê o `localStorage` uma vez
-  (`useEffect` em `AuthContext.tsx:46-62`) e popula `user` — **não
-  valida o token com o backend nessa reidratação** (se o token expirou
-  entre sessões, o app mostra o usuário como logado até a primeira
-  chamada de API falhar com 401).
-- `services/api.ts` (interceptor de request) injeta
-  `Authorization: Bearer <token>` em toda chamada automaticamente
-  (`api.ts:24-37`); o interceptor de resposta (`api.ts:39-51`) captura
-  qualquer `401` de qualquer chamada, limpa o `localStorage` e força
-  redirect para `/login` — esse é o mecanismo real de "logout por token
-  expirado", não uma checagem proativa de expiração.
+- Desde 30/10/2026 nada de sessão fica no `localStorage` (as chaves
+  antigas `@ibiferti:token`/`@ibiferti:user` são apagadas ao carregar
+  `api.ts`). O navegador envia o cookie sozinho (mesma origem via `/api`).
+- Ao carregar a aplicação, `AuthContext` chama `GET /auth/me` e popula
+  `user` com a resposta (ou `null`) — a sessão é validada no backend.
+- O interceptor de resposta de `api.ts` redireciona para `/login` em
+  qualquer `401`, exceto em `/auth/me`, `/auth/login` e `/auth/conta`,
+  onde o 401 é esperado.
+- Página `/conta` ("Minha Conta"): dados do usuário e exclusão da conta.
 - `ProtectedRoute.tsx`: se `isLoading` (ainda lendo storage), mostra
   spinner; se não logado, redireciona para `/login` guardando a rota de
   origem (`location.state.from`, usado para voltar após login); se

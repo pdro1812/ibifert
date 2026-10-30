@@ -6,8 +6,10 @@ services:
     image: pdros1812/ibiferti-backend:latest
     container_name: ibiferti-api
     restart: unless-stopped
+    # O nginx acessa o backend pela rede interna (backend:3000); a porta fica
+    # aberta só para o próprio servidor, não para a internet.
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     environment:
       - NODE_ENV=production
       - DATABASE_URL=postgresql://admin:***REMOVIDO***@db:5432/ibifertydb

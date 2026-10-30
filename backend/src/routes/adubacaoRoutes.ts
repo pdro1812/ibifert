@@ -7,11 +7,12 @@ import {
   listarAnalisesAdubacaoPorUsuario
 } from '../database/adubacao';
 import { verificarToken, AuthRequest } from '../middlewares/authMiddleware';
+import { limitadorCalculoPublico } from '../middlewares/rateLimit';
 
 export const adubacaoRoutes = Router();
 
 // Endpoint para calcular e salvar análise de adubação
-adubacaoRoutes.post('/calcular', async (req: AuthRequest, res) => {
+adubacaoRoutes.post('/calcular', limitadorCalculoPublico, async (req: AuthRequest, res) => {
   try {
     const dadosForm = req.body;
     

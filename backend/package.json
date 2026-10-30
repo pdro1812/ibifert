@@ -9,7 +9,7 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "build": "tsc",
-    "test": "node --require ts-node/register --test src/utils/calagem.test.ts src/utils/adubacao.test.ts"
+    "test": "node --require ts-node/register --test src/utils/calagem.test.ts src/utils/adubacao.test.ts src/utils/auth.test.ts"
   },
   "keywords": [],
   "author": "",
