@@ -8,6 +8,7 @@ import {
   Home,
   Database,
   MessageSquareWarning,
+  UserCog,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { Navbar } from '../components/Navbar';
@@ -17,6 +18,7 @@ const PRODUTOR_SIDEBAR_ITEMS = [
   { to: '/dashboard', icon: Home, label: 'Propriedades', end: true },
   { to: '/dashboard/nova-analise', icon: FlaskConical, label: 'Inserção Rápida' },
   { to: '/historico', icon: Database, label: 'Histórico' },
+  { to: '/conta', icon: UserCog, label: 'Minha Conta' },
 ];
 
 const ADMIN_SIDEBAR_ITEMS = [
@@ -24,6 +26,7 @@ const ADMIN_SIDEBAR_ITEMS = [
   { to: '/admin/usuarios', icon: Users, label: 'Usuários' },
   { to: '/admin/analises', icon: Database, label: 'Amostras' },
   { to: '/admin/feedback', icon: MessageSquareWarning, label: 'Feedback' },
+  { to: '/conta', icon: UserCog, label: 'Minha Conta' },
 ];
 
 /**

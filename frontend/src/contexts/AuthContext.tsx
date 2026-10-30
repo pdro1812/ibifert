@@ -26,7 +26,8 @@ interface AuthContextData {
   isLoading: boolean;
   login: (email: string, senha: string) => Promise<User>;
   cadastrar: (data: RegisterData) => Promise<User>;
-  logout: () => void;
+  logout: () => Promise<void>;
+  excluirConta: (senha: string) => Promise<void>;
 }
 
 interface AuthProviderProps {
@@ -41,62 +42,42 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Re-hidratação: Busca o usuário e token do localStorage ao carregar a página
+  // Re-hidratação: o token fica num cookie httpOnly (o JavaScript não o lê),
+  // então pergunta ao backend quem é o usuário da sessão atual.
   useEffect(() => {
-    const loadStorageData = () => {
-      const storedToken = localStorage.getItem('@ibiferti:token');
-      const storedUser = localStorage.getItem('@ibiferti:user');
-
-      if (storedToken && storedUser) {
-        setUser(JSON.parse(storedUser));
-      }
-      
-      // O interceptor do axios em api.ts já vai pegar o token do localStorage
-      // automaticamente para as próximas requisições.
-      
-      setIsLoading(false);
-    };
-
-    loadStorageData();
+    api.get<{ usuario: User }>('/auth/me')
+      .then((response) => setUser(response.data.usuario))
+      .catch(() => setUser(null))
+      .finally(() => setIsLoading(false));
   }, []);
 
   // ─── Funções de Autenticação ────────────────────────────────────────────────
 
   const login = async (email: string, senha: string) => {
-    // A rota /api/auth/login foi a que criamos no backend Express
-    const response = await api.post('/auth/login', { email, senha });
-
-    const { token, usuario } = response.data;
-
-    // Salva os dados no navegador
-    localStorage.setItem('@ibiferti:token', token);
-    localStorage.setItem('@ibiferti:user', JSON.stringify(usuario));
-
-    // Atualiza o estado global da aplicação
-    setUser(usuario);
-    return usuario;
+    // O backend grava o cookie de sessão na resposta
+    const response = await api.post<{ usuario: User }>('/auth/login', { email, senha });
+    setUser(response.data.usuario);
+    return response.data.usuario;
   };
 
   const cadastrar = async (data: RegisterData) => {
-    // Assumindo que a rota de criação no backend seja /api/auth/register
-    const response = await api.post('/auth/register', data);
-
-    // Assumindo que o backend já retorna o token e o usuário logado ao criar a conta
-    const { token, usuario } = response.data;
-
-    // Salva os dados no navegador (já deixa o usuário logado)
-    localStorage.setItem('@ibiferti:token', token);
-    localStorage.setItem('@ibiferti:user', JSON.stringify(usuario));
-
-    // Atualiza o estado global da aplicação
-    setUser(usuario);
-    return usuario;
+    // O cadastro já deixa o usuário logado (cookie de sessão na resposta)
+    const response = await api.post<{ usuario: User }>('/auth/register', data);
+    setUser(response.data.usuario);
+    return response.data.usuario;
   };
 
-  const logout = () => {
-    // Limpa o navegador e o estado
-    localStorage.removeItem('@ibiferti:token');
-    localStorage.removeItem('@ibiferti:user');
+  const logout = async () => {
+    setUser(null);
+    try {
+      await api.post('/auth/logout');
+    } catch {
+      // sem conexão: o cookie expira sozinho; o estado local já foi limpo
+    }
+  };
+
+  const excluirConta = async (senha: string) => {
+    await api.delete('/auth/conta', { data: { senha } });
     setUser(null);
   };
 
@@ -111,6 +92,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         login,
         cadastrar,
         logout,
+        excluirConta,
       }}
     >
       {children}
@@ -123,10 +105,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
 // eslint-disable-next-line react-refresh/only-export-components
 export function useAuth() {
   const context = useContext(AuthContext);
-  
+
   if (!context) {
     throw new Error('useAuth deve ser usado dentro de um AuthProvider');
   }
-  
+
   return context;
 }

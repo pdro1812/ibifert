@@ -1,5 +1,5 @@
 import { Link, NavLink } from 'react-router-dom';
-import { Leaf, LogOut, MessageSquareWarning } from 'lucide-react';
+import { Leaf, LogOut, MessageSquareWarning, UserCog } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 export function Navbar() {
@@ -55,6 +55,14 @@ export function Navbar() {
                 className="hidden md:block text-sm font-bold text-stone-700 bg-stone-100 px-4 py-2 rounded-xl hover:bg-green-50 hover:text-green-700 transition-all"
               >
                 Meu Painel
+              </Link>
+              <Link
+                to="/conta"
+                className="p-2 text-stone-400 hover:text-green-600 transition-colors"
+                title="Minha conta"
+                aria-label="Minha conta"
+              >
+                <UserCog size={20} />
               </Link>
               <button
                 onClick={logout}

@@ -1,5 +1,4 @@
 import { Router } from 'express';
-import jwt from 'jsonwebtoken';
 import { executarMotorCalagem } from '../services/motorCalagem';
 import { validarEntrada } from '../services/calculadoraCalagem';
 import { CalagemValidationError } from '../schemas/calagemSchema';
@@ -7,30 +6,18 @@ import { eq, count, sql, inArray, desc } from 'drizzle-orm';
 import { db } from '../database/db';
 import { analises, analisesAdubacao } from '../database/schema';
 import { salvarAnalise, listarAnalises, salvarLoteAnalises } from '../database/analises';
-import { verificarToken, AuthRequest } from '../middlewares/authMiddleware';
-import { JWT_SECRET } from '../config/env';
+import { verificarToken, obterUsuarioOpcional, AuthRequest } from '../middlewares/authMiddleware';
+import { limitadorCalculoPublico } from '../middlewares/rateLimit';
 
 export const analisesRoutes = Router();
 
-analisesRoutes.post('/calcular', async (req: AuthRequest, res) => {
+analisesRoutes.post('/calcular', limitadorCalculoPublico, async (req: AuthRequest, res) => {
   try {
     const entrada = validarEntrada(req.body);
     const resultado = executarMotorCalagem(entrada);
 
-    // Se o usuário estiver logado, o token será validado (opcionalmente)
-    // Para simplificar, vamos tentar extrair o userId se houver token
-    // Se quiser tornar OBRIGATÓRIO, use o middleware 'verificarToken' antes da rota.
-    // Como o motor também é público, vamos tentar ler o header manualmente ou permitir opcional.
-    
-    let usuario_id = null;
-    const authHeader = req.headers.authorization;
-    if (authHeader) {
-      try {
-        const [, token] = authHeader.split(' ');
-        const decoded = jwt.verify(token, JWT_SECRET) as { id: string };
-        usuario_id = decoded.id;
-      } catch (e) { /* ignore */ }
-    }
+    // Rota pública: associa a análise ao usuário só se houver sessão válida
+    const usuario_id = obterUsuarioOpcional(req);
 
     salvarAnalise({
       entrada,

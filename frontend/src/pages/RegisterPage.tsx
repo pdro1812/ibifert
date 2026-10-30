@@ -3,11 +3,12 @@ import { useForm, useWatch } from 'react-hook-form';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { AlertCircle, Leaf, Loader2 } from 'lucide-react';
+import { AlertCircle, Check, Circle, Leaf, Loader2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { recuperarAnalisePendente } from '../services/pendencias';
 import { ibgeService } from '../services/ibge';
 import type { Estado, Municipio } from '../services/ibge';
+import { REGRAS_SENHA, SenhaForteSchema } from '../schemas/senhaSchema';
 
 // ─── Schema ──────────────────────────────────────────────────────────────────
 
@@ -17,7 +18,7 @@ const RegisterSchema = z.object({
   cidade: z.string().min(2, 'Cidade é obrigatória'),
   estado: z.string().length(2, 'Use a sigla do estado (Ex: RS)'),
   telefone: z.string().optional(),
-  senha: z.string().min(6, 'Mínimo de 6 caracteres'),
+  senha: SenhaForteSchema,
   confirmarSenha: z.string().min(1, 'Confirme sua senha'),
 }).refine((d) => d.senha === d.confirmarSenha, {
   message: 'As senhas não coincidem',
@@ -61,6 +62,7 @@ export function RegisterPage() {
   });
 
   const ufSelecionada = useWatch({ control, name: 'estado' });
+  const senhaDigitada = useWatch({ control, name: 'senha' }) ?? '';
   const municipios = ufSelecionada ? municipiosCarregados : [];
 
   useEffect(() => {
@@ -251,6 +253,7 @@ export function RegisterPage() {
             <input
               type="password"
               autoComplete="new-password"
+              aria-describedby="requisitos-senha"
               {...register('senha')}
               className={`w-full rounded-xl border px-4 py-3 outline-none transition-all ${
                 errors.senha
@@ -258,6 +261,21 @@ export function RegisterPage() {
                   : 'border-stone-200 bg-stone-50 focus:border-green-500 focus:bg-white'
               }`}
             />
+            <ul id="requisitos-senha" className="space-y-1 pt-1" aria-live="polite">
+              {REGRAS_SENHA.map((regra) => {
+                const ok = regra.valida(senhaDigitada);
+                return (
+                  <li
+                    key={regra.id}
+                    className={`flex items-center gap-1.5 text-xs ${ok ? 'text-green-600' : 'text-stone-400'}`}
+                  >
+                    {ok ? <Check size={13} strokeWidth={3} /> : <Circle size={11} />}
+                    {regra.texto}
+                    <span className="sr-only">{ok ? '(atendido)' : '(pendente)'}</span>
+                  </li>
+                );
+              })}
+            </ul>
             {errors.senha ? (
               <span className="flex items-center gap-1 text-xs text-red-500">
                 <AlertCircle size={11} /> {errors.senha.message}

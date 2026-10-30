@@ -58,8 +58,14 @@ export function LoginPage() {
       }
 
       navigate(from, { replace: true });
-    } catch {
-      setApiError('Credenciais inválidas. Tente novamente.');
+    } catch (error) {
+      // 429 = bloqueado pelo limite de tentativas: mostra a mensagem do servidor
+      const resposta = (error as { response?: { status?: number; data?: { erro?: string } } }).response;
+      setApiError(
+        resposta?.status === 429 && resposta.data?.erro
+          ? resposta.data.erro
+          : 'Credenciais inválidas. Tente novamente.'
+      );
     }
   };
 

@@ -22,29 +22,26 @@ export const api = axios.create({
   },
 });
 
-api.interceptors.request.use(
-  (config) => {
-    // Pega o token que salvaremos no login
-    const token = localStorage.getItem('@ibiferti:token');
-    
-    if (token && config.headers) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
+// A sessão vai num cookie httpOnly enviado automaticamente pelo navegador
+// (mesma origem via /api) — o token não fica mais acessível ao JavaScript.
+// Remove o token antigo de quem logou antes dessa mudança.
+try {
+  localStorage.removeItem('@ibiferti:token');
+  localStorage.removeItem('@ibiferti:user');
+} catch {
+  // armazenamento indisponível (modo privado, testes) — nada a limpar
+}
+
+// Rotas em que um 401 é resposta esperada e não deve forçar ir para o login
+const ROTAS_401_ESPERADO = ['/auth/me', '/auth/login', '/auth/conta'];
 
 api.interceptors.response.use(
   (response) => {
     return response;
   },
   (error) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem('@ibiferti:token');
-      localStorage.removeItem('@ibiferti:user');
+    const url: string = error.config?.url ?? '';
+    if (error.response?.status === 401 && !ROTAS_401_ESPERADO.some((rota) => url.startsWith(rota))) {
       window.location.href = '/login';
     }
     return Promise.reject(error);
