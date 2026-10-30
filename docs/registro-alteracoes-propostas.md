@@ -29,8 +29,9 @@
 | 4 | Inserção Rápida: gerar calagem+adubação juntas | **implementado** na branch `feature/insercao-rapida-ambos` |
 | 5 | Seleção explícita de método (SMP/Polinomial/Sat. por Bases) | **implementado** na branch `feature/selecao-metodo-calagem` (escopo reduzido, ver item) |
 | 6 | Campo de feedback/erro para o usuário, visível ao admin | **implementado** |
-| 7 | Levantamento de dados sensíveis / LGPD | parcial — CPF removido (05/10/2026); restam JWT em `localStorage` e exclusão de conta |
+| 7 | Levantamento de dados sensíveis / LGPD | **implementado** — CPF removido (05/10); sessão em cookie httpOnly, exclusão de conta e aviso no campo identificação (30/10/2026) |
 | 8 | Bug no cálculo de adubação em cenário específico | **implementado** (30/10/2026) — as 3 alterações aplicadas; os 3 cenários batem com a coordenadora |
+| 9 | Tirar da tela o campo "Densidade de plantas" (e decidir a opção "Total") | proposto — **pendente de decisão** com a coordenadora |
 
 **Dependências entre itens:** 2 → 5 (ambos mexem no layout/agrupamento de
 campos da calculadora de calagem, fazem sentido desenhados juntos); 3 → 4
@@ -700,6 +701,18 @@ do lançamento.
 > abertos: JWT de 7 dias em `localStorage` (risco 6), ausência de rota de
 > exclusão de conta / cascade real (risco 7) e o campo livre
 > `identificacao` nas análises.
+>
+> **Atualização (30/10/2026, mesmo dia):** os três pontos foram tratados:
+> (a) a sessão saiu do `localStorage` e foi para um cookie `httpOnly`
+> (`SameSite=Strict`, `Secure` em produção), com `GET /auth/me` para
+> restaurar o login e `POST /auth/logout`; (b) nova página "Minha Conta"
+> (`/conta`) com `DELETE /api/auth/conta` — pede a senha e apaga, numa
+> transação, o usuário e suas fazendas, talhões e análises (calagem e
+> adubação); administradores não podem se autoexcluir; (c) o campo
+> "Identificação" ganhou um aviso para não incluir dados pessoais. As FKs
+> continuam "lógicas" (sem constraint no Postgres) — a exclusão em cascata
+> é feita pelo código da rota. Junto vieram senha forte no cadastro e o
+> reforço do rate limit (ver `docs/ref-plataforma.md` §1.1).
 
 ---
 
@@ -865,6 +878,38 @@ resposta dela.
 **Próximos passos:** alinhar as perguntas acima com a coordenadora;
 após a resposta, aplicar a alteração 1 (e 2/3 conforme resposta),
 atualizar testes e documentos listados e revalidar os 3 cenários.
+
+---
+
+### 9. Tirar da tela o campo "Densidade de plantas" (e decidir a opção "Total")
+
+**Status:** proposto — **pendente de decisão** (ver com a coordenadora)
+**Data:** 2026-10-30
+
+**Contexto:** a correção do item 8 removeu do motor o bônus de N por
+densidade de plantas do milho e fez a correção "Total" usar a mesma tabela
+do "Gradual". Desde então, os dois campos continuam no formulário mas
+**não alteram mais nenhum resultado** — o usuário pode preencher achando
+que influencia a dose.
+
+**O que decidir:**
+1. Remover o campo "Densidade de plantas" da tela (milho), ou mantê-lo
+   só como informação/registro?
+2. A opção "Tipo de correção: Total" deve sair, ou a coordenadora quer
+   uma regra própria para ela (qual)?
+3. No aviso `P_MUITO_ALTO_REP`, continua mostrando a reposição por
+   exportação (que difere da dose recomendada) ou some? (pergunta 5 do
+   item 8)
+
+**Onde mexer quando decidido:** `frontend/src/pages/AdubacaoPage.tsx`
+(campo `densidade_plantas` ~linha 434, preset A3 ~linha 187, seletor de
+tipo de correção), `frontend/src/pages/CalculadoraCompletaPage.tsx`
+(~linha 986), `frontend/src/schemas/adubacaoSchema.ts` e
+`backend/src/schemas/adubacaoSchema.ts` (campos `densidade_plantas` e
+`tipo_correcao`), colunas em `backend/src/database/schema.ts`
+(`tiposCorrecaoEnum`; remover coluna exige migration — dá para manter a
+coluna e só tirar da tela), Inserção Rápida (`NovaAnalisePage.tsx`, se
+tiver as colunas), PDF de adubação e `docs/ref-adubacao.md`.
 
 ---
 
