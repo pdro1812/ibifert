@@ -30,7 +30,7 @@
 | 5 | Seleção explícita de método (SMP/Polinomial/Sat. por Bases) | **implementado** na branch `feature/selecao-metodo-calagem` (escopo reduzido, ver item) |
 | 6 | Campo de feedback/erro para o usuário, visível ao admin | **implementado** |
 | 7 | Levantamento de dados sensíveis / LGPD | em análise — achados de risco |
-| 8 | Bug no cálculo de adubação em cenário específico | diagnosticado — coordenadora validou os cenários (12/10/2026); desfecho a registrar |
+| 8 | Bug no cálculo de adubação em cenário específico | **implementado** (30/10/2026) — as 3 alterações aplicadas; os 3 cenários batem com a coordenadora |
 
 **Dependências entre itens:** 2 → 5 (ambos mexem no layout/agrupamento de
 campos da calculadora de calagem, fazem sentido desenhados juntos); 3 → 4
@@ -698,9 +698,23 @@ do lançamento.
 
 ### 8. Bug no cálculo de adubação em cenário específico
 
-**Status:** diagnosticado — **nada alterado no código**; aguardando
-confirmação da coordenadora sobre as regras (ver "Perguntas")
+**Status:** **implementado** em 2026-10-30 (branch
+`fix/adubacao-valores-coordenadora`)
 **Data:** 2026-09-28 (diagnóstico em 2026-10-02)
+
+> **Desfecho (30/10/2026):** por decisão do desenvolvedor ("garantir que os
+> valores fiquem iguais aos da coordenadora"), as **3 alterações candidatas
+> foram aplicadas** em `motorAdubacao.ts`: (1) muito alto = tabela + ajuste
+> de rendimento, para P e K, nos dois cultivos; (2) "Total" usa a mesma
+> tabela por classe do Gradual (`TABELA_CORRECAO_TOTAL` removida); (3) sem
+> bônus de densidade no milho. Os 3 cenários agora dão exatamente
+> **0/30/125**, **120/230/160** e **0/45/75**, com testes em
+> `backend/src/utils/adubacao.test.ts` — que passou a rodar no `npm test`
+> do backend e no CI. Docs `03-calculo-adubacao.md`, `ref-adubacao.md` e
+> o plano de testes (A3, A4) atualizados. Ficam em aberto as perguntas 5
+> (o alerta `P_MUITO_ALTO_REP` continua mostrando a reposição por
+> exportação, que difere da dose) e o que fazer com a opção "Total" e o
+> campo de densidade na tela, que não alteram mais o resultado.
 
 > **Atualização (12/10/2026):** a coordenadora já validou todos os cenários do
 > plano de testes (informado pelo desenvolvedor). Falta registrar aqui o desfecho

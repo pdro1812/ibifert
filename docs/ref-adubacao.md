@@ -95,11 +95,10 @@ entrada validada
   │
   ├─ cálculo de N                            (§4.3)
   │     ├─ cultura com FBN (bnf=true)? → N = 0
-  │     └─ senão: base por classe MO (± cultura antecedente) + ajuste por produtividade + milho/densidade
+  │     └─ senão: base por classe MO (± cultura antecedente) + ajuste por produtividade
   │
   ├─ cálculo de P2O5                         (§4.4)
-  │     ├─ classe muito_alto? → 0 (1º cultivo) ou "reposição parcial" sem valor (2º cultivo)
-  │     └─ senão: tabela por cultura/classe/cultivo, ou Correção Total se aplicável
+  │     └─ tabela por cultura/classe/cultivo + ajuste de rendimento (todas as classes, Gradual ou Total)
   │
   ├─ cálculo de K2O                          (§4.4, mesma estrutura de P2O5)
   │     └─ se dose > 80 kg/ha → separa em semeadura (80) + complementar (excedente)
@@ -171,8 +170,9 @@ doseN = nBase + ajuste     (ajuste só soma se rendimento > referência; não h�
 ```
 
 Ajustes adicionais:
-- **Milho, alta densidade**: `+10 kg N` a cada 5.000 plantas/ha acima de
-  65.000 (`Math.floor((densidade - 65000) / 5000) * 10`).
+- **Milho, densidade de plantas**: não altera a dose (o bônus de +10 kg N
+  a cada 5.000 plantas acima de 65.000 foi removido em 30/10/2026 —
+  cenário A3 da coordenadora).
 - **Alertas informativos** (não mudam a dose): `rendimento_esperado > 10`
   t/ha → sugere considerar +20-40% a critério técnico; `cevada` com
   `finalidade_cevada = 'cervejeira_malte_unico'` → alerta de não aplicar N
@@ -189,27 +189,19 @@ igual a `P2O5` e `K2O` (tabelas diferentes: `TABELA_PK_CULTURA[cultura].P2O5`
 / `.K2O`).
 
 ```
-classe do nutriente == muito_alto?
-  ├─ 1º cultivo → dose = 0
-  │              (+ alerta com "reposição estimada" = exportação da cultura * rendimento_esperado, informativo)
-  └─ 2º cultivo → tipo = "Reposição parcial — a critério do técnico"
-                  dose PERMANECE 0 (nenhum valor numérico atribuído — ver nota)
-
-classe != muito_alto:
-  base = TABELA_PK_CULTURA[cultura][nutriente][classe][num_cultivo]
-  ajusteRend = rendimento_esperado > rend_ref_t
-                 ? (rendimento_esperado - rend_ref_t) * fator_adic_t
-                 : 0
-
-  tipo_correcao == 'Total' E 1º cultivo E classe em {muito_baixo,baixo,medio}?
-    dose = TABELA_CORRECAO_TOTAL[classe] + manutencao_da_cultura + max(0, ajusteRend)
-    tipo = "Corretiva Total + Manutenção"
-  senão:
-    dose = base + max(0, ajusteRend)
-    tipo = conforme tabela de rótulos abaixo
+base = TABELA_PK_CULTURA[cultura][nutriente][classe][num_cultivo]   (todas as classes, inclusive muito_alto)
+ajusteRend = max(0, rendimento_esperado - rend_ref_t) * fator_adic_t
+dose = base + ajusteRend
+tipo = conforme tabela de rótulos abaixo
 ```
 
-Rótulos de `tipo` quando não é "Total" explícito:
+Desde 30/10/2026 não há ramo especial para `muito_alto` nem para
+`tipo_correcao = 'Total'` (a antiga `TABELA_CORRECAO_TOTAL`/TAB-04 foi
+removida) — regra validada pela coordenadora (item 8 do registro). P
+muito alto no 1º cultivo ainda gera o alerta informativo
+`P_MUITO_ALTO_REP` (exportação × rendimento).
+
+Rótulos de `tipo`:
 | Classe | Nº cultivo | `tipo_adubacao` |
 |---|---|---|
 | muito_baixo / baixo | 1º | "Corretiva Gradual 2/3 + Manutenção" |
@@ -217,6 +209,7 @@ Rótulos de `tipo` quando não é "Total" explícito:
 | médio | 1º | "Corretiva Total + Manutenção" |
 | médio | 2º | "Manutenção" |
 | alto | 1º ou 2º | "Manutenção" |
+| muito alto | 1º ou 2º | "Sem Aplicação (Muito Alto)" se a dose for 0, senão "Reposição (Muito Alto)" |
 
 **Limite de K na linha de semeadura**: se `doseK2O > 80`, o excedente é
 destacado como aplicação complementar (cobertura ou a lanço):
@@ -241,7 +234,6 @@ usar como fonte de conferência linha a linha contra o manual PDF:
 
 | Tabela | Linhas | Conteúdo |
 |---|---|---|
-| `TABELA_CORRECAO_TOTAL` (TAB-04) | 5 classes | dose fixa de P₂O₅/K₂O para correção total, por classe de disponibilidade |
 | `CULTURAS_INFO` (TAB-05/06) | 16 culturas | rendimento de referência, manutenção de P₂O₅/K₂O, adicional por tonelada, exportação por tonelada, flag `bnf` |
 | `TABELA_N_BASE` | 12 culturas (as 4 com FBN não têm linha — N sempre 0) | dose base de N por classe de MO (e cultura antecedente quando aplicável) |
 | `TABELA_PK_CULTURA` | 16 culturas | dose de P₂O₅/K₂O por classe de disponibilidade × nº de cultivo — reaproveita 4 conjuntos-base (`P_TIPO1/2`, `K_TIPO1/2`) e define conjuntos próprios para canola, centeio, ervilhaca, milho, milho_pipoca, nabo_forrageiro, soja, sorgo |
@@ -298,7 +290,7 @@ chama o motor de calagem, e vice-versa).
 |---|---|---|
 | `classificacao_solo.*` | sim | reflete a entrada bruta, independe de haver dose calculada |
 | `recomendacao.n.dose_total_kg_ha` | sim | `0` tanto para FBN quanto para um cálculo normal que resultou em zero — **não dá para distinguir os dois casos só pelo número**, é preciso olhar `tipo` (`"FBN (0 N)"` vs. outro texto) |
-| `recomendacao.p2o5/k2o.dose_total_kg_ha` | sim | `0` quando classe é `muito_alto` (qualquer cultivo) — de novo, olhar `tipo_adubacao` para saber a razão |
+| `recomendacao.p2o5/k2o.dose_total_kg_ha` | sim | `0` só quando a tabela dá 0 e não há ajuste de rendimento (ex.: `muito_alto` no 1º cultivo com rendimento na referência) — `tipo_adubacao` diz "Sem Aplicação (Muito Alto)" |
 | `k2o_semeadura_kg_ha` / `k2o_complementar_kg_ha` | sim | somam sempre `dose_total_kg_ha`; `complementar=0` é o caso comum (dose ≤ 80) |
 | `alertas` | sim (pode ser vazio) | mistura alertas de diagnose secundária (§6) com alertas gerados durante o cálculo de N/P/K (FBN, rendimento alto, cevada cervejeira, limite de K) — **não vêm rotulados por qual etapa os gerou**, só por `codigo` |
 

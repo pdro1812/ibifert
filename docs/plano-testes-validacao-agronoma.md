@@ -331,11 +331,14 @@ casos que os botões prontos não cobrem.
 | Tipo de Correção | **Total** |
 | Densidade de Plantas | `70000` |
 
-**Resultado esperado:**
-- **N = 130 kg/ha** (inclui o extra por alta densidade de plantas).
-- **P₂O₅ = 280 kg/ha**, tipo "Corretiva Total + Manutenção".
-- **K₂O = 200 kg/ha no total**, dividido em **80 na semeadura + 120
-  complementar**.
+**Resultado esperado (atualizado em 30/10/2026 com os valores da
+coordenadora — item 8 do registro):**
+- **N = 120 kg/ha** (90 de base + 30 de ajuste de rendimento; a densidade
+  de plantas não altera mais a dose).
+- **P₂O₅ = 230 kg/ha** (tabela milho, muito baixo, 1º cultivo = 200 + 30),
+  tipo "Corretiva Gradual 2/3 + Manutenção" — "Total" usa a mesma tabela.
+- **K₂O = 160 kg/ha no total** (140 + 20), dividido em **80 na semeadura
+  + 80 complementar**.
 
 ☑ Bateu ☐ Não bateu — Observações: ___________________________________
 
@@ -343,12 +346,10 @@ casos que os botões prontos não cobrem.
 
 ### A4 Atenção especial — Soja, 2º cultivo, solo já muito rico em P e K
 
-Este cenário é sabidamente ambíguo hoje: quando P/K estão em nível
-"muito alto" e é o 2º cultivo do ano, o texto diz "reposição parcial a
-critério do técnico", mas o número mostrado é **zero** — não é um valor
-sugerido, é literalmente ausência de valor. Vale a coordenadora confirmar
-se essa forma de exibir está clara o suficiente para quem vai aplicar a
-adubação no campo, ou se precisa de ajuste.
+Corrigido em 30/10/2026: antes o sistema mostrava **zero** com o texto
+"reposição parcial a critério do técnico". Agora, em "muito alto", a dose
+vem da tabela da cultura para o cultivo (+ ajuste de rendimento), como a
+coordenadora calculou.
 
 | Campo | Valor |
 |---|---|
@@ -364,8 +365,9 @@ adubação no campo, ou se precisa de ajuste.
 | Rendimento (t/ha) | `3` |
 | Número do Cultivo | **2º** |
 
-**Resultado esperado:** N = 0 (FBN). P₂O₅ e K₂O aparecem como **"0
-kg/ha"** com o texto **"Reposição parcial — a critério do técnico"**.
+**Resultado esperado:** N = 0 (FBN). **P₂O₅ = 45 kg/ha** e **K₂O = 75
+kg/ha** (tabela soja, muito alto, 2º cultivo; rendimento igual à
+referência, sem ajuste), tipo "Reposição (Muito Alto)".
 
 ☑ Bateu (comportamento é o esperado) ☐ Precisa ajuste — Observações: ___________________________________
 

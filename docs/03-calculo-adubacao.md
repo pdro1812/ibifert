@@ -83,22 +83,25 @@ de classificação (TAB-02P/02K) é calibrada para Mehlich-1. Lança erro se
   Para aveias/centeio/cevada/trigo/triticale, o fator muda conforme a
   cultura antecedente (20 se Leguminosa, 30 se não) — comentário no código
   já documenta essa nuance (`motorAdubacao.ts:62-66`).
-- Milho: soma 10kg N extra a cada 5.000 plantas/ha acima de 65.000.
+- Milho: **sem** bônus por densidade de plantas (removido em 30/10/2026 —
+  validação da coordenadora, cenário A3). O campo `densidade_plantas` segue
+  no formulário, mas não altera a dose.
 - Alertas informativos: rendimento >10t/ha (considerar +20-40% a critério
   técnico), cevada cervejeira (não aplicar N após espigamento).
 
 ### 2.4 Fósforo (P₂O₅) e Potássio (K₂O)
 
 Mesma estrutura para os dois nutrientes:
-- **Classe "muito_alto"**: no 1º cultivo, dose = 0 (com alerta de
-  reposição estimada pela exportação da cultura); no 2º cultivo, "reposição
-  parcial a critério do técnico" (sem dose numérica — ver achado §7.2).
-- **Correção Total** (`tipo_correcao='Total'`, só no 1º cultivo, classes
-  muito_baixo/baixo/médio): dose = `TABELA_CORRECAO_TOTAL` (valor fixo por
-  classe) + manutenção da cultura + ajuste de produtividade (só se
-  positivo).
-- **Gradual** (padrão): dose = valor tabelado por cultura/classe/nº de
-  cultivo (`TABELA_PK_CULTURA`) + ajuste de produtividade.
+- **Regra única (desde 30/10/2026)**: dose = valor tabelado por
+  cultura/classe/nº de cultivo (`TABELA_PK_CULTURA`) + ajuste de
+  produtividade (só se o rendimento passar da referência). Vale para
+  todas as classes, inclusive **muito_alto** (1º cultivo: 0 + ajuste;
+  2º cultivo: valor da tabela + ajuste), e também quando
+  `tipo_correcao='Total'` — "Total" não tem mais regra própria (a antiga
+  `TABELA_CORRECAO_TOTAL` foi removida). Ver item 8 de
+  `registro-alteracoes-propostas.md`.
+- Muito alto no 1º cultivo de P ainda gera o alerta informativo de
+  reposição estimada pela exportação da cultura.
 - **K₂O**: se a dose total passar de 80 kg/ha, o excedente é destacado
   como "complementar" (cobertura ou a lanço), com alerta explicando o
   porquê — limite de segurança para aplicação na linha de semeadura.
@@ -197,17 +200,16 @@ divergência futura. Se não tem mais uso, é candidato a remoção completa
 
 ### 5.1 MÉDIO — cobertura de teste muito abaixo da calagem
 
-`adubacao.test.ts` tem só **2 casos** (contra 20 do motor de calagem):
-um cenário "manutenção, P/K altos" e um "correção total, solo muito
-pobre". Ambos passam. Não há teste cobrindo: 2º cultivo (`num_cultivo:
-'2'`), classe "muito_alto" de P/K (dose zero + reposição), fixação
-biológica de N (soja passa perto mas não afirma o valor de P/K), o limite
-de 80kg de K na semeadura, nem o roteamento por cultura antecedente para
-gramíneas de inverno. Dado que essa é a camada mais extensa (16 culturas,
+`adubacao.test.ts` tem **6 casos** (contra ~30 do motor de calagem) e,
+desde 30/10/2026, roda no `npm test` do backend e no CI. Cobre manutenção
+com P/K altos, solo muito pobre com "Total", os 3 cenários da
+coordenadora (print, A3, A4 — 2º cultivo e muito_alto) e muito_alto sem
+ajuste de rendimento. Ainda não há teste para o roteamento por cultura
+antecedente das gramíneas de inverno nem para as demais culturas. Dado que essa é a camada mais extensa (16 culturas,
 tabelas grandes), a cobertura atual não dá confiança equivalente à da
 calagem.
 
-### 5.2 BAIXO/MÉDIO — "reposição parcial" no 2º cultivo não tem valor numérico
+### 5.2 ~~BAIXO/MÉDIO — "reposição parcial" no 2º cultivo não tem valor numérico~~ (resolvido em 30/10/2026: muito_alto passou a usar a tabela + ajuste)
 
 Quando P ou K estão em classe `muito_alto` e é o 2º cultivo do ano,
 `tipoP2O5`/`tipoK2O` vira o texto `"Reposição parcial — a critério do

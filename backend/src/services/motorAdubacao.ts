@@ -3,7 +3,7 @@ import { converterMehlich3ParaMehlich1_P, converterMehlich3ParaMehlich1_K } from
 import { gerarAlertasDiagnose, AlertaAdubacao } from "./warningsAdubacao";
 import {
   classificarArgila, classificarMO, classificarCTC, classificarFosforo, classificarPotassio,
-  TABELA_N_BASE, TABELA_PK_CULTURA, TABELA_CORRECAO_TOTAL, CULTURAS_INFO
+  TABELA_N_BASE, TABELA_PK_CULTURA, CULTURAS_INFO, ClasseDisponibilidade
 } from "./tabelasAdubacaoGraos";
 
 export function executarMotorAdubacao(entrada: EntradaAdubacao) {
@@ -67,14 +67,9 @@ export function executarMotorAdubacao(entrada: EntradaAdubacao) {
       ajusteRend = (entrada.rendimento_esperado - rendRef) * fatorAdic;
     }
     
+    // Sem bônus por densidade de plantas no milho (validação da coordenadora, cenário A3)
     doseN = nBase + ajusteRend;
 
-    // Milho: densidade
-    if (entrada.cultura === 'milho' && entrada.densidade_plantas && entrada.densidade_plantas > 65000) {
-      const extraPlantas = Math.floor((entrada.densidade_plantas - 65000) / 5000);
-      doseN += extraPlantas * 10;
-    }
-    
     // Milho: prod > 10t
     if (entrada.rendimento_esperado > 10) {
       alertas.push({ nivel: 'AVISO', codigo: 'N_REND_ALTO', mensagem: "Rendimento esperado > 10 t/ha. Considerar aumento de N em 20-40% a critério do técnico." });
@@ -87,67 +82,24 @@ export function executarMotorAdubacao(entrada: EntradaAdubacao) {
   }
 
   // 4 e 5. Cálculo de P2O5 e K2O
+  // Dose = tabela por classe/cultivo + ajuste de rendimento, em todas as classes
+  // (inclusive muito alto) e também na correção "Total", conforme os cenários
+  // validados pela coordenadora (docs/registro-alteracoes-propostas.md, item 8).
   const numCultivo: 1 | 2 = entrada.num_cultivo === '2' ? 2 : 1;
   const recomPK = TABELA_PK_CULTURA[entrada.cultura];
+  const excedenteRend = Math.max(0, entrada.rendimento_esperado - infoCultura.rend_ref_t);
 
-  let doseP2O5 = 0;
-  let tipoP2O5 = "";
-  
-  if (classeP === 'muito_alto') {
-    if (numCultivo === 1) {
-      doseP2O5 = 0;
-      tipoP2O5 = "Sem Aplicação (Muito Alto)";
-      const reposicao = infoCultura.exportacao_t.p2o5 * entrada.rendimento_esperado;
-      alertas.push({ nivel: 'INFO', codigo: 'P_MUITO_ALTO_REP', mensagem: `Fósforo Muito Alto. Reposição estimada: ${reposicao.toFixed(0)} kg P₂O₅/ha (a critério do técnico).` });
-    } else {
-      tipoP2O5 = "Reposição parcial — a critério do técnico";
-    }
-  } else {
-    const pBase = recomPK.P2O5[classeP][numCultivo];
-    const ajusteRendP = entrada.rendimento_esperado > infoCultura.rend_ref_t 
-      ? (entrada.rendimento_esperado - infoCultura.rend_ref_t) * infoCultura.p2o5_adic_t 
-      : 0;
+  const doseP2O5 = recomPK.P2O5[classeP][numCultivo] + excedenteRend * infoCultura.p2o5_adic_t;
+  const tipoP2O5 = tipoAdubacaoPK(classeP, numCultivo, doseP2O5);
 
-    if (entrada.tipo_correcao === 'Total' && numCultivo === 1 && ['muito_baixo', 'baixo', 'medio'].includes(classeP)) {
-      doseP2O5 = TABELA_CORRECAO_TOTAL[classeP as 'baixo'|'medio'|'muito_baixo'].p2o5 + infoCultura.p2o5_manutencao + Math.max(0, ajusteRendP);
-      tipoP2O5 = "Corretiva Total + Manutenção";
-    } else {
-      doseP2O5 = pBase + Math.max(0, ajusteRendP);
-      if (['muito_baixo', 'baixo'].includes(classeP) && numCultivo === 1) tipoP2O5 = "Corretiva Gradual 2/3 + Manutenção";
-      else if (['muito_baixo', 'baixo'].includes(classeP) && numCultivo === 2) tipoP2O5 = "Corretiva Gradual 1/3 + Manutenção";
-      else if (classeP === 'medio' && numCultivo === 1) tipoP2O5 = "Corretiva Total + Manutenção";
-      else tipoP2O5 = "Manutenção";
-    }
+  if (classeP === 'muito_alto' && numCultivo === 1) {
+    const reposicao = infoCultura.exportacao_t.p2o5 * entrada.rendimento_esperado;
+    alertas.push({ nivel: 'INFO', codigo: 'P_MUITO_ALTO_REP', mensagem: `Fósforo Muito Alto. Reposição estimada: ${reposicao.toFixed(0)} kg P₂O₅/ha (a critério do técnico).` });
   }
 
   // K2O
-  let doseK2O = 0;
-  let tipoK2O = "";
-
-  if (classeK === 'muito_alto') {
-    if (numCultivo === 1) {
-      doseK2O = 0;
-      tipoK2O = "Sem Aplicação (Muito Alto)";
-    } else {
-      tipoK2O = "Reposição parcial — a critério do técnico";
-    }
-  } else {
-    const kBase = recomPK.K2O[classeK][numCultivo];
-    const ajusteRendK = entrada.rendimento_esperado > infoCultura.rend_ref_t 
-      ? (entrada.rendimento_esperado - infoCultura.rend_ref_t) * infoCultura.k2o_adic_t 
-      : 0;
-
-    if (entrada.tipo_correcao === 'Total' && numCultivo === 1 && ['muito_baixo', 'baixo', 'medio'].includes(classeK)) {
-      doseK2O = TABELA_CORRECAO_TOTAL[classeK as 'baixo'|'medio'|'muito_baixo'].k2o + infoCultura.k2o_manutencao + Math.max(0, ajusteRendK);
-      tipoK2O = "Corretiva Total + Manutenção";
-    } else {
-      doseK2O = kBase + Math.max(0, ajusteRendK);
-      if (['muito_baixo', 'baixo'].includes(classeK) && numCultivo === 1) tipoK2O = "Corretiva Gradual 2/3 + Manutenção";
-      else if (['muito_baixo', 'baixo'].includes(classeK) && numCultivo === 2) tipoK2O = "Corretiva Gradual 1/3 + Manutenção";
-      else if (classeK === 'medio' && numCultivo === 1) tipoK2O = "Corretiva Total + Manutenção";
-      else tipoK2O = "Manutenção";
-    }
-  }
+  const doseK2O = recomPK.K2O[classeK][numCultivo] + excedenteRend * infoCultura.k2o_adic_t;
+  const tipoK2O = tipoAdubacaoPK(classeK, numCultivo, doseK2O);
 
   // Limite K semeadura
   let kSemeadura = doseK2O;
@@ -184,4 +136,13 @@ export function executarMotorAdubacao(entrada: EntradaAdubacao) {
     },
     alertas
   };
+}
+
+function tipoAdubacaoPK(classe: ClasseDisponibilidade, numCultivo: 1 | 2, dose: number): string {
+  if (classe === 'muito_alto') return dose > 0 ? "Reposição (Muito Alto)" : "Sem Aplicação (Muito Alto)";
+  if (['muito_baixo', 'baixo'].includes(classe)) {
+    return numCultivo === 1 ? "Corretiva Gradual 2/3 + Manutenção" : "Corretiva Gradual 1/3 + Manutenção";
+  }
+  if (classe === 'medio' && numCultivo === 1) return "Corretiva Total + Manutenção";
+  return "Manutenção";
 }
