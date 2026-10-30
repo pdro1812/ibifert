@@ -8,62 +8,103 @@ Os valores novos estão em `.env.producao`, na raiz do repositório local
 (arquivo fora do git, permissão 600). Não colar esses valores em chat,
 issue, commit ou print.
 
+## Como o servidor está montado
+
+- Pasta: `~/ibiferti-prod` (sem cópia do git — só arquivos de deploy).
+- `docker-compose.yml` dessa pasta = `docker-compose.prod.yml` do
+  repositório, renomeado.
+- Containers: `ibiferti-web` (nginx + frontend), `ibiferti-api` (backend),
+  `ibiferti-db-prod` (Postgres, volume `pgdata_prod`).
+- O `nginx.conf` usado é o que vem **dentro da imagem** do frontend (não
+  há volume montando o arquivo da pasta).
+- Imagens vêm do Docker Hub (`pdros1812/ibiferti-*:latest`), publicadas
+  pelo GitHub Actions a cada push na `main`.
+
 ## Ordem importa
 
-O Postgres só lê `POSTGRES_PASSWORD` na **primeira** criação do volume.
-Com o volume já existente, trocar o `.env` não muda a senha do banco — é
-preciso rodar `ALTER USER` antes, senão o backend não conecta.
+- O Postgres só lê `POSTGRES_PASSWORD` na **primeira** criação do volume.
+  Com o volume já existente, trocar o `.env` não muda a senha — é preciso
+  rodar `ALTER USER`, senão o backend não conecta.
+- A imagem nova do backend **recusa subir em produção** com `JWT_SECRET`
+  de menos de 32 caracteres. Por isso o `.env` vai para o servidor antes
+  de baixar a imagem nova.
+- Os passos 1–4 funcionam com a imagem atual; o passo 5 só depois que o
+  CI publicar as imagens novas.
 
-E a imagem nova do backend **recusa subir em produção** com `JWT_SECRET`
-de menos de 32 caracteres (o antigo tinha 21). Por isso o `.env` precisa
-estar no servidor antes de baixar a imagem nova.
+## 1. Copiar os arquivos (no seu computador, na pasta do projeto)
 
-## Passo a passo (no servidor, na pasta do `docker-compose.prod.yml`)
+Antes, no servidor, guarde o compose atual: `cp ~/ibiferti-prod/docker-compose.yml ~/ibiferti-prod/docker-compose.yml.bak`
 
-1. Copiar o arquivo do seu computador para o servidor, já com o nome `.env`:
+```bash
+scp -i ssh-key-2026-04-25.key .env.producao ubuntu@ibifert.duckdns.org:~/ibiferti-prod/.env
+```
 
-   ```bash
-   scp .env.producao USUARIO@ibifert.duckdns.org:CAMINHO_DO_PROJETO/.env
-   ```
+```bash
+scp -i ssh-key-2026-04-25.key docker-compose.prod.yml ubuntu@ibifert.duckdns.org:~/ibiferti-prod/docker-compose.yml
+```
 
-   No servidor: `chmod 600 .env`.
+(Se você entra no servidor de outro jeito, troque `-i …` e o endereço.)
 
-2. Atualizar o `docker-compose.prod.yml` do servidor com a versão nova do
-   repositório (ele passa a ler tudo do `.env` e não expõe mais a porta
-   3000 para a internet).
+## 2. Conferir (no servidor)
 
-3. Trocar a senha dentro do banco que já está rodando (lê a senha nova do
-   `.env`, sem digitar o valor no terminal):
+```bash
+cd ~/ibiferti-prod && chmod 600 .env && docker compose config --quiet && echo "compose ok"
+```
 
-   ```bash
-   set -a; . ./.env; set +a
-   printf "ALTER USER %s WITH PASSWORD '%s';\n" "$POSTGRES_USER" "$POSTGRES_PASSWORD" \
-     | docker exec -i ibiferti-db-prod psql -q -U "$POSTGRES_USER" -d "$POSTGRES_DB"
-   ```
+## 3. Trocar a senha dentro do banco (no servidor)
 
-4. Baixar as imagens novas e recriar os containers:
+Lê a senha nova do `.env`, sem ela aparecer no terminal:
 
-   ```bash
-   docker compose -f docker-compose.prod.yml pull
-   docker compose -f docker-compose.prod.yml up -d
-   ```
+```bash
+cd ~/ibiferti-prod && set -a && . ./.env && set +a && printf "ALTER USER %s WITH PASSWORD '%s';\n" "$POSTGRES_USER" "$POSTGRES_PASSWORD" | docker exec -i ibiferti-db-prod psql -q -U "$POSTGRES_USER" -d "$POSTGRES_DB" && echo "senha do banco trocada"
+```
 
-5. Conferir:
+## 4. Recriar os containers com o compose novo (no servidor)
 
-   ```bash
-   docker logs --tail 20 ibiferti-api        # deve mostrar "Backend rodando na porta 3000"
-   curl -s -o /dev/null -w "%{http_code}\n" https://ibifert.duckdns.org/api/auth/me   # esperado 401
-   ```
+```bash
+cd ~/ibiferti-prod && docker compose up -d && sleep 5 && docker logs --tail 5 ibiferti-api && docker ps --format '{{.Names}}\t{{.Ports}}'
+```
 
-   Todos os usuários vão precisar entrar de novo (o `JWT_SECRET` mudou e a
-   sessão agora é por cookie).
+Esperado: log "Backend rodando na porta 3000" e `ibiferti-api` com
+`127.0.0.1:3000->3000/tcp` (não mais `0.0.0.0`). O volume do banco é
+mantido. Todos os usuários vão precisar entrar de novo (o `JWT_SECRET`
+mudou).
+
+Conferir de fora (no seu computador) que a porta 3000 fechou — deve dar
+erro/timeout:
+
+```bash
+curl -m 5 http://ibifert.duckdns.org:3000/
+```
+
+Se tudo certo, apagar o backup do compose (ele tem a senha antiga):
+`rm ~/ibiferti-prod/docker-compose.yml.bak`
+
+## 5. Depois do push no GitHub e do CI verde (no servidor)
+
+```bash
+cd ~/ibiferti-prod && docker compose pull && docker compose up -d && sleep 5 && docker logs --tail 5 ibiferti-api
+```
+
+Testar no site: cadastro com o checklist de senha, login, "Minha conta".
+
+## Limpeza recomendada no servidor
+
+- `frontend/` contém só um diretório vazio `nginx.conf` (sobra de um
+  volume antigo, dono root). Conferir com `sudo find ~/ibiferti-prod/frontend`
+  e apagar com `sudo rm -rf ~/ibiferti-prod/frontend`.
+- `users_backup.sql` (dados de usuários) está legível por qualquer conta
+  do servidor. Se não for mais necessário, apagar; senão
+  `chmod 600 ~/ibiferti-prod/users_backup.sql`.
 
 ## Se algo der errado
 
 - Backend reiniciando com "JWT_SECRET fraco": o `.env` não foi lido —
-  confira se está na mesma pasta do compose e se tem `JWT_SECRET=`.
+  confira se está em `~/ibiferti-prod/.env` e tem `JWT_SECRET=`.
 - Backend com erro de senha no Postgres (`28P01`): o passo 3 não foi
-  aplicado; rode-o de novo.
+  aplicado; rode-o de novo e depois `docker compose up -d`.
+- Para voltar ao estado anterior: `mv docker-compose.yml.bak docker-compose.yml && docker compose up -d`
+  (só funciona se o passo 3 ainda não tiver sido feito).
 
 ## Outros acessos para revisar
 
