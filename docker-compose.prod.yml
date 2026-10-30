@@ -10,10 +10,12 @@ services:
     # aberta só para o próprio servidor, não para a internet.
     ports:
       - "127.0.0.1:3000:3000"
+    # Segredos vêm do arquivo .env ao lado deste compose (não versionado —
+    # modelo em .env.example). Sem eles o compose se recusa a subir.
     environment:
       - NODE_ENV=production
-      - DATABASE_URL=postgresql://admin:***REMOVIDO***@db:5432/ibifertydb
-      - JWT_SECRET=***REMOVIDO***
+      - DATABASE_URL=postgresql://${POSTGRES_USER:?defina POSTGRES_USER no .env}:${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env}@db:5432/${POSTGRES_DB:?defina POSTGRES_DB no .env}
+      - JWT_SECRET=${JWT_SECRET:?defina JWT_SECRET no .env}
     depends_on:
       - db
     
@@ -38,9 +40,9 @@ services:
     container_name: ibiferti-db-prod
     restart: always
     environment:
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: ***REMOVIDO***
-      POSTGRES_DB: ibifertydb
+      POSTGRES_USER: ${POSTGRES_USER:?defina POSTGRES_USER no .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env}
+      POSTGRES_DB: ${POSTGRES_DB:?defina POSTGRES_DB no .env}
     volumes:
       - pgdata_prod:/var/lib/postgresql/data
     # Opcional: expor porta se precisar acessar externamente

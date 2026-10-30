@@ -70,7 +70,7 @@ próprio índice do arquivo declara).
 
 | Item | Status |
 |---|---|
-| `.env` do backend rastreado no git / trocar credenciais Postgres | ❌ Confirmado ainda pendente — `git ls-files` mostra `backend/.env` rastreado, com a mesma credencial (`admin`/`***REMOVIDO***`) documentada. Como o próprio plano registra, isso é intencionalmente deixado para o usuário resolver, então **não é uma inconsistência**, é o esperado. |
+| `.env` do backend rastreado no git / trocar credenciais Postgres | ❌ Confirmado ainda pendente — `git ls-files` mostra `backend/.env` rastreado, com a mesma credencial fraca documentada. **Atualização 30/10/2026: resolvido** — segredos movidos para `.env` não versionado e histórico limpo. Como o próprio plano registra, isso é intencionalmente deixado para o usuário resolver, então **não é uma inconsistência**, é o esperado. |
 
 ## 6. Conferência pontual de afirmações específicas dos docs (amostragem, não exaustiva)
 
