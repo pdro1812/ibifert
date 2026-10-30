@@ -29,7 +29,7 @@
 | 4 | Inserção Rápida: gerar calagem+adubação juntas | **implementado** na branch `feature/insercao-rapida-ambos` |
 | 5 | Seleção explícita de método (SMP/Polinomial/Sat. por Bases) | **implementado** na branch `feature/selecao-metodo-calagem` (escopo reduzido, ver item) |
 | 6 | Campo de feedback/erro para o usuário, visível ao admin | **implementado** |
-| 7 | Levantamento de dados sensíveis / LGPD | em análise — achados de risco |
+| 7 | Levantamento de dados sensíveis / LGPD | parcial — CPF removido (05/10/2026); restam JWT em `localStorage` e exclusão de conta |
 | 8 | Bug no cálculo de adubação em cenário específico | **implementado** (30/10/2026) — as 3 alterações aplicadas; os 3 cenários batem com a coordenadora |
 
 **Dependências entre itens:** 2 → 5 (ambos mexem no layout/agrupamento de
@@ -694,6 +694,13 @@ coluna), `backend/src/routes/adminRoutes.ts` + `AdminUsersPage.tsx`
 para sua validação — são os que mais parecem exigir uma decisão antes
 do lançamento.
 
+> **Atualização (30/10/2026):** riscos 1 e 2 resolvidos — o CPF foi
+> removido do cadastro, dos schemas, da listagem de admin e do banco
+> (commit `3c8b41b`, migration `0005_remove_cpf_users.sql`). Continuam
+> abertos: JWT de 7 dias em `localStorage` (risco 6), ausência de rota de
+> exclusão de conta / cascade real (risco 7) e o campo livre
+> `identificacao` nas análises.
+
 ---
 
 ### 8. Bug no cálculo de adubação em cenário específico
@@ -878,13 +885,13 @@ atualizar testes e documentos listados e revalidar os 3 cenários.
    `/adubacao`; as duas continuam existindo como backup, sem redirect.
    Ver detalhes na seção do item 2 acima.
 
-3. **Item 3 (adubação na Inserção Rápida):** a premissa original era
+3. ~~**Item 3 (adubação na Inserção Rápida):**~~ **Resolvido** — implementado junto com o item 4 (modo AMBOS). Texto original: a premissa original era
    "hoje só faz calagem", mas o código já calcula os dois via um toggle
    exclusivo. Confirma que o real pedido é só a terceira opção "ambos"
    (fundido com o item 4), ou tinha algo mais específico em mente que eu
    não capturei?
 
-4. **Item 5 (seleção de método):** este é o item de maior impacto dos 8
+4. ~~**Item 5 (seleção de método):**~~ **Resolvido** — implementado com escopo reduzido (SMP sempre em evidência, Polinomial complementar). Texto original: este é o item de maior impacto dos 8
    — hoje SMP e Polinomial são **mutuamente exclusivos** (decididos
    automaticamente pelo valor de SMP), nunca calculados junto. A mudança
    pedida implica: (a) permitir calcular os dois ao mesmo tempo quando o
@@ -896,13 +903,13 @@ atualizar testes e documentos listados e revalidar os 3 cenários.
    inconsistente. Confirma que é isso mesmo que você tinha em mente, ou
    a ideia era mais simples do que essa reestruturação?
 
-5. **Item 7 (LGPD):** CPF é hoje obrigatório para todo cadastro e
+5. ~~**Item 7 (LGPD):**~~ **CPF resolvido** em 05/10/2026 (removido do sistema); restam JWT em `localStorage` e exclusão de conta. Texto original: CPF é hoje obrigatório para todo cadastro e
    aparece em texto puro, em bulk, na listagem de admin. Isso é algo que
    você quer endereçar antes de liberar a versão inicial (tornar
    opcional / mascarar no admin), ou por ora só registrar o risco e
    decidir depois?
 
-6. **Item 8:** diagnosticado; precisa da resposta da coordenadora às 5
+6. ~~**Item 8:**~~ **Resolvido** em 30/10/2026 — as 3 alterações aplicadas, cenários batem com a coordenadora. Texto original: diagnosticado; precisa da resposta da coordenadora às 5
    perguntas listadas na seção do item 8 antes de qualquer correção.
 
 7. ~~**Doc de teste desatualizado (achado ao validar o item 2):**~~
