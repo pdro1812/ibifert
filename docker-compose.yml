@@ -9,7 +9,8 @@ services:
       - /app/node_modules
     environment:
       - NODE_ENV=development
-      - DATABASE_URL=postgresql://admin:***REMOVIDO***@db:5432/ibifertydb
+      - DATABASE_URL=postgresql://${POSTGRES_USER:?defina POSTGRES_USER no .env}:${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env}@db:5432/${POSTGRES_DB:?defina POSTGRES_DB no .env}
+      - JWT_SECRET=${JWT_SECRET:?defina JWT_SECRET no .env}
     depends_on:
       - db
 
@@ -32,9 +33,9 @@ services:
     container_name: ibiferti-db
     restart: always
     environment:
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: ***REMOVIDO***
-      POSTGRES_DB: ibifertydb
+      POSTGRES_USER: ${POSTGRES_USER:?defina POSTGRES_USER no .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env}
+      POSTGRES_DB: ${POSTGRES_DB:?defina POSTGRES_DB no .env}
     ports:
       - "5433:5432"
     volumes:

@@ -190,13 +190,19 @@ consegue forjar um token válido com `role: 'ADMIN'` para qualquer `id`.
 colocar no `.env`, e remover o fallback hardcoded (falhar explicitamente
 se a env var não existir, em vez de cair num valor público conhecido).
 
-### 5.6 CRÍTICO — `.env` com credenciais está commitado no git
+### 5.6 ~~CRÍTICO — `.env` com credenciais está commitado no git~~ (resolvido em 30/10/2026)
+
+> **Resolvido:** `backend/.env` saiu do git em 22/08/2026; em 30/10/2026 os
+> `docker-compose` passaram a ler senha do banco e `JWT_SECRET` de um `.env`
+> não versionado (modelo em `.env.example`), as senhas foram trocadas e o
+> histórico foi limpo. Os valores antigos abaixo foram removidos. Passo a
+> passo do servidor: `docs/trocar-segredos-producao.md`.
 
 ```
 $ git ls-files | grep env
 backend/.env
 $ git show HEAD:backend/.env
-DATABASE_URL="postgresql://admin:***REMOVIDO***@db:5432/ibifertydb"
+DATABASE_URL="postgresql://admin:<senha-removida>@db:5432/ibifertydb"
 ```
 
 O arquivo está listado no `.gitignore` (`# Keep environment variables out
@@ -208,7 +214,7 @@ que já está rastreado.
 
 Como você confirmou que os dados atuais não têm valor a preservar, o
 risco imediato de "vazamento de dado real" é baixo — mas a credencial
-(`admin`/`***REMOVIDO***`) e o padrão de expor `.env` no histórico do git
+(usuário `admin` com senha fraca) e o padrão de expor `.env` no histórico do git
 continuam sendo o problema, porque:
 - Fica no **histórico** mesmo depois de remover o arquivo do commit atual
   (precisa reescrever histórico ou trocar a credencial, não só apagar).

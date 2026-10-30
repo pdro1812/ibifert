@@ -1,0 +1,6 @@
+# Não levar segredos nem artefatos locais para a imagem
+.env
+.env.*
+!.env.example
+node_modules
+dist
