@@ -132,6 +132,7 @@ export async function calcularCalagem(
 ): Promise<CalagemResultado> {
   const payload = {
     ...sanitizarPayloadCalagem(dados),
+    identificacao:       dados.identificacao || undefined,
     uf:                  localizacao.uf,
     cidade:              localizacao.cidade,
     modo_al_sat:         localizacao.modo_al_sat,
@@ -158,7 +159,11 @@ export async function atualizarCalagem(
   dados: EntradaCalagem,
   extras: { uf: string; cidade: string; modo_al_sat?: 'direto' | 'calculado'; monitoramento_ativo?: boolean; data_analise?: string | null }
 ): Promise<CalagemResultado> {
-  const res = await api.put(`/analises/${id}`, { ...sanitizarPayloadCalagem(dados), ...extras });
+  const res = await api.put(`/analises/${id}`, {
+    ...sanitizarPayloadCalagem(dados),
+    identificacao: dados.identificacao || undefined,
+    ...extras,
+  });
   return res.data.resultado;
 }
 
