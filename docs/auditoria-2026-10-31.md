@@ -32,11 +32,11 @@ Colunas: Sev. = severidade; Esf. = esforço (P = horas, M = 1 a 2 dias, G = mais
 | ID | Sev. | Categoria | Onde | Evidência (resumo) | Impacto real | Correção proposta | Esf. | Status |
 |---|---|---|---|---|---|---|---|---|
 | AUD-01 | **Alta** (Crítica se o servidor ainda usar o JWT antigo) | Segredos | GitHub `refs/pull/1,3,5,11`; commits 084b514, 50ffa23, 263e19e, 801211f | Repo `PUBLIC`; `git ls-remote` mostra os refs de PR apontando para a linhagem sem "REDACTED" | Com o JWT_SECRET antigo dá para forjar token de ADMIN | Confirmar a troca dos segredos no servidor; pedir ao GitHub Support a remoção dos refs e GC | P/M | Exposição confirmada; troca não verificada |
-| AUD-02 | **Alta** | Autorização (IDOR) | `analisesRoutes.ts:82-116`, `adubacaoRoutes.ts:108`, `adubacaoRoutes.ts:126,146` | Sonda P1: A grava no talhão de B, B vê a análise no talhão e não consegue excluí-la (404) | Recomendação forjada aparece no talhão da vítima; exclusão de conta apaga dados de terceiros | Checar `getTalhaoById(talhao_id, userId)` antes de gravar, como `/:id/salvar` já faz | P | Confirmado |
-| AUD-03 | **Alta** se a conta existir; senão Média | Credencial | `frontend/src/pages/LoginPage.tsx:36` | `defaultValues: { email: 'teste@email.com', senha: '123456' }`, presente também no bundle | Se a conta existir em produção, qualquer visitante entra com um clique | Remover os defaults; apagar a conta se existir | P | Código confirmado; existência da conta não verificada |
-| AUD-04 | Média | Confiança no cliente | `adubacaoRoutes.ts:95,109` | Sonda P2: `resultado` forjado (N = 99.999 kg/ha) gravado em `recomendacao_json` | Histórico, PDF e painel admin mostram recomendação que não saiu do motor | Recalcular com `executarMotorAdubacao`, como o `PUT /:id` faz (`:215`) | P | Confirmado |
+| AUD-02 | **Alta** | Autorização (IDOR) | `analisesRoutes.ts:82-116`, `adubacaoRoutes.ts:108`, `adubacaoRoutes.ts:126,146` | Sonda P1: A grava no talhão de B, B vê a análise no talhão e não consegue excluí-la (404) | Recomendação forjada aparece no talhão da vítima; exclusão de conta apaga dados de terceiros | Checar `getTalhaoById(talhao_id, userId)` antes de gravar, como `/:id/salvar` já faz | P | **Corrigido** em d3d3d5c (era: Confirmado) |
+| AUD-03 | **Alta** se a conta existir; senão Média | Credencial | `frontend/src/pages/LoginPage.tsx:36` | `defaultValues: { email: 'teste@email.com', senha: '123456' }`, presente também no bundle | Se a conta existir em produção, qualquer visitante entra com um clique | Remover os defaults; apagar a conta se existir | P | **Corrigido** em 3f70c72 (era: Código confirmado; existência da conta não verificada) |
+| AUD-04 | Média | Confiança no cliente | `adubacaoRoutes.ts:95,109` | Sonda P2: `resultado` forjado (N = 99.999 kg/ha) gravado em `recomendacao_json` | Histórico, PDF e painel admin mostram recomendação que não saiu do motor | Recalcular com `executarMotorAdubacao`, como o `PUT /:id` faz (`:215`) | P | **Corrigido** em efcf797 (era: Confirmado) |
 | AUD-05 | Média | Cálculo agronômico | `backend/src/schemas/calagemSchema.ts` (PRNT, SMP, Al, CTC), `adubacaoSchema.ts:21-42` | Sonda P6: PRNT 0,01 → 61.000 t/ha; SMP −50 aceito; rendimento 1.000 t/ha → 14.980 kg N/ha | API devolve e grava doses absurdas; o front valida, a API não | Faixas agronômicas no backend (decisão da coordenação) e testes | P/M | Confirmado |
-| AUD-06 | Média | Vazamento de informação | 22 respostas 500 (lista em 3.6) | Sonda P4: `detalhes` traz a query SQL inteira e os parâmetros (id do usuário) | Revela schema e parâmetros; id inválido vira 500 | Handler de erro central, mensagem genérica, validar UUID (400/404) | P | Confirmado |
+| AUD-06 | Média | Vazamento de informação | 22 respostas 500 (lista em 3.6) | Sonda P4: `detalhes` traz a query SQL inteira e os parâmetros (id do usuário) | Revela schema e parâmetros; id inválido vira 500 | Handler de erro central, mensagem genérica, validar UUID (400/404) | P | **Corrigido** em 949aba5 (era: Confirmado) |
 | AUD-07 | Média | Migração/infra | `backend/entrypoint.sh:9`, `Dockerfile.prod:29-34` | `npx drizzle-kit push` a cada start; `drizzle/*.sql` nunca aplicados; sem `set -e`, sem `exec` | Mudança destrutiva aplicada ou boot travado em prompt sem TTY; servidor sobe com schema velho se o push falhar | Fluxo da seção 3.7 (migrator + baseline) | M | Config confirmada; comportamento sem TTY é suspeita |
 | AUD-08 | Média | Disponibilidade/dados | `docker-compose.prod.yml` | Só o volume `pgdata_prod`, sem serviço de backup | Perda irrecuperável (agravada por AUD-07) | Backup diário com retenção e cópia fora do host | M | Repo confirmado; servidor é suspeita |
 | AUD-09 | Média | Runtime sem suporte | `backend/Dockerfile.prod:4,15`, `frontend/Dockerfile.prod:1`, `.github/workflows/main.yml:19,40` | Node 20 com EOL em 30/04/2026 ([schedule oficial](https://github.com/nodejs/Release/blob/main/schedule.json)) | Sem correções de segurança no runtime de produção | `node:22-alpine` (até 04/2027) ou `node:24-alpine` (até 04/2028), com versão fixa | P/M | Confirmado |
@@ -50,7 +50,7 @@ Colunas: Sev. = severidade; Esf. = esforço (P = horas, M = 1 a 2 dias, G = mais
 | AUD-17 | Média | LGPD | `CalculadoraCompletaPage.tsx:191,633-651`; `FeedbackPage.tsx`; `RegisterPage.tsx` | Selo "Cálculo temporário", mas tudo é gravado (com identificação livre) sem prazo; não há política de privacidade | Falta de transparência (art. 6º VI e 9º); feedback com telefone sem retenção nem como pedir exclusão | Política de privacidade, texto de finalidade, retenção e não gravar `identificacao` em registro anônimo | M | Confirmado |
 | AUD-18 | Média | Validação desigual | `analisesRoutes.ts:80-116`; `adubacaoRoutes.ts:150`; `analisesRoutes.ts:52-53` | `/analises/bulk` sem validação de `uf`/`cidade`/`modo_al_sat`; `/adubacao/bulk` usa `amostra.uf \|\| 'RS'` e aceitou `SP` (sonda P2b); `modo_al_sat` inválido dá `id: null` silencioso (P11); data 2024-02-31 dá 500 | Dados inválidos no banco e no painel público; usuário não consegue salvar e não sabe por quê | `LocalizacaoSchema` e um schema de lote com `z.array().max(n)`; validar `modo_al_sat`; datas reais | P/M | Confirmado |
 | AUD-19 | Baixa | Sessão | `authMiddleware.ts:14,24,53,64-79` | Sonda P8: depois de excluir a conta, o mesmo cookie ainda cria fazenda (201) | Logout e exclusão não revogam; papel fica congelado no token por 7 dias; dados órfãos depois da exclusão | Conferir usuário/versão de sessão no `verificarToken`; `algorithms: ['HS256']`; encurtar a validade | P/M | Confirmado |
-| AUD-20 | Baixa | Validação/UX | `adubacaoRoutes.ts:85`, `fazendasRoutes.ts:58,112`, `feedbackRoutes.ts:18` | Sonda P3: 400 com `{error:'Erro de validação'}` e sem detalhes (`err.errors` não existe no zod 4) | O front mostra erro genérico em vez do campo inválido | Usar `err.issues` (ou o helper `responderErroValidacao`) | P | Confirmado |
+| AUD-20 | Baixa | Validação/UX | `adubacaoRoutes.ts:85`, `fazendasRoutes.ts:58,112`, `feedbackRoutes.ts:18` | Sonda P3: 400 com `{error:'Erro de validação'}` e sem detalhes (`err.errors` não existe no zod 4) | O front mostra erro genérico em vez do campo inválido | Usar `err.issues` (ou o helper `responderErroValidacao`) | P | **Corrigido** em 6744126 (era: Confirmado) |
 | AUD-21 | Baixa | Auth | `authRoutes.ts:44,48`; `rateLimit.ts:36-43` | Sonda P9: `Caso@Exemplo.test` e `caso@exemplo.test` viram duas contas; o cadastro responde "E-mail já cadastrado." | Contas duplicadas; enumeração pelo cadastro (limitada a 5/h por IP); travar o login de terceiro por 15 min | Normalizar e-mail (`trim().toLowerCase()`) e índice único em `lower(email)` | P | Confirmado |
 | AUD-22 | Baixa | Banco | `drizzle/0000-0006`; `fazendas.ts:41-51,68-95,125-134` | Nenhuma FK nem índice além das PKs e do e-mail; exclusões em várias etapas sem transação; N+1 em `GET /fazendas` | Órfãos (análises com talhão apagado); lentidão quando os dados crescerem | Índices em `usuario_id`, `talhao_id`, `fazenda_id`, `criado_em`; FKs; transações; join único | M | Confirmado |
 | AUD-23 | Baixa | CI | `.github/workflows/main.yml:3-6,92,100` | Só roda em push na `main`; sem PR, lint, tsc nem build antes do merge; só `:latest`; actions por tag; `main` sem proteção; lint do front com 21 erros | Erro descoberto depois do merge; sem rollback de imagem | `pull_request`, lint/tsc/build, tag `${{ github.sha }}`, proteção da `main` | P/M | Confirmado |
@@ -311,3 +311,53 @@ Transitivas do backend: body-parser 2.2.2, proxy-addr 2.0.7, qs 6.15.1, path-to-
 - As branches `audit/pre-versao-final`, `feat/alteracoes-coordenacao` e `origin/main` não contêm a linhagem antiga.
 
 **Dependências:** nenhum pacote falso; jspdf 4.2.1 e drizzle-orm 0.45.2 já trazem as correções de segurança conhecidas.
+
+---
+
+## 6. Correções aplicadas e decisões (31/10/2026)
+
+### 6.1 Correções
+
+Cada correção tem um commit próprio, com teste que falhava antes e passa depois. Os testes de rota rodam o app real (`backend/src/app.ts`) contra um PGlite em memória com as migrações de `drizzle/` (commit ce472eb, `backend/src/utils/bancoDeTeste.ts` e `rotas.test.ts`).
+
+| ID | Commit | O que mudou | Teste |
+|---|---|---|---|
+| AUD-02 | d3d3d5c | `/analises/bulk`, `/adubacao/salvar` e `/adubacao/bulk` só aceitam talhão do próprio usuário (404 caso contrário), via `resolverTalhaoDoUsuario` | `rotas.test.ts`: "Talhão de outro usuário é recusado ao gravar análises" |
+| AUD-04 | efcf797 | `/adubacao/salvar` grava `executarMotorAdubacao(entrada)`; o `resultado` do corpo é ignorado | "POST /adubacao/salvar recalcula a recomendação no servidor" |
+| AUD-06 | 949aba5 | `middlewares/erros.ts`: 500 genérico com detalhe só no log; `:id` que não é UUID vira 404; JSON malformado vira 400; lote de calagem inválido vira 400 | "Erros não expõem detalhes internos" |
+| AUD-20 | 6744126 | `err.errors` trocado por `err.issues` (zod 4) em 4 rotas | "Erros de validação dizem qual campo falhou" |
+| AUD-03 | 3f70c72 | Login abre com e-mail e senha vazios. A conta de teste continua existindo, por decisão do responsável | `frontend/e2e/login.spec.ts` |
+
+Verificação final:
+- Backend: `npm run build` e `npm test` (84/84).
+- Frontend: `npm test` (81/81), `npm run build` e `npx playwright test` (22/22).
+- `npm run lint` do frontend continua com os mesmos 21 erros anteriores (AUD-23), sem nenhum novo.
+
+### 6.2 Decisões do responsável
+
+1. A conta de teste continua no banco (só saiu do login pré-preenchido).
+2. AUD-01 e AUD-32: sem ação por enquanto. Repositório, refs de PR e branches locais ficam como estão.
+3. AUD-05: levantar faixas aceitáveis no manual (proposta em 6.3, ainda não aplicada).
+4. AUD-11: o Monitoramento Regional não terá mínimo de amostras por cidade.
+5. AUD-07 e AUD-08: aceito o fluxo de migração da seção 3.7, com backup guardado no servidor remoto.
+6. AUD-17: textos LGPD mantidos como estão por enquanto.
+7. AUD-19: sessão continua com validade de 7 dias.
+
+### 6.3 Proposta de faixas para o AUD-05 (com base no Manual RS/SC 2016)
+
+As páginas citadas são as do PDF em `docs_antigos/`. O manual não define "valor máximo aceitável" para a maioria das entradas. Quando a faixa abaixo não vem dele, a coluna "Base" diz de onde vem.
+
+| Campo | Hoje no backend | Proposta | Base |
+|---|---|---|---|
+| PRNT (%) | > 0 e ≤ 100 (aceita 0,01) | **45 a 100** | Manual p. 299: o calcário comercializado precisa ter PRNT mínimo de 45% (Brasil, 2016). O máximo de 100 é o do sistema atual; cal virgem e calcário calcinado passam de 100, e se forem usados o teto precisa subir |
+| SMP | qualquer número | **4,0 a 7,5** | A Tabela 5.2 (p. 70) vai de "≤ 4,4" a 7,1: abaixo de 4,4 vale a linha 4,4 e acima de 7,1 a dose é 0. O tampão SMP parte de pH 7,5, então acima disso o valor é impossível. O frontend hoje bloqueia abaixo de 4,4, o que impede laudos reais cobertos pelo "≤ 4,4" (decidir) |
+| pH água | 3,5 a 8,0 | manter | — |
+| MO (%) | calagem 0 a 100; adubação > 0 a 20 | **0 a 20 nos dois** | A Tabela 6.1 (p. 91) classifica até "> 5,0"; o teto de 20% já é usado na adubação. Acima disso é solo orgânico, fora do escopo das tabelas |
+| CTC pH 7 (cmolc/dm³) | > 0, sem teto | **> 0 a 60** | A Tabela 6.1 vai até "> 30 muito alta"; 60 é teto de digitação (proposta, não está no manual) |
+| Al trocável (cmolc/dm³) | ≥ 0, sem teto | **0 a 15**, e Al ≤ CTC pH 7 quando os dois vierem | O manual usa Al na polinomial (p. 72) sem faixa. O teto é proposta; Al ≤ CTC é consistência física |
+| Argila (%) | 0 a 99 | manter | A Tabela 6.1 e a conversão Mehlich-3 (divisão por zero em 100%) |
+| Rendimento esperado (t/ha) | > 0, sem teto | Por cultura: aveias 1–6, canola 0,5–4, centeio 1–5, cevada 1–7, ervilha/ervilhaca 0,5–4, feijão 0,5–5, girassol 0,5–4, **milho 2–20**, milho pipoca 2–8, nabo 1–6, soja 1–7, sorgo 1–10, trigo/triticale 1–8 | O manual dá só faixas de referência (ex.: milho p. 126, "RG maior que 8 t/ha" com manejo muito favorável) e não define máximo. A tabela proposta é a de `docs_antigos/adubacao.md` §6.2 e **precisa do aval da coordenadora** |
+| P, K (mg/dm³); Ca, Mg (cmolc/dm³) | > 0, sem teto | P ≤ 300, K ≤ 1.000, Ca ≤ 30, Mg ≤ 15 | Proposta de teto de digitação (não está no manual) |
+| Densidade de plantas (milho) | > 0 | 30.000 a 120.000 plantas/ha | `docs_antigos/adubacao.md`; o manual (p. 126) ajusta N acima de 65.000 |
+
+A implementação seria aplicar as faixas nos schemas do backend, alinhar o frontend e escrever testes de limite para cada campo. Fica pendente de aprovação.
