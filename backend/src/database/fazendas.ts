@@ -122,6 +122,15 @@ export async function getTalhaoById(id: string, usuarioId: string) {
   return row;
 }
 
+// talhao_id vindo do corpo de uma gravação: vazio ou ausente = sem talhão
+// (null); preenchido, precisa ser um talhão do próprio usuário. undefined =
+// talhão não encontrado (de outra pessoa ou inexistente).
+export async function resolverTalhaoDoUsuario(talhaoId: unknown, usuarioId: string): Promise<string | null | undefined> {
+  if (talhaoId === undefined || talhaoId === null || talhaoId === '') return null;
+  if (typeof talhaoId !== 'string') return undefined;
+  return (await getTalhaoById(talhaoId, usuarioId))?.id;
+}
+
 export async function deleteTalhao(id: string, usuarioId: string) {
   const proprio = await getTalhaoById(id, usuarioId);
   if (!proprio) return undefined;

@@ -78,7 +78,7 @@ export async function salvarAnalise(params: SalvarAnaliseParams) {
   return registro;
 }
 
-export async function salvarLoteAnalises(paramsArray: Array<SalvarAnaliseParams & { talhao_id?: string }>) {
+export async function salvarLoteAnalises(paramsArray: SalvarAnaliseParams[]) {
   if (paramsArray.length === 0) return [];
 
   const values = paramsArray.map((params) => ({

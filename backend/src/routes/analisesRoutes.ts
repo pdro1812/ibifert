@@ -16,7 +16,7 @@ import {
   arquivarAnalise,
   vincularAnaliseAoUsuario,
 } from '../database/analises';
-import { getTalhaoById } from '../database/fazendas';
+import { getTalhaoById, resolverTalhaoDoUsuario } from '../database/fazendas';
 import { listarAnalisesAdubacaoHistorico } from '../database/adubacao';
 import { ArquivarAnaliseSchema, DataAnaliseSchema, filtroArquivadas } from '../schemas/gestaoAnaliseSchema';
 import { verificarToken, AuthRequest } from '../middlewares/authMiddleware';
@@ -95,6 +95,10 @@ analisesRoutes.post('/bulk', verificarToken, async (req: AuthRequest, res) => {
     if (!dataAnalise.success) {
       return res.status(400).json({ sucesso: false, mensagem: dataAnalise.error.issues[0].message });
     }
+    const talhaoId = await resolverTalhaoDoUsuario(talhao_id, usuario_id!);
+    if (talhaoId === undefined) {
+      return res.status(404).json({ sucesso: false, mensagem: 'Talhão não encontrado.' });
+    }
 
     const registrosParaSalvar = amostras.map((amostra: any) => {
       const entrada = validarEntrada(amostra);
@@ -105,7 +109,7 @@ analisesRoutes.post('/bulk', verificarToken, async (req: AuthRequest, res) => {
         resultado,
         uf,
         cidade,
-        talhao_id,
+        talhao_id: talhaoId,
         modo_al_sat: amostra.modo_al_sat ?? 'direto',
         monitoramento_ativo: !!amostra.monitoramento,
         usuario_id,

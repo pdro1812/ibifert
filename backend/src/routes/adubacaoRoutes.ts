@@ -9,6 +9,7 @@ import {
   excluirAnaliseAdubacao,
   arquivarAnaliseAdubacao,
 } from '../database/adubacao';
+import { resolverTalhaoDoUsuario } from '../database/fazendas';
 import { verificarToken, AuthRequest } from '../middlewares/authMiddleware';
 import { limitadorCalculoPublico } from '../middlewares/rateLimit';
 import { LocalizacaoSchema } from '../schemas/localizacaoSchema';
@@ -102,10 +103,14 @@ adubacaoRoutes.post('/salvar', verificarToken, async (req: AuthRequest, res) => 
     }
     const entrada = AdubacaoSchema.parse(dadosForm);
     const data_analise = DataAnaliseSchema.parse(dadosForm?.data_analise);
+    const talhaoId = await resolverTalhaoDoUsuario(dadosForm?.talhao_id, req.userId!);
+    if (talhaoId === undefined) {
+      return res.status(404).json({ error: 'Talhão não encontrado.' });
+    }
 
     const analiseSalva = await criarAnaliseAdubacao({
       usuario_id: req.userId,
-      talhao_id: dadosForm.talhao_id || undefined,
+      talhao_id: talhaoId,
       ...colunasAdubacao(entrada, localizacao.data, resultado, data_analise),
     });
 
@@ -133,18 +138,21 @@ adubacaoRoutes.post('/bulk', verificarToken, async (req: AuthRequest, res) => {
     if (!dataAnalise.success) {
       return res.status(400).json({ error: dataAnalise.error.issues[0].message });
     }
+    const talhaoId = await resolverTalhaoDoUsuario(talhao_id, usuario_id!);
+    if (talhaoId === undefined) {
+      return res.status(404).json({ error: 'Talhão não encontrado.' });
+    }
 
     const resultadosProcessados = [];
     
     for (const amostra of amostras) {
       try {
-        const dadosComTalhao = { ...amostra, talhao_id };
-        const entradaValidada = AdubacaoSchema.parse(dadosComTalhao);
+        const entradaValidada = AdubacaoSchema.parse(amostra);
         const resultado = executarMotorAdubacao(entradaValidada);
-        
+
         const analiseSalva = await criarAnaliseAdubacao({
           usuario_id,
-          talhao_id,
+          talhao_id: talhaoId,
           ...colunasAdubacao(
             entradaValidada,
             { uf: amostra.uf || 'RS', cidade: amostra.cidade || 'Não informada' },
