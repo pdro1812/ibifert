@@ -32,6 +32,7 @@
 | 7 | Levantamento de dados sensíveis / LGPD | **implementado** — CPF removido (05/10); sessão em cookie httpOnly, exclusão de conta e aviso no campo identificação (30/10/2026) |
 | 8 | Bug no cálculo de adubação em cenário específico | **implementado** (30/10/2026) — as 3 alterações aplicadas; os 3 cenários batem com a coordenadora |
 | 9 | Tirar da tela o campo "Densidade de plantas" (e decidir a opção "Total") | proposto — **pendente de decisão** com a coordenadora |
+| 10 | Lote ALT-001 a ALT-014 da coordenação (navegação, histórico, arquivamento, macro/micro) | em análise — ver `docs/plano-alteracoes-coordenacao.md` |
 
 **Dependências entre itens:** 2 → 5 (ambos mexem no layout/agrupamento de
 campos da calculadora de calagem, fazem sentido desenhados juntos); 3 → 4
