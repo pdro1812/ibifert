@@ -43,6 +43,13 @@
       "when": 1791238584814,
       "tag": "0005_remove_cpf_users",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793408374246,
+      "tag": "0006_data_analise_e_arquivamento",
+      "breakpoints": true
     }
   ]
 }

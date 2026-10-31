@@ -1,5 +1,6 @@
 import {
   boolean,
+  date,
   integer,
   pgEnum,
   pgTable,
@@ -58,6 +59,12 @@ export const analises = pgTable('analises', {
   usuario_id: uuid('usuario_id'),
   talhao_id:  uuid('talhao_id'),
   criado_em:  timestamp('criado_em').notNull().defaultNow(),
+  // Data em que a análise de solo foi feita, informada pelo usuário (não é a
+  // data de inserção — essa é criado_em). Nula em registros antigos.
+  data_analise: date('data_analise', { mode: 'string' }),
+  // Preenchida quando o usuário arquiva a análise: some do histórico ativo,
+  // mas nada do registro é apagado. Nula = ativa.
+  arquivada_em: timestamp('arquivada_em'),
 
   uf:            text('uf').notNull(),
   cidade:        text('cidade').notNull(),
@@ -150,6 +157,12 @@ export const analisesAdubacao = pgTable('analises_adubacao', {
   usuario_id: uuid('usuario_id'),
   talhao_id:  uuid('talhao_id'),
   criado_em:  timestamp('criado_em').notNull().defaultNow(),
+  // Data em que a análise de solo foi feita, informada pelo usuário (não é a
+  // data de inserção — essa é criado_em). Nula em registros antigos.
+  data_analise: date('data_analise', { mode: 'string' }),
+  // Preenchida quando o usuário arquiva a análise: some do histórico ativo,
+  // mas nada do registro é apagado. Nula = ativa.
+  arquivada_em: timestamp('arquivada_em'),
 
   uf:            text('uf').notNull(),
   cidade:        text('cidade').notNull(),
