@@ -7,10 +7,12 @@ import { CriarFazendaSchema, CriarTalhaoSchema } from '../schemas/fazendasSchema
 import {
   createFazenda,
   deleteFazenda,
+  updateFazenda,
   getFazendasByUsuario,
   getFazendaPorIdEUsuario,
   createTalhao,
   deleteTalhao,
+  updateTalhao,
   getTalhoesByFazenda,
   getTalhaoById,
   getAnalisesByTalhao,
@@ -60,6 +62,24 @@ fazendasRouter.post('/', async (req, res) => {
   }
 });
 
+// PUT /api/fazendas/:id  →  edita nome, município e UF (só do dono)
+fazendasRouter.put('/:id', async (req, res) => {
+  try {
+    const usuarioId = (req as AuthRequest).userId as string;
+    const dados = CriarFazendaSchema.safeParse(req.body);
+    if (!dados.success) {
+      return res.status(400).json({ error: dados.error.issues[0].message });
+    }
+
+    const fazenda = await updateFazenda(req.params.id, usuarioId, dados.data);
+    if (!fazenda) return res.status(404).json({ error: 'Propriedade não encontrada.' });
+    res.json(fazenda);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao editar propriedade.' });
+  }
+});
+
 // DELETE /api/fazendas/:id  →  remove fazenda e seus talhões (só do dono)
 fazendasRouter.delete('/:id', async (req, res) => {
   try {
@@ -93,6 +113,24 @@ fazendasRouter.post('/:fazendaId/talhoes', async (req, res) => {
     }
     console.error(err);
     res.status(500).json({ error: 'Erro ao criar talhão.' });
+  }
+});
+
+// PUT /api/fazendas/talhoes/:id  →  edita nome e cultura do talhão (só do dono)
+fazendasRouter.put('/talhoes/:id', async (req, res) => {
+  try {
+    const usuarioId = (req as AuthRequest).userId as string;
+    const dados = CriarTalhaoSchema.safeParse(req.body);
+    if (!dados.success) {
+      return res.status(400).json({ error: dados.error.issues[0].message });
+    }
+
+    const talhao = await updateTalhao(req.params.id, usuarioId, dados.data);
+    if (!talhao) return res.status(404).json({ error: 'Talhão não encontrado.' });
+    res.json(talhao);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao editar talhão.' });
   }
 });
 

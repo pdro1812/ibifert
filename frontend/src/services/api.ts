@@ -158,6 +158,11 @@ export async function postFazenda(data: { nome: string; municipio: string; uf: s
   return res.data;
 }
  
+export async function putFazenda(id: string, data: { nome: string; municipio: string; uf: string }) {
+  const res = await api.put(`/fazendas/${id}`, data);
+  return res.data;
+}
+ 
 export async function deleteFazendaApi(id: string) {
   const res = await api.delete(`/fazendas/${id}`);
   return res.data;
@@ -170,6 +175,11 @@ export async function postTalhao(
   data: { nome: string; cultura: string }
 ) {
   const res = await api.post(`/fazendas/${fazendaId}/talhoes`, data);
+  return res.data;
+}
+ 
+export async function putTalhao(id: string, data: { nome: string; cultura: string }) {
+  const res = await api.put(`/fazendas/talhoes/${id}`, data);
   return res.data;
 }
  

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FlaskConical, MapPin, Plus, Tractor } from 'lucide-react';
+import { FlaskConical, MapPin, Pencil, Plus, Tractor } from 'lucide-react';
 import { ibgeService } from '../services/ibge';
 import type { Municipio } from '../services/ibge';
 import { ESTADOS_ATENDIDOS } from '../constants/estados';
@@ -12,9 +12,11 @@ import { useAuth } from '../contexts/AuthContext';
 import {
   getFazendas,
   postFazenda,
+  putFazenda,
   deleteFazendaApi,
   postTalhao,
   deleteTalhaoApi,
+  putTalhao,
 } from '../services/api';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -55,6 +57,10 @@ export function FazendasPage() {
 
   const [modalFazendaOpen, setModalFazendaOpen] = useState(false);
   const [modalTalhaoOpen, setModalTalhaoOpen] = useState(false);
+  // null = cadastro; preenchido = edição do registro existente
+  const [fazendaEmEdicao, setFazendaEmEdicao] = useState<Fazenda | null>(null);
+  const [talhaoEmEdicao, setTalhaoEmEdicao] = useState<{ fazendaId: string; talhao: Talhao } | null>(null);
+  const [fazendaIdNovoTalhao, setFazendaIdNovoTalhao] = useState<string>('');
 
   const [municipios, setMunicipios] = useState<Municipio[]>([]);
   const [ufSelecionada, setUfSelecionada] = useState('RS');
@@ -83,6 +89,39 @@ export function FazendasPage() {
 
   // ── Handlers ───────────────────────────────────────────────────────────────
 
+  const abrirNovaFazenda = () => {
+    setFazendaEmEdicao(null);
+    setUfSelecionada('RS');
+    setModalFazendaOpen(true);
+  };
+
+  const abrirEdicaoFazenda = (fazenda: Fazenda) => {
+    setFazendaEmEdicao(fazenda);
+    setUfSelecionada(fazenda.uf);
+    setModalFazendaOpen(true);
+  };
+
+  const fecharModalFazenda = () => {
+    setModalFazendaOpen(false);
+    setFazendaEmEdicao(null);
+  };
+
+  const abrirNovoTalhao = (fazendaId = '') => {
+    setTalhaoEmEdicao(null);
+    setFazendaIdNovoTalhao(fazendaId);
+    setModalTalhaoOpen(true);
+  };
+
+  const abrirEdicaoTalhao = (fazendaId: string, talhao: Talhao) => {
+    setTalhaoEmEdicao({ fazendaId, talhao });
+    setModalTalhaoOpen(true);
+  };
+
+  const fecharModalTalhao = () => {
+    setModalTalhaoOpen(false);
+    setTalhaoEmEdicao(null);
+  };
+
   const handleSalvarFazenda = async (evento: FormEvent<HTMLFormElement>) => {
     evento.preventDefault();
     const formData = new FormData(evento.currentTarget);
@@ -93,14 +132,23 @@ export function FazendasPage() {
       return;
     }
 
+    const dados = {
+      nome: String(formData.get('nomeFazenda') ?? ''),
+      uf: String(formData.get('uf') ?? ''),
+      municipio: municipioDigitado,
+    };
+
     try {
-      const novaFazenda = await postFazenda({
-        nome: String(formData.get('nomeFazenda') ?? ''),
-        uf: String(formData.get('uf') ?? ''),
-        municipio: municipioDigitado,
-      });
-      setFazendas((prev) => [...prev, { ...novaFazenda, talhoes: [] }]);
-      setModalFazendaOpen(false);
+      if (fazendaEmEdicao) {
+        const atualizada = await putFazenda(fazendaEmEdicao.id, dados);
+        setFazendas((prev) =>
+          prev.map((f) => (f.id === fazendaEmEdicao.id ? { ...f, ...atualizada, talhoes: f.talhoes } : f))
+        );
+      } else {
+        const novaFazenda = await postFazenda(dados);
+        setFazendas((prev) => [...prev, { ...novaFazenda, talhoes: [] }]);
+      }
+      fecharModalFazenda();
     } catch (err) {
       console.error(err);
       alert('Erro ao salvar propriedade.');
@@ -110,19 +158,32 @@ export function FazendasPage() {
   const handleSalvarTalhao = async (evento: FormEvent<HTMLFormElement>) => {
     evento.preventDefault();
     const formData = new FormData(evento.currentTarget);
-    const fazendaId = String(formData.get('fazendaId') ?? '');
+    const dados = {
+      nome: String(formData.get('nomeTalhao') ?? ''),
+      cultura: String(formData.get('cultura') ?? ''),
+    };
 
     try {
-      const novoTalhao = await postTalhao(fazendaId, {
-        nome: String(formData.get('nomeTalhao') ?? ''),
-        cultura: String(formData.get('cultura') ?? ''),
-      });
-      setFazendas((prev) =>
-        prev.map((f) =>
-          f.id === fazendaId ? { ...f, talhoes: [...f.talhoes, novoTalhao] } : f
-        )
-      );
-      setModalTalhaoOpen(false);
+      if (talhaoEmEdicao) {
+        const { fazendaId, talhao } = talhaoEmEdicao;
+        const atualizado = await putTalhao(talhao.id, dados);
+        setFazendas((prev) =>
+          prev.map((f) =>
+            f.id === fazendaId
+              ? { ...f, talhoes: f.talhoes.map((t) => (t.id === talhao.id ? { ...t, ...atualizado } : t)) }
+              : f
+          )
+        );
+      } else {
+        const fazendaId = String(formData.get('fazendaId') ?? '');
+        const novoTalhao = await postTalhao(fazendaId, dados);
+        setFazendas((prev) =>
+          prev.map((f) =>
+            f.id === fazendaId ? { ...f, talhoes: [...f.talhoes, novoTalhao] } : f
+          )
+        );
+      }
+      fecharModalTalhao();
     } catch (err) {
       console.error(err);
       alert('Erro ao salvar talhão.');
@@ -169,13 +230,13 @@ export function FazendasPage() {
         </div>
         <div className="flex flex-wrap gap-3">
           <button
-            onClick={() => setModalFazendaOpen(true)}
+            onClick={abrirNovaFazenda}
             className="rounded-lg border border-stone-200 bg-white px-4 py-2 font-semibold text-stone-700 transition-colors hover:bg-stone-50"
           >
             + Nova Propriedade
           </button>
           <button
-            onClick={() => setModalTalhaoOpen(true)}
+            onClick={() => abrirNovoTalhao()}
             className="rounded-lg border border-stone-200 bg-white px-4 py-2 font-semibold text-stone-700 transition-colors hover:bg-stone-50"
           >
             + Novo Talhão
@@ -214,10 +275,16 @@ export function FazendasPage() {
                 </div>
                 <div className="flex items-center gap-4">
                   <button
-                    onClick={() => setModalTalhaoOpen(true)}
+                    onClick={() => abrirNovoTalhao(fazenda.id)}
                     className="flex items-center gap-1 text-sm font-semibold text-green-600 hover:text-green-700"
                   >
                     <Plus size={16} /> Adicionar Talhão
+                  </button>
+                  <button
+                    onClick={() => abrirEdicaoFazenda(fazenda)}
+                    className="flex items-center gap-1 text-sm font-semibold text-stone-500 hover:text-stone-800"
+                  >
+                    <Pencil size={14} /> Editar
                   </button>
                   <button
                     onClick={() => handleDeletarFazenda(fazenda.id)}
@@ -264,12 +331,20 @@ export function FazendasPage() {
                         ) : (
                           <p className="mt-2 text-xs text-stone-500">Sem análises recentes</p>
                         )}
-                        <button
-                          onClick={(e) => { e.stopPropagation(); handleDeletarTalhao(fazenda.id, talhao.id); }}
-                          className="mt-3 text-[10px] font-bold uppercase tracking-wider text-red-300 transition-colors hover:text-red-500"
-                        >
-                          Remover Talhão
-                        </button>
+                        <div className="mt-3 flex items-center gap-4">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); abrirEdicaoTalhao(fazenda.id, talhao); }}
+                            className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-stone-400 transition-colors hover:text-stone-700"
+                          >
+                            <Pencil size={11} /> Editar
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleDeletarTalhao(fazenda.id, talhao.id); }}
+                            className="text-[10px] font-bold uppercase tracking-wider text-red-300 transition-colors hover:text-red-500"
+                          >
+                            Remover Talhão
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -280,14 +355,19 @@ export function FazendasPage() {
         </div>
       )}
 
-      {/* Modal: Nova Fazenda */}
-      <Modal isOpen={modalFazendaOpen} onClose={() => setModalFazendaOpen(false)} titulo="Cadastrar Nova Propriedade">
-        <form onSubmit={handleSalvarFazenda} className="space-y-4">
+      {/* Modal: Nova / Editar Fazenda */}
+      <Modal
+        isOpen={modalFazendaOpen}
+        onClose={fecharModalFazenda}
+        titulo={fazendaEmEdicao ? 'Editar Propriedade' : 'Cadastrar Nova Propriedade'}
+      >
+        <form key={fazendaEmEdicao?.id ?? 'nova'} onSubmit={handleSalvarFazenda} className="space-y-4">
           <div>
             <label className="text-sm font-semibold text-stone-700">Nome da Propriedade</label>
             <input
               name="nomeFazenda"
               required
+              defaultValue={fazendaEmEdicao?.nome}
               placeholder="Ex: Sítio São José"
               className="mt-1 w-full rounded-xl border border-stone-200 bg-stone-50 px-4 py-3 outline-none focus:border-green-500"
             />
@@ -300,7 +380,8 @@ export function FazendasPage() {
                 value={ufSelecionada}
                 onChange={(e) => {
                   setUfSelecionada(e.target.value);
-                  if (!e.target.value) setMunicipios([]);
+                  const municipio = e.currentTarget.form?.elements.namedItem('municipio');
+                  if (municipio instanceof HTMLInputElement) municipio.value = '';
                 }}
                 className="mt-1 w-full rounded-xl border border-stone-200 bg-stone-50 px-4 py-3 outline-none focus:border-green-500"
               >
@@ -314,6 +395,7 @@ export function FazendasPage() {
               <input
                 name="municipio"
                 required
+                defaultValue={fazendaEmEdicao?.municipio}
                 list="lista-municipios-fazenda"
                 disabled={municipios.length === 0}
                 placeholder={ufSelecionada ? 'Digite para buscar...' : 'Selecione o Estado'}
@@ -329,19 +411,29 @@ export function FazendasPage() {
             type="submit"
             className="w-full rounded-xl bg-green-600 py-3 font-bold text-white transition-all hover:bg-green-700"
           >
-            Salvar Propriedade
+            {fazendaEmEdicao ? 'Salvar Alterações' : 'Salvar Propriedade'}
           </button>
         </form>
       </Modal>
 
-      {/* Modal: Novo Talhão */}
-      <Modal isOpen={modalTalhaoOpen} onClose={() => setModalTalhaoOpen(false)} titulo="Cadastrar Novo Talhão">
-        <form onSubmit={handleSalvarTalhao} className="space-y-4">
+      {/* Modal: Novo / Editar Talhão */}
+      <Modal
+        isOpen={modalTalhaoOpen}
+        onClose={fecharModalTalhao}
+        titulo={talhaoEmEdicao ? 'Editar Talhão' : 'Cadastrar Novo Talhão'}
+      >
+        <form
+          key={talhaoEmEdicao?.talhao.id ?? `novo-${fazendaIdNovoTalhao}`}
+          onSubmit={handleSalvarTalhao}
+          className="space-y-4"
+        >
           <div>
             <label className="text-sm font-semibold text-stone-700">Propriedade</label>
             <select
               name="fazendaId"
               required
+              defaultValue={talhaoEmEdicao?.fazendaId ?? (fazendaIdNovoTalhao || undefined)}
+              disabled={talhaoEmEdicao !== null}
               className="mt-1 w-full rounded-xl border border-stone-200 bg-stone-50 px-4 py-3 outline-none focus:border-green-500"
             >
               {fazendas.map((f) => (
@@ -355,6 +447,7 @@ export function FazendasPage() {
               name="nomeTalhao"
               required
               placeholder="Ex: Talhão 1"
+              defaultValue={talhaoEmEdicao?.talhao.nome}
               className="mt-1 w-full rounded-xl border border-stone-200 bg-stone-50 px-4 py-3 outline-none focus:border-green-500"
             />
           </div>
@@ -363,9 +456,13 @@ export function FazendasPage() {
             <select
               name="cultura"
               required
+              defaultValue={talhaoEmEdicao?.talhao.cultura}
               className="mt-1 w-full rounded-xl border border-stone-200 bg-stone-50 px-4 py-3 outline-none focus:border-green-500"
             >
               <option value="">Selecione...</option>
+              {talhaoEmEdicao && !CULTURAS_GRAOS.includes(talhaoEmEdicao.talhao.cultura) ? (
+                <option value={talhaoEmEdicao.talhao.cultura}>{talhaoEmEdicao.talhao.cultura}</option>
+              ) : null}
               {CULTURAS_GRAOS.map((c) => (
                 <option key={c} value={c}>{c}</option>
               ))}
@@ -375,7 +472,7 @@ export function FazendasPage() {
             type="submit"
             className="w-full rounded-xl bg-stone-900 py-3 font-bold text-white transition-all hover:bg-stone-800"
           >
-            Salvar Talhão
+            {talhaoEmEdicao ? 'Salvar Alterações' : 'Salvar Talhão'}
           </button>
         </form>
       </Modal>

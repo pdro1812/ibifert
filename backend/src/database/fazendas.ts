@@ -50,6 +50,19 @@ export async function deleteFazenda(id: string, usuarioId: string) {
   return fazenda;
 }
 
+export async function updateFazenda(
+  id: string,
+  usuarioId: string,
+  data: { nome: string; municipio: string; uf: string }
+) {
+  const [fazenda] = await db
+    .update(fazendas)
+    .set(data)
+    .where(and(eq(fazendas.id, id), eq(fazendas.usuario_id, usuarioId)))
+    .returning();
+  return fazenda;
+}
+
 // ── Talhoes ───────────────────────────────────────────────────────────────────
 
 export async function getTalhoesByFazenda(fazendaId: string) {
@@ -115,6 +128,24 @@ export async function deleteTalhao(id: string, usuarioId: string) {
 
   const [talhao] = await db
     .delete(talhoes)
+    .where(eq(talhoes.id, id))
+    .returning();
+  return talhao;
+}
+
+// Só o nome e a cultura mudam: o talhão continua na mesma propriedade e
+// as análises vinculadas a ele (por talhao_id) não são tocadas.
+export async function updateTalhao(
+  id: string,
+  usuarioId: string,
+  data: { nome: string; cultura: string }
+) {
+  const proprio = await getTalhaoById(id, usuarioId);
+  if (!proprio) return undefined;
+
+  const [talhao] = await db
+    .update(talhoes)
+    .set(data)
     .where(eq(talhoes.id, id))
     .returning();
   return talhao;
