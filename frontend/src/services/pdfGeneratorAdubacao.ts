@@ -1,10 +1,19 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type { EntradaAdubacao } from '../schemas/adubacaoSchema';
+import { organizarRecomendacaoAdubacao, type LinhaNutriente, type ResultadoAdubacao } from './organizarRecomendacaoAdubacao';
 
 export interface GerarPDFAdubacaoParams {
   dadosEntrada: EntradaAdubacao;
-  resultado: any;
+  resultado: ResultadoAdubacao & {
+    classificacao_solo: {
+      argila_classe: string;
+      mo_classe: string;
+      ctc_classe: string;
+      p_classe: string;
+      k_classe: string;
+    };
+  };
   identificacao?: string;
   uf?: string;
   cidade?: string;
@@ -13,6 +22,10 @@ export interface GerarPDFAdubacaoParams {
 function formatarNumero(valor: number | undefined, casas = 2, sufixo = ''): string {
   if (valor === undefined || Number.isNaN(valor)) return '—';
   return `${valor.toFixed(casas).replace('.', ',')}${sufixo}`;
+}
+
+function fimUltimaTabela(doc: jsPDF): number {
+  return (doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY;
 }
 
 function sanitizeText(text: string): string {
@@ -74,7 +87,7 @@ export function gerarPDFRelatorioAdubacao({
     columnStyles: { 0: { fontStyle: 'bold', cellWidth: 70 } },
   });
 
-  finalY = (doc as any).lastAutoTable.finalY + 10;
+  finalY = fimUltimaTabela(doc) + 10;
 
   // Análise de Solo
   autoTable(doc, {
@@ -92,7 +105,7 @@ export function gerarPDFRelatorioAdubacao({
     columnStyles: { 0: { fontStyle: 'bold', cellWidth: 70 } },
   });
 
-  finalY = (doc as any).lastAutoTable.finalY + 10;
+  finalY = fimUltimaTabela(doc) + 10;
 
   // Classificação
   autoTable(doc, {
@@ -110,33 +123,59 @@ export function gerarPDFRelatorioAdubacao({
     columnStyles: { 0: { fontStyle: 'bold', cellWidth: 70 } },
   });
 
-  finalY = (doc as any).lastAutoTable.finalY + 10;
+  finalY = fimUltimaTabela(doc) + 10;
 
-  // Recomendação
+  // Recomendações de nutrientes (macro e micro), observações técnicas e,
+  // por último, alertas e avisos — ver organizarRecomendacaoAdubacao.
+  const organizada = organizarRecomendacaoAdubacao(resultado);
+  const verde: [number, number, number] = [22, 163, 74];
+  const linhaCategoria = (titulo: string) => [{
+    content: titulo,
+    colSpan: 3,
+    styles: { fillColor: [220, 252, 231] as [number, number, number], textColor: [21, 128, 61] as [number, number, number], fontStyle: 'bold' as const },
+  }];
+  const linhasNutriente = (linhas: LinhaNutriente[]) =>
+    linhas.map((l) => [sanitizeText(l.nutriente), sanitizeText(l.dose), sanitizeText(l.orientacao)]);
+
   autoTable(doc, {
     startY: finalY,
-    head: [['Nutriente', 'Dose Total (kg/ha)', 'Tipo / Aplicação']],
+    head: [['Nutriente', 'Dose', 'Tipo / Aplicação']],
     body: [
-      ['Nitrogênio (N)', formatarNumero(resultado.recomendacao.n.dose_total_kg_ha, 0), sanitizeText(resultado.recomendacao.n.tipo)],
-      ['Fósforo (P2O5)', formatarNumero(resultado.recomendacao.p2o5.dose_total_kg_ha, 0), sanitizeText(resultado.recomendacao.p2o5.tipo_adubacao)],
-      ['Potássio (K2O)', formatarNumero(resultado.recomendacao.k2o.dose_total_kg_ha, 0), sanitizeText(`Semeadura: ${formatarNumero(resultado.recomendacao.k2o.k2o_semeadura_kg_ha, 0)} | Cobertura/Lanço: ${formatarNumero(resultado.recomendacao.k2o.k2o_complementar_kg_ha, 0)}`)],
+      linhaCategoria('Macronutrientes'),
+      ...linhasNutriente(organizada.macronutrientes),
+      linhaCategoria('Micronutrientes'),
+      ...(organizada.micronutrientes.length > 0
+        ? linhasNutriente(organizada.micronutrientes)
+        : [[{ content: 'Nenhuma recomendação de micronutriente para esta análise.', colSpan: 3, styles: { textColor: [120, 113, 108] as [number, number, number], fontStyle: 'italic' as const } }]]),
     ],
     theme: 'grid',
-    headStyles: { fillColor: [22, 163, 74], textColor: [255, 255, 255] },
+    headStyles: { fillColor: verde, textColor: [255, 255, 255] },
+    styles: { overflow: 'linebreak' },
     columnStyles: { 0: { fontStyle: 'bold', cellWidth: 40 }, 1: { halign: 'center', cellWidth: 40 } },
   });
 
-  finalY = (doc as any).lastAutoTable.finalY + 10;
+  finalY = fimUltimaTabela(doc) + 10;
 
-  // Alertas
-  if (resultado.alertas && resultado.alertas.length > 0) {
+  if (organizada.observacoes.length > 0) {
     autoTable(doc, {
       startY: finalY,
-      head: [['Alertas e Observações Técnicas']],
-      body: resultado.alertas.map((a: any) => [`[${a.nivel}] ${sanitizeText(a.mensagem)}`]),
+      head: [['Observações Técnicas']],
+      body: organizada.observacoes.map((a) => [sanitizeText(a.mensagem)]),
+      theme: 'grid',
+      headStyles: { fillColor: [37, 99, 235], textColor: [255, 255, 255] },
+      styles: { overflow: 'linebreak' },
+    });
+    finalY = fimUltimaTabela(doc) + 10;
+  }
+
+  if (organizada.alertas.length > 0) {
+    autoTable(doc, {
+      startY: finalY,
+      head: [['Alertas e Avisos']],
+      body: organizada.alertas.map((a) => [`[${a.nivel}] ${sanitizeText(a.mensagem)}`]),
       theme: 'grid',
       headStyles: { fillColor: [234, 179, 8], textColor: [255, 255, 255] },
-      styles: { overflow: 'linebreak', cellWidth: 'wrap' },
+      styles: { overflow: 'linebreak' },
     });
   }
 

@@ -39,6 +39,7 @@ import { ESTADOS_ATENDIDOS } from '../constants/estados';
 import { Modal } from '../components/Modal';
 import { CampoNumerico, SelectPadrao } from '../components/FormFields';
 import { useAuth } from '../contexts/AuthContext';
+import { RecomendacaoAdubacao, SecaoAlertas, SecaoObservacoes } from '../components/ResultadoSecoes';
 
 // ─── Tipos: formulário único cobrindo calagem + adubação ────────────────────
 //
@@ -1141,28 +1142,13 @@ export function CalculadoraCompletaPage() {
                       </div>
                     ) : null}
 
-                    {resultadoCalagem.nota_tecnica ? (
-                      <div className="rounded-xl border border-blue-200 bg-blue-50 p-3 text-xs text-blue-900">
-                        {resultadoCalagem.nota_tecnica}
-                      </div>
-                    ) : null}
-
-                    {resultadoCalagem.acao_requerida ? (
-                      <div className="rounded-xl border border-orange-200 bg-orange-50 p-3 text-xs text-orange-900">
-                        <strong>Ação requerida:</strong> {resultadoCalagem.acao_requerida}
-                      </div>
-                    ) : null}
-
-                    {resultadoCalagem.alertas?.length > 0 ? (
-                      <div className="space-y-2">
-                        {resultadoCalagem.alertas.map((alerta, i) => (
-                          <div key={`${alerta}-${i}`} className="flex items-start gap-2 rounded-xl border border-orange-200 bg-orange-50 p-2 text-xs text-orange-800">
-                            <AlertCircle size={12} className="mt-0.5 shrink-0" />
-                            <span>{alerta}</span>
-                          </div>
-                        ))}
-                      </div>
-                    ) : null}
+                    <SecaoObservacoes mensagens={resultadoCalagem.nota_tecnica ? [resultadoCalagem.nota_tecnica] : []} />
+                    <SecaoAlertas
+                      mensagens={[
+                        ...(resultadoCalagem.acao_requerida ? [`Ação requerida: ${resultadoCalagem.acao_requerida}`] : []),
+                        ...(resultadoCalagem.alertas ?? []),
+                      ]}
+                    />
 
                     <div className="grid grid-cols-2 gap-3">
                       <button
@@ -1215,67 +1201,7 @@ export function CalculadoraCompletaPage() {
                   </div>
                 ) : resultadoAdubacao ? (
                   <div className="space-y-4">
-                    <div className="space-y-3">
-                      <div className="rounded-[1.5rem] bg-white p-5 text-center shadow-xl">
-                        <p className="mb-1 text-xs font-bold uppercase tracking-wider text-stone-400">Nitrogênio (N)</p>
-                        <div className="mb-1 flex items-baseline justify-center gap-2">
-                          <span className="bg-gradient-to-r from-emerald-600 to-emerald-400 bg-clip-text text-3xl font-extrabold text-transparent">
-                            {resultadoAdubacao.recomendacao.n.dose_total_kg_ha}
-                          </span>
-                          <span className="text-sm font-bold text-emerald-700">kg/ha</span>
-                        </div>
-                        <p className="text-[11px] font-semibold text-stone-400">{resultadoAdubacao.recomendacao.n.tipo}</p>
-                      </div>
-
-                      <div className="rounded-[1.5rem] bg-white p-5 text-center shadow-xl">
-                        <p className="mb-1 text-xs font-bold uppercase tracking-wider text-stone-400">Fósforo (P₂O₅)</p>
-                        <div className="mb-1 flex items-baseline justify-center gap-2">
-                          <span className="bg-gradient-to-r from-emerald-600 to-emerald-400 bg-clip-text text-3xl font-extrabold text-transparent">
-                            {resultadoAdubacao.recomendacao.p2o5.dose_total_kg_ha}
-                          </span>
-                          <span className="text-sm font-bold text-emerald-700">kg/ha</span>
-                        </div>
-                        <p className="text-[11px] font-semibold text-stone-400">{resultadoAdubacao.recomendacao.p2o5.tipo_adubacao}</p>
-                      </div>
-
-                      <div className="rounded-[1.5rem] bg-white p-5 text-center shadow-xl">
-                        <p className="mb-1 text-xs font-bold uppercase tracking-wider text-stone-400">Potássio (K₂O)</p>
-                        <div className="mb-1 flex items-baseline justify-center gap-2">
-                          <span className="bg-gradient-to-r from-emerald-600 to-emerald-400 bg-clip-text text-3xl font-extrabold text-transparent">
-                            {resultadoAdubacao.recomendacao.k2o.dose_total_kg_ha}
-                          </span>
-                          <span className="text-sm font-bold text-emerald-700">kg/ha</span>
-                        </div>
-                        <p className="text-[11px] font-semibold text-stone-400">{resultadoAdubacao.recomendacao.k2o.tipo_adubacao}</p>
-                        <div className="mt-2 flex justify-center gap-4 border-t border-stone-100 pt-2">
-                          <span className="text-[10px] font-bold uppercase text-stone-500">
-                            Linha: <strong className="text-emerald-700">{resultadoAdubacao.recomendacao.k2o.k2o_semeadura_kg_ha}</strong> kg/ha
-                          </span>
-                          <span className="text-[10px] font-bold uppercase text-stone-500">
-                            Lanço: <strong className="text-emerald-700">{resultadoAdubacao.recomendacao.k2o.k2o_complementar_kg_ha}</strong> kg/ha
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {resultadoAdubacao.alertas?.length > 0 ? (
-                      <div className="space-y-2">
-                        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                        {resultadoAdubacao.alertas.map((alerta: any, idx: number) => (
-                          <div
-                            key={idx}
-                            className={`flex flex-col gap-1 rounded-xl border p-3 text-xs ${
-                              alerta.nivel === 'AVISO' ? 'border-orange-200 bg-orange-50 text-orange-800' : 'border-blue-200 bg-blue-50 text-blue-800'
-                            }`}
-                          >
-                            <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest opacity-80">
-                              <ShieldCheck size={12} /> {alerta.nivel}
-                            </div>
-                            <span className="font-medium leading-relaxed">{alerta.mensagem}</span>
-                          </div>
-                        ))}
-                      </div>
-                    ) : null}
+                    <RecomendacaoAdubacao resultado={resultadoAdubacao} />
 
                     <div className="grid grid-cols-2 gap-3">
                       <button
