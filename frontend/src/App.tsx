@@ -5,8 +5,6 @@ import { PublicLayout } from './layouts/PublicLayout';
 import { DashboardLayout } from './layouts/DashboardLayout';
 
 // Pages
-import { CalculadoraPage } from './pages/CalculadoraPage';
-import { AdubacaoPage } from './pages/AdubacaoPage';
 import { CalculadoraCompletaPage } from './pages/CalculadoraCompletaPage';
 import { FeedbackPage } from './pages/FeedbackPage';
 import { MonitoramentoPage } from './pages/MonitoramentoPage';
@@ -16,6 +14,7 @@ import { MinhaContaPage } from './pages/MinhaContaPage';
 import { FazendasPage } from './pages/FazendasPage';
 import { NovaAnalisePage } from './pages/NovaAnalisePage';
 import { HistoricoAnalisesPage } from './pages/HistoricoAnalisesPage';
+import { EditarAnalisePage } from './pages/EditarAnalisePage';
 import { TalhaoDetalhesPage } from './pages/TalhaoDetalhesPage';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
 import { AdminUsersPage } from './pages/AdminUsersPage';
@@ -36,9 +35,6 @@ export default function App() {
           <Route element={<PublicLayout />}>
             <Route path="/" element={<CalculadoraCompletaPage />} />
             <Route path="/calculadora-completa" element={<CalculadoraCompletaPage />} />
-            {/* Telas antigas, mantidas como backup (sem link na navbar) */}
-            <Route path="/calagem" element={<CalculadoraPage />} />
-            <Route path="/adubacao" element={<AdubacaoPage />} />
             <Route path="/monitoramento" element={<MonitoramentoPage />} />
             <Route path="/feedback" element={<FeedbackPage />} />
             <Route path="/login" element={<LoginPage />} />
@@ -56,6 +52,7 @@ export default function App() {
               {/* O histórico só é visível para PRODUTORES aqui. Admin usa a tela de Usuários */}
               <Route element={<ProtectedRoute roles={['PRODUTOR']} />}>
                 <Route path="/historico" element={<HistoricoAnalisesPage />} />
+                <Route path="/historico/editar/:tipo/:id" element={<EditarAnalisePage />} />
               </Route>
             </Route>
           </Route>

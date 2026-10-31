@@ -2,9 +2,11 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ArrowRight, Plus, TableProperties, Tractor, MapPin, AlertCircle, CheckCircle2, Leaf, Sprout, FlaskConical, Layers } from 'lucide-react';
 import { getFazendas, postFazenda, postTalhao, postAnalisesBulk, postAdubacaoBulk } from '../services/api';
-import { ibgeService, type Estado, type Municipio } from '../services/ibge';
+import { ibgeService, type Municipio } from '../services/ibge';
+import { ESTADOS_ATENDIDOS } from '../constants/estados';
 import { CalagemSchema, precisaAlSatPDConsolidado, rotearMetodoCalagem, type SistemaManejo } from '../schemas/calagemSchema';
 import { AdubacaoSchema } from '../schemas/adubacaoSchema';
+import { hojeLocalISO } from '../utils/datas';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -200,6 +202,8 @@ export function NovaAnalisePage() {
   // ── Config Globais: Calagem
   const [sistemaManejo, setSistemaManejo] = useState<'CONVENCIONAL' | 'PD_IMPLANTACAO' | 'PD_CONSOLIDADO'>('CONVENCIONAL');
   const [prnt, setPrnt] = useState('90');
+  // Data em que o lote foi analisado (laboratório); vale para todas as linhas
+  const [dataAnalise, setDataAnalise] = useState('');
   const [calcularPolinomial, setCalcularPolinomial] = useState(false);
 
   // ── Config Globais: Adubacao
@@ -250,16 +254,12 @@ export function NovaAnalisePage() {
 
   // ── Criação rápida de fazenda (botão "+" ao lado do seletor de fazenda)
   const [modalFazendaOpen, setModalFazendaOpen] = useState(false);
-  const [estados, setEstados] = useState<Estado[]>([]);
   const [municipios, setMunicipios] = useState<Municipio[]>([]);
   const [novaFazendaNome, setNovaFazendaNome] = useState('');
   const [novaFazendaUf, setNovaFazendaUf] = useState('RS');
   const [novaFazendaMunicipio, setNovaFazendaMunicipio] = useState('');
   const [salvandoFazenda, setSalvandoFazenda] = useState(false);
 
-  useEffect(() => {
-    if (modalFazendaOpen && estados.length === 0) ibgeService.getEstados().then(setEstados).catch(console.error);
-  }, [modalFazendaOpen, estados.length]);
 
   useEffect(() => {
     if (modalFazendaOpen && novaFazendaUf) ibgeService.getMunicipios(novaFazendaUf).then(setMunicipios).catch(console.error);
@@ -281,7 +281,7 @@ export function NovaAnalisePage() {
       setNovaFazendaMunicipio('');
     } catch (err) {
       console.error(err);
-      alert('Erro ao salvar fazenda.');
+      alert('Erro ao salvar propriedade.');
     } finally {
       setSalvandoFazenda(false);
     }
@@ -327,6 +327,26 @@ export function NovaAnalisePage() {
         return novos;
       });
     }
+  };
+
+  // Copia o talhão da primeira linha para todas — atalho para lotes em que
+  // todas as amostras são do mesmo talhão. Continua editável linha a linha.
+  const aplicarTalhaoATodas = () => {
+    setLinhas((prev) => {
+      const talhaoId = prev[0]?.talhao_id;
+      if (!talhaoId) return prev;
+      return prev.map((l) => ({ ...l, talhao_id: talhaoId }));
+    });
+    setErrosGlobais((prev) => {
+      const novos = { ...prev };
+      for (const linhaId of Object.keys(novos)) {
+        if (novos[linhaId]?.talhao_id) {
+          novos[linhaId] = { ...novos[linhaId] };
+          delete novos[linhaId].talhao_id;
+        }
+      }
+      return novos;
+    });
   };
 
   const removerLinha = (id: string) => {
@@ -423,7 +443,7 @@ export function NovaAnalisePage() {
     setResumoEnvio([]);
 
     if (!fazendaSelecionada) {
-      alert('Selecione uma fazenda para prosseguir.');
+      alert('Selecione uma propriedade para prosseguir.');
       return;
     }
 
@@ -538,6 +558,7 @@ export function NovaAnalisePage() {
               talhao_id: tId,
               uf: fazendaSelecionada.uf,
               cidade: fazendaSelecionada.municipio,
+              data_analise: dataAnalise || null,
               amostras: itens.map(i => i.payload),
             });
             okCalagem += itens.length;
@@ -552,7 +573,7 @@ export function NovaAnalisePage() {
       const enviarAdubacao = Promise.allSettled(
         Object.entries(gruposAdubacao).map(async ([tId, itens]) => {
           try {
-            const res = await postAdubacaoBulk({ talhao_id: tId, amostras: itens.map(i => i.payload) });
+            const res = await postAdubacaoBulk({ talhao_id: tId, data_analise: dataAnalise || null, amostras: itens.map(i => i.payload) });
             // O bulk responde 200 mesmo com falhas individuais — conferir cada amostra.
             const resultados: Array<{ sucesso: boolean; erro?: string }> = res?.resultados ?? [];
             itens.forEach((item, idx) => {
@@ -668,10 +689,10 @@ export function NovaAnalisePage() {
           {/* Localização (Ocupa 1 coluna) */}
           <div className="space-y-4 col-span-1 border-r border-stone-200 pr-6">
             <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-stone-500">
-              <MapPin size={16} /> Fazenda Principal
+              <MapPin size={16} /> Propriedade
             </h3>
             <div className="space-y-1">
-              <label className="text-xs font-bold text-stone-600">Selecione a Fazenda</label>
+              <label className="text-xs font-bold text-stone-600">Selecione a Propriedade</label>
               <div className="flex items-center gap-2">
               <select 
                 value={fazendaId}
@@ -682,13 +703,27 @@ export function NovaAnalisePage() {
               </select>
               <button
                 type="button"
-                title="Adicionar nova fazenda"
+                title="Adicionar nova propriedade"
                 onClick={() => setModalFazendaOpen(true)}
                 className="shrink-0 rounded-xl border border-stone-200 bg-white p-2 text-stone-500 shadow-sm transition-all hover:border-green-500 hover:bg-green-50 hover:text-green-700"
               >
                 <Plus size={16} />
               </button>
               </div>
+            </div>
+            <div className="space-y-1">
+              <label htmlFor="data-analise-lote" className="text-xs font-bold text-stone-600">
+                Data da análise <span className="font-normal text-stone-400">(opcional)</span>
+              </label>
+              <input
+                id="data-analise-lote"
+                type="date"
+                value={dataAnalise}
+                max={hojeLocalISO()}
+                onChange={(e) => setDataAnalise(e.target.value)}
+                className="w-full rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm outline-none shadow-sm focus:border-green-500"
+              />
+              <p className="text-[10px] text-stone-400">Vale para todas as amostras do lote.</p>
             </div>
           </div>
 
@@ -826,7 +861,18 @@ export function NovaAnalisePage() {
                 <tr>
                   <th className="sticky left-0 z-10 w-10 bg-stone-50 px-3 py-4 text-center">#</th>
                   <th className="sticky left-10 z-10 w-40 bg-stone-50 px-3 py-4">Gleba / Amostra</th>
-                  <th className="w-40 px-3 py-4">Talhão Vinculado</th>
+                  <th className="min-w-[11rem] px-3 py-4">
+                    <div>Talhão Vinculado</div>
+                    {linhas.length > 1 && linhas[0]?.talhao_id ? (
+                      <button
+                        type="button"
+                        onClick={aplicarTalhaoATodas}
+                        className="mt-1 text-[10px] font-semibold normal-case text-green-700 hover:underline"
+                      >
+                        Usar o da 1ª linha em todas
+                      </button>
+                    ) : null}
+                  </th>
                   {colunas.map(({ key, label }) => (
                     <th key={key} className={`${modo === 'AMBOS' ? 'min-w-[5rem]' : 'w-24'} px-2 py-4 text-center`}>{label}</th>
                   ))}
@@ -857,10 +903,12 @@ export function NovaAnalisePage() {
                         className={`w-full rounded-lg border px-2 py-2 text-sm outline-none transition-all ${
                           errosGlobais[linha.id]?.talhao_id
                             ? 'border-red-500 bg-red-50 focus:border-red-500 focus:bg-red-50 text-red-600'
-                            : 'border-transparent bg-transparent focus:border-stone-200 focus:bg-white text-stone-600'
+                            : 'border-stone-200 bg-white focus:border-green-500 text-stone-700'
                         }`}
                       >
-                        <option value="">Selecione...</option>
+                        <option value="">
+                          {talhoesDisponiveis.length === 0 ? 'Nenhum talhão — use o +' : 'Selecione o talhão'}
+                        </option>
                         {talhoesDisponiveis.map((t) => (
                           <option key={t.id} value={t.id}>{t.nome}</option>
                         ))}
@@ -992,7 +1040,7 @@ export function NovaAnalisePage() {
             className="w-full max-w-sm space-y-4 rounded-2xl bg-white p-6 shadow-2xl"
           >
             <h3 className="text-lg font-bold text-stone-900">Novo talhão</h3>
-            <p className="text-xs text-stone-500">Fazenda: {fazendaSelecionada?.nome}</p>
+            <p className="text-xs text-stone-500">Propriedade: {fazendaSelecionada?.nome}</p>
             <div>
               <label className="text-sm font-semibold text-stone-700">Nome</label>
               <input
@@ -1028,9 +1076,9 @@ export function NovaAnalisePage() {
             onSubmit={(e) => { e.preventDefault(); salvarNovaFazenda(); }}
             className="w-full max-w-md space-y-4 rounded-2xl bg-white p-6 shadow-2xl"
           >
-            <h3 className="text-lg font-bold text-stone-900">Nova fazenda</h3>
+            <h3 className="text-lg font-bold text-stone-900">Nova propriedade</h3>
             <div>
-              <label className="text-sm font-semibold text-stone-700">Nome da Fazenda</label>
+              <label className="text-sm font-semibold text-stone-700">Nome da Propriedade</label>
               <input
                 autoFocus
                 required
@@ -1048,8 +1096,7 @@ export function NovaAnalisePage() {
                   onChange={(e) => { setNovaFazendaUf(e.target.value); setNovaFazendaMunicipio(''); if (!e.target.value) setMunicipios([]); }}
                   className="mt-1 w-full rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 outline-none focus:border-green-500"
                 >
-                  <option value="">UF</option>
-                  {estados.map((e) => <option key={e.id} value={e.sigla}>{e.sigla}</option>)}
+                  {ESTADOS_ATENDIDOS.map((e) => <option key={e.sigla} value={e.sigla}>{e.sigla} — {e.nome}</option>)}
                 </select>
               </div>
               <div className="col-span-2">

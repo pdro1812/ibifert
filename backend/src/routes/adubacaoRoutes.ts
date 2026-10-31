@@ -1,15 +1,67 @@
 import { Router } from 'express';
-import { AdubacaoSchema } from '../schemas/adubacaoSchema';
+import { AdubacaoSchema, type EntradaAdubacao } from '../schemas/adubacaoSchema';
 import { executarMotorAdubacao } from '../services/motorAdubacao';
 import {
   criarAnaliseAdubacao,
   buscarAnaliseAdubacaoPorId,
-  listarAnalisesAdubacaoPorUsuario
+  listarAnalisesAdubacaoPorUsuario,
+  atualizarAnaliseAdubacao,
+  excluirAnaliseAdubacao,
+  arquivarAnaliseAdubacao,
 } from '../database/adubacao';
 import { verificarToken, AuthRequest } from '../middlewares/authMiddleware';
 import { limitadorCalculoPublico } from '../middlewares/rateLimit';
+import { LocalizacaoSchema } from '../schemas/localizacaoSchema';
+import { ArquivarAnaliseSchema, DataAnaliseSchema } from '../schemas/gestaoAnaliseSchema';
 
 export const adubacaoRoutes = Router();
+
+// Entrada validada + localização + resultado do motor → colunas da tabela.
+// Usado no salvar, no lote e na edição.
+function colunasAdubacao(
+  entrada: EntradaAdubacao,
+  localizacao: { uf: string; cidade: string },
+  resultado: unknown,
+  data_analise: string | null
+) {
+  return {
+    uf: localizacao.uf,
+    cidade: localizacao.cidade,
+    identificacao: entrada.identificacao || 'Análise Adubação',
+    data_analise,
+
+    argila: entrada.argila,
+    MO: entrada.MO,
+    CTC_pH7: entrada.CTC_pH7,
+    P: entrada.P,
+    metodo_P: entrada.metodo_P,
+    K: entrada.K,
+    metodo_K: entrada.metodo_K,
+    Ca: entrada.Ca,
+    Mg: entrada.Mg,
+    S: entrada.S ?? null,
+    Cu: entrada.Cu ?? null,
+    Zn: entrada.Zn ?? null,
+    B: entrada.B ?? null,
+    Mn: entrada.Mn ?? null,
+    pH_agua: entrada.pH_agua ?? null,
+
+    cultura: entrada.cultura,
+    num_cultivo: entrada.num_cultivo,
+    rendimento_esperado: entrada.rendimento_esperado,
+    cultura_antecedente: entrada.cultura_antecedente ?? null,
+    sistema_cultivo: entrada.sistema_cultivo,
+    tipo_correcao: entrada.tipo_correcao,
+    densidade_plantas: entrada.densidade_plantas ?? null,
+    finalidade_cevada: entrada.finalidade_cevada ?? null,
+
+    recomendacao_json: resultado,
+  };
+}
+
+function primeiraMensagemZod(error: any): string | null {
+  return error?.name === 'ZodError' ? error.issues?.[0]?.message ?? 'Dados inválidos.' : null;
+}
 
 // Endpoint para calcular e salvar análise de adubação
 adubacaoRoutes.post('/calcular', limitadorCalculoPublico, async (req: AuthRequest, res) => {
@@ -41,52 +93,29 @@ adubacaoRoutes.post('/calcular', limitadorCalculoPublico, async (req: AuthReques
 adubacaoRoutes.post('/salvar', verificarToken, async (req: AuthRequest, res) => {
   try {
     const { dadosForm, resultado } = req.body;
-    
-    // Como verificarToken está ativo, garantimos req.userId
-    const usuario_id = req.userId;
 
-    const payloadBanco = {
-      usuario_id: usuario_id,
+    // A localização vem do formulário (mesmo bloco da calagem); antes caía
+    // silenciosamente em RS / "Não informada".
+    const localizacao = LocalizacaoSchema.safeParse({ uf: dadosForm?.uf, cidade: dadosForm?.cidade });
+    if (!localizacao.success) {
+      return res.status(400).json({ error: localizacao.error.issues[0].message });
+    }
+    const entrada = AdubacaoSchema.parse(dadosForm);
+    const data_analise = DataAnaliseSchema.parse(dadosForm?.data_analise);
+
+    const analiseSalva = await criarAnaliseAdubacao({
+      usuario_id: req.userId,
       talhao_id: dadosForm.talhao_id || undefined,
-      uf: dadosForm.uf || 'RS',
-      cidade: dadosForm.cidade || 'Não informada',
-      identificacao: dadosForm.identificacao || 'Análise Adubação',
-      
-      argila: dadosForm.argila,
-      MO: dadosForm.MO,
-      CTC_pH7: dadosForm.CTC_pH7,
-      P: dadosForm.P,
-      metodo_P: dadosForm.metodo_P,
-      K: dadosForm.K,
-      metodo_K: dadosForm.metodo_K,
-      Ca: dadosForm.Ca,
-      Mg: dadosForm.Mg,
-      S: dadosForm.S ?? undefined,
-      Cu: dadosForm.Cu ?? undefined,
-      Zn: dadosForm.Zn ?? undefined,
-      B: dadosForm.B ?? undefined,
-      Mn: dadosForm.Mn ?? undefined,
-      pH_agua: dadosForm.pH_agua ?? undefined,
-
-      cultura: dadosForm.cultura,
-      num_cultivo: dadosForm.num_cultivo,
-      rendimento_esperado: dadosForm.rendimento_esperado,
-      cultura_antecedente: dadosForm.cultura_antecedente ?? undefined,
-      sistema_cultivo: dadosForm.sistema_cultivo,
-      tipo_correcao: dadosForm.tipo_correcao,
-      densidade_plantas: dadosForm.densidade_plantas ?? undefined,
-      finalidade_cevada: dadosForm.finalidade_cevada ?? undefined,
-
-      recomendacao_json: resultado,
-    };
-
-    const analiseSalva = await criarAnaliseAdubacao(payloadBanco as any);
+      ...colunasAdubacao(entrada, localizacao.data, resultado, data_analise),
+    });
 
     res.status(201).json({
       message: 'Adubação salva com sucesso.',
       data: analiseSalva
     });
   } catch (error: any) {
+    const erroValidacao = primeiraMensagemZod(error);
+    if (erroValidacao) return res.status(400).json({ error: erroValidacao });
     res.status(500).json({ error: error.message });
   }
 });
@@ -100,6 +129,10 @@ adubacaoRoutes.post('/bulk', verificarToken, async (req: AuthRequest, res) => {
     if (!Array.isArray(amostras)) {
       return res.status(400).json({ error: 'Amostras devem ser um array' });
     }
+    const dataAnalise = DataAnaliseSchema.safeParse(req.body.data_analise);
+    if (!dataAnalise.success) {
+      return res.status(400).json({ error: dataAnalise.error.issues[0].message });
+    }
 
     const resultadosProcessados = [];
     
@@ -109,42 +142,16 @@ adubacaoRoutes.post('/bulk', verificarToken, async (req: AuthRequest, res) => {
         const entradaValidada = AdubacaoSchema.parse(dadosComTalhao);
         const resultado = executarMotorAdubacao(entradaValidada);
         
-        const payloadBanco = {
-          usuario_id: usuario_id,
-          talhao_id: talhao_id,
-          uf: amostra.uf || 'RS',
-          cidade: amostra.cidade || 'Não informada',
-          identificacao: entradaValidada.identificacao || 'Análise Adubação',
-          
-          argila: entradaValidada.argila,
-          MO: entradaValidada.MO,
-          CTC_pH7: entradaValidada.CTC_pH7,
-          P: entradaValidada.P,
-          metodo_P: entradaValidada.metodo_P,
-          K: entradaValidada.K,
-          metodo_K: entradaValidada.metodo_K,
-          Ca: entradaValidada.Ca,
-          Mg: entradaValidada.Mg,
-          S: entradaValidada.S ?? undefined,
-          Cu: entradaValidada.Cu ?? undefined,
-          Zn: entradaValidada.Zn ?? undefined,
-          B: entradaValidada.B ?? undefined,
-          Mn: entradaValidada.Mn ?? undefined,
-          pH_agua: entradaValidada.pH_agua ?? undefined,
-
-          cultura: entradaValidada.cultura,
-          num_cultivo: entradaValidada.num_cultivo,
-          rendimento_esperado: entradaValidada.rendimento_esperado,
-          cultura_antecedente: entradaValidada.cultura_antecedente ?? undefined,
-          sistema_cultivo: entradaValidada.sistema_cultivo,
-          tipo_correcao: entradaValidada.tipo_correcao,
-          densidade_plantas: entradaValidada.densidade_plantas ?? undefined,
-          finalidade_cevada: entradaValidada.finalidade_cevada ?? undefined,
-
-          recomendacao_json: resultado,
-        };
-
-        const analiseSalva = await criarAnaliseAdubacao(payloadBanco as any);
+        const analiseSalva = await criarAnaliseAdubacao({
+          usuario_id,
+          talhao_id,
+          ...colunasAdubacao(
+            entradaValidada,
+            { uf: amostra.uf || 'RS', cidade: amostra.cidade || 'Não informada' },
+            resultado,
+            dataAnalise.data
+          ),
+        });
         resultadosProcessados.push({ sucesso: true, id: analiseSalva.id, identificacao: amostra.identificacao });
       } catch (err: any) {
         console.error(`Erro ao processar amostra ${amostra.identificacao}:`, err);
@@ -186,6 +193,60 @@ adubacaoRoutes.get('/:id', verificarToken, async (req: AuthRequest, res) => {
     if (!analise) {
       return res.status(404).json({ error: 'Análise não encontrada' });
     }
+    res.json(analise);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ── Gerenciamento (só o dono) ─────────────────────────────────────────────────
+
+// PUT /api/adubacao/:id  →  corrige os dados e recalcula com o motor,
+// atualizando o mesmo registro (sem criar outro).
+adubacaoRoutes.put('/:id', verificarToken, async (req: AuthRequest, res) => {
+  try {
+    const { dadosForm } = req.body;
+    const localizacao = LocalizacaoSchema.safeParse({ uf: dadosForm?.uf, cidade: dadosForm?.cidade });
+    if (!localizacao.success) {
+      return res.status(400).json({ error: localizacao.error.issues[0].message });
+    }
+    const entrada = AdubacaoSchema.parse(dadosForm);
+    const data_analise = DataAnaliseSchema.parse(dadosForm?.data_analise);
+    const resultado = executarMotorAdubacao(entrada);
+
+    const analise = await atualizarAnaliseAdubacao(
+      req.params.id as string,
+      req.userId!,
+      colunasAdubacao(entrada, localizacao.data, resultado, data_analise)
+    );
+    if (!analise) return res.status(404).json({ error: 'Análise não encontrada' });
+    res.json({ data: analise, resultado });
+  } catch (error: any) {
+    const erroValidacao = primeiraMensagemZod(error);
+    if (erroValidacao) return res.status(400).json({ error: erroValidacao });
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// DELETE /api/adubacao/:id  →  exclusão definitiva
+adubacaoRoutes.delete('/:id', verificarToken, async (req: AuthRequest, res) => {
+  try {
+    const analise = await excluirAnaliseAdubacao(req.params.id as string, req.userId!);
+    if (!analise) return res.status(404).json({ error: 'Análise não encontrada' });
+    res.json(analise);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// PATCH /api/adubacao/:id/arquivar  →  { arquivada: true } arquiva, false restaura
+adubacaoRoutes.patch('/:id/arquivar', verificarToken, async (req: AuthRequest, res) => {
+  try {
+    const dados = ArquivarAnaliseSchema.safeParse(req.body);
+    if (!dados.success) return res.status(400).json({ error: dados.error.issues[0].message });
+
+    const analise = await arquivarAnaliseAdubacao(req.params.id as string, req.userId!, dados.data.arquivada);
+    if (!analise) return res.status(404).json({ error: 'Análise não encontrada' });
     res.json(analise);
   } catch (error: any) {
     res.status(500).json({ error: error.message });

@@ -363,7 +363,7 @@ export function gerarPDFRelatorio({
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);
     doc.setTextColor(...azul);
-    doc.text('Nota Técnica', margemEsquerda + 6, cursorY + 7);
+    doc.text('Observações técnicas', margemEsquerda + 6, cursorY + 7);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(...stone700);
     doc.text(notaLinhas, margemEsquerda + 6, cursorY + 13);
@@ -383,7 +383,7 @@ export function gerarPDFRelatorio({
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);
     doc.setTextColor(...laranja);
-    doc.text('Alertas e observações', margemEsquerda + 6, cursorY + 7);
+    doc.text('Alertas e avisos', margemEsquerda + 6, cursorY + 7);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(...stone700);
     doc.text(alertasLinhas, margemEsquerda + 6, cursorY + 13);

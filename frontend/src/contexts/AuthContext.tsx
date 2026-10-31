@@ -9,6 +9,9 @@ interface User {
   nome: string;
   email: string;
   role: string;
+  // Perfil regional: pré-preenche a localização dos cálculos
+  cidade?: string;
+  estado?: string;
 }
 
 export interface RegisterData {
@@ -28,6 +31,7 @@ interface AuthContextData {
   cadastrar: (data: RegisterData) => Promise<User>;
   logout: () => Promise<void>;
   excluirConta: (senha: string) => Promise<void>;
+  atualizarLocalidade: (dados: { cidade: string; estado: string }) => Promise<User>;
 }
 
 interface AuthProviderProps {
@@ -81,6 +85,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setUser(null);
   };
 
+  const atualizarLocalidade = async (dados: { cidade: string; estado: string }) => {
+    const response = await api.patch<{ usuario: User }>('/auth/me/localidade', dados);
+    setUser(response.data.usuario);
+    return response.data.usuario;
+  };
+
   // ─── Retorno do Provider ────────────────────────────────────────────────────
 
   return (
@@ -93,6 +103,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         cadastrar,
         logout,
         excluirConta,
+        atualizarLocalidade,
       }}
     >
       {children}

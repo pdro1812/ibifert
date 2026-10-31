@@ -134,6 +134,7 @@ adminRoutes.get('/analises', async (req, res) => {
       .select({
         id: analises.id,
         criado_em: analises.criado_em,
+        data_analise: analises.data_analise,
         uf: analises.uf,
         cidade: analises.cidade,
         identificacao: analises.identificacao,
@@ -164,6 +165,7 @@ adminRoutes.get('/analises', async (req, res) => {
       .select({
         id: analisesAdubacao.id,
         criado_em: analisesAdubacao.criado_em,
+        data_analise: analisesAdubacao.data_analise,
         uf: analisesAdubacao.uf,
         cidade: analisesAdubacao.cidade,
         identificacao: analisesAdubacao.identificacao,

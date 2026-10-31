@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useForm, useWatch } from 'react-hook-form';
-import type { Resolver, SubmitHandler } from 'react-hook-form';
+import { get, useForm, useWatch } from 'react-hook-form';
+import type { Control, FieldValues, Resolver, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
   AlertCircle,
@@ -30,14 +30,28 @@ import {
   AdubacaoSchema,
   type EntradaAdubacaoForm,
 } from '../schemas/adubacaoSchema';
-import { calcularCalagem, calcularAdubacao, salvarAdubacao } from '../services/api';
+import {
+  atualizarAdubacao,
+  atualizarCalagem,
+  buscarAnaliseSalva,
+  calcularAdubacao,
+  calcularCalagem,
+  salvarAdubacao,
+  salvarCalagem,
+  sanitizarPayloadCalagem,
+  type TipoAnalise,
+} from '../services/api';
+import { adubacaoParaFormulario, calagemParaFormulario } from '../services/analiseParaFormulario';
+import { hojeLocalISO } from '../utils/datas';
 import { gerarPDFRelatorio } from '../services/pdfGenerator';
 import { gerarPDFRelatorioAdubacao } from '../services/pdfGeneratorAdubacao';
 import { ibgeService } from '../services/ibge';
-import type { Estado, Municipio } from '../services/ibge';
+import type { Municipio } from '../services/ibge';
+import { ESTADOS_ATENDIDOS } from '../constants/estados';
 import { Modal } from '../components/Modal';
 import { CampoNumerico, SelectPadrao } from '../components/FormFields';
 import { useAuth } from '../contexts/AuthContext';
+import { RecomendacaoAdubacao, SecaoAlertas, SecaoObservacoes } from '../components/ResultadoSecoes';
 
 // ─── Tipos: formulário único cobrindo calagem + adubação ────────────────────
 //
@@ -127,6 +141,67 @@ function extrairMensagemErroAdubacao(error: unknown): string {
   return 'Erro ao calcular adubação.';
 }
 
+// ─── Preservação dos dados ao trocar de modo ───────────────────────────────
+//
+// O formulário usa shouldUnregister: true — campo que sai da tela sai também
+// do envio, para que um bloco oculto (ex.: B1/B2/B3 da calagem) nunca mande
+// valor ao motor. Por isso, ao trocar de modo, os valores são guardados e
+// devolvidos só aos campos que voltarem a aparecer na tela (inclusive os de
+// blocos que aparecem um render depois, como o B1 que depende do SMP).
+
+function achatar(valores: unknown, prefixo = ''): Record<string, unknown> {
+  if (valores === null || typeof valores !== 'object' || Array.isArray(valores)) {
+    return prefixo ? { [prefixo]: valores } : {};
+  }
+  return Object.entries(valores as Record<string, unknown>).reduce<Record<string, unknown>>(
+    (acc, [chave, valor]) => ({ ...acc, ...achatar(valor, prefixo ? `${prefixo}.${chave}` : chave) }),
+    {}
+  );
+}
+
+function campoNaTela<T extends FieldValues>(control: Control<T>, nome: string): boolean {
+  const campo = get(control._fields, nome)?._f as { ref?: unknown; refs?: unknown[] } | undefined;
+  if (!campo) return false;
+  const refs = campo.refs ?? [campo.ref];
+  return refs.some((ref) => ref instanceof Element && ref.isConnected);
+}
+
+// Assinatura da entrada de um cálculo — o que de fato vai ao motor. O
+// resultado só é considerado atual enquanto ela não mudar.
+function assinaturaCalagem(valores: unknown, extras: unknown): string {
+  const parse = CalagemSchema.safeParse(valores);
+  return parse.success ? JSON.stringify([sanitizarPayloadCalagem(parse.data), extras]) : 'entrada-invalida';
+}
+
+function assinaturaAdubacao(valores: unknown, extras: unknown): string {
+  const parse = AdubacaoSchema.safeParse(valores);
+  return parse.success ? JSON.stringify([parse.data, extras]) : 'entrada-invalida';
+}
+
+const LOCALIZACAO_PADRAO = { uf: 'RS', cidade: 'Ibirubá' };
+
+// Deixa claro se o resultado na tela é só um cálculo ou já está no histórico.
+function SeloSalvamento({ salvo }: { salvo: boolean }) {
+  return salvo ? (
+    <div data-testid="selo-salvo" className="flex items-center gap-2 rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-xs font-semibold text-green-800">
+      <CheckCircle2 size={13} /> Salvo no seu histórico
+    </div>
+  ) : (
+    <div data-testid="selo-temporario" className="flex items-center gap-2 rounded-xl border border-dashed border-stone-300 bg-white/70 px-3 py-2 text-xs text-stone-600">
+      <Save size={13} /> Cálculo temporário — clique em <strong>Salvar no histórico</strong> para guardá-lo.
+    </div>
+  );
+}
+
+function AvisoDesatualizado() {
+  return (
+    <div data-testid="aviso-desatualizado" className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+      <AlertCircle size={13} className="mt-0.5 shrink-0" />
+      <span>Os dados foram alterados depois deste cálculo. Clique em calcular de novo para atualizar o resultado.</span>
+    </div>
+  );
+}
+
 // ─── Seletor de módulo ──────────────────────────────────────────────────────
 
 const OPCOES_MODO: Array<{
@@ -152,12 +227,24 @@ const CULTURAS_COM_ANTECEDENTE = [
 
 // ─── Page ─────────────────────────────────────────────────────────────────
 
-export function CalculadoraCompletaPage() {
+// Sem `edicao`: calculadora normal. Com `edicao`: abre uma análise salva do
+// histórico já preenchida; calcular recalcula e atualiza o mesmo registro.
+interface CalculadoraCompletaProps {
+  edicao?: { tipo: TipoAnalise; id: string };
+}
+
+export function CalculadoraCompletaPage({ edicao }: CalculadoraCompletaProps = {}) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { isLoggedIn } = useAuth();
+  const { isLoggedIn, user } = useAuth();
 
-  const [modo, setModo] = useState<ModoCalculo>('AMBOS');
+  const [modo, setModo] = useState<ModoCalculo>(edicao ? edicao.tipo : 'AMBOS');
+  const emEdicao = edicao !== undefined;
+  const [carregandoEdicao, setCarregandoEdicao] = useState(emEdicao);
+  const [erroEdicao, setErroEdicao] = useState<string | null>(null);
+  const [salvoEdicao, setSalvoEdicao] = useState(false);
+  // AAAA-MM-DD ou vazio (não informada)
+  const [dataAnalise, setDataAnalise] = useState('');
 
   // Recuperação pós-login (ver services/pendencias.ts + LoginPage.tsx) —
   // mesmo padrão das páginas antigas: o resultado recuperado entra direto
@@ -180,22 +267,32 @@ export function CalculadoraCompletaPage() {
   const [resultadoCalagem, setResultadoCalagem] = useState<CalagemResultado | null>(calagemRecuperada ?? null);
   const [erroCalagem, setErroCalagem] = useState<string | null>(null);
   const [loadingCalagem, setLoadingCalagem] = useState(false);
-  const [salvoCalagem, setSalvoCalagem] = useState(false);
+  // Id do registro anônimo do último cálculo — o "Salvar" leva ele ao histórico.
+  const [idCalculoCalagem, setIdCalculoCalagem] = useState<string | null>(null);
+  // Resultado recuperado após o login já foi salvo no caminho (pendencias.ts).
+  const [salvoCalagem, setSalvoCalagem] = useState(calagemRecuperada !== undefined);
+  const [salvandoCalagem, setSalvandoCalagem] = useState(false);
 
   // ── Estado: adubação ──────────────────────────────────────────────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [resultadoAdubacao, setResultadoAdubacao] = useState<any | null>(adubacaoRecuperada ?? null);
   const [erroAdubacao, setErroAdubacao] = useState<string | null>(null);
   const [loadingAdubacao, setLoadingAdubacao] = useState(false);
-  const [salvoAdubacao, setSalvoAdubacao] = useState(false);
+  const [salvoAdubacao, setSalvoAdubacao] = useState(adubacaoRecuperada !== undefined);
+  const [salvandoAdubacao, setSalvandoAdubacao] = useState(false);
 
   // ── Estado: formulário/UX compartilhados ──────────────────────────────
   const [modalTermosOpen, setModalTermosOpen] = useState(false);
-  const [estados, setEstados] = useState<Estado[]>([]);
   const [municipios, setMunicipios] = useState<Municipio[]>([]);
-  const [ufSelecionada, setUfSelecionada] = useState('RS');
-  const [cidadeSelecionada, setCidadeSelecionada] = useState('Ibirubá');
-  const [termosAceitos, setTermosAceitos] = useState(false);
+  // Localização: um bloco só, usado pelos dois motores. Até o usuário mexer
+  // nela, vem do perfil regional (se logado) ou do padrão; depois de editada,
+  // fica como ele deixou — trocar de modo ou o perfil carregar não sobrescreve.
+  const [localizacaoManual, setLocalizacaoManual] = useState<{ uf: string; cidade: string } | null>(null);
+  const localizacaoPerfil =
+    user?.estado === 'RS' || user?.estado === 'SC' ? { uf: user.estado, cidade: user.cidade ?? '' } : null;
+  const { uf: ufSelecionada, cidade: cidadeSelecionada } = localizacaoManual ?? localizacaoPerfil ?? LOCALIZACAO_PADRAO;
+  // Na edição os termos já foram aceitos quando a análise foi criada.
+  const [termosAceitos, setTermosAceitos] = useState(emEdicao);
   const [erroCidade, setErroCidade] = useState(false);
   const [erroTermos, setErroTermos] = useState(false);
   const [modoAlSat, setModoAlSat] = useState<'direto' | 'calculado'>('direto');
@@ -212,7 +309,6 @@ export function CalculadoraCompletaPage() {
   }, []);
 
   // ── IBGE ─────────────────────────────────────────────────────────────
-  useEffect(() => { ibgeService.getEstados().then(setEstados); }, []);
   useEffect(() => {
     if (ufSelecionada) ibgeService.getMunicipios(ufSelecionada).then(setMunicipios);
   }, [ufSelecionada]);
@@ -240,15 +336,55 @@ export function CalculadoraCompletaPage() {
     },
   });
 
+  // Valores guardados na última troca de modo, ainda não devolvidos à tela.
+  const valoresParaRestaurar = useRef<Record<string, unknown>>({});
+
   const handleTrocarModo = (novoModo: ModoCalculo) => {
+    if (novoModo === modo) return;
+    const atuais = Object.fromEntries(
+      Object.entries(achatar(getValues())).filter(([, valor]) => valor !== undefined && valor !== '')
+    );
+    valoresParaRestaurar.current = { ...valoresParaRestaurar.current, ...atuais };
     setModo(novoModo);
-    setResultadoCalagem(null);
-    setErroCalagem(null);
-    setResultadoAdubacao(null);
-    setErroAdubacao(null);
-    setSalvoCalagem(false);
-    setSalvoAdubacao(false);
   };
+
+  // Roda depois de cada render: devolve o valor guardado a cada campo que
+  // voltou para a tela (e que por isso nasceu vazio ou com o valor padrão).
+  // Campo fora da tela nunca recebe valor aqui.
+  useEffect(() => {
+    const pendentes = valoresParaRestaurar.current;
+    for (const [nome, valor] of Object.entries(pendentes)) {
+      if (!campoNaTela(control, nome)) continue;
+      if (getValues(nome as never) !== valor) {
+        setValue(nome as never, valor as never, { shouldDirty: false, shouldValidate: false });
+      }
+      delete pendentes[nome];
+    }
+  });
+
+  // Edição: carrega a análise salva e entrega os valores ao mesmo mecanismo
+  // de restauração acima (só campos na tela recebem valor).
+  const edicaoTipo = edicao?.tipo;
+  const edicaoId = edicao?.id;
+  useEffect(() => {
+    if (!edicaoTipo || !edicaoId) return;
+    let ativo = true;
+    buscarAnaliseSalva(edicaoTipo, edicaoId)
+      .then((registro) => {
+        if (!ativo) return;
+        const valores = edicaoTipo === 'CALAGEM' ? calagemParaFormulario(registro) : adubacaoParaFormulario(registro);
+        valoresParaRestaurar.current = valores.campos;
+        setLocalizacaoManual({ uf: valores.uf, cidade: valores.cidade });
+        setDataAnalise(valores.data_analise ?? '');
+        setModoAlSat(valores.modo_al_sat);
+        setMonitoramentoAtivo(valores.monitoramento_ativo);
+        setCarregandoEdicao(false);
+      })
+      .catch(() => {
+        if (ativo) setErroEdicao('Não foi possível carregar esta análise.');
+      });
+    return () => { ativo = false; };
+  }, [edicaoTipo, edicaoId]);
 
   const calagemAtiva = modo !== 'ADUBACAO';
   const adubacaoAtiva = modo !== 'CALAGEM';
@@ -310,10 +446,27 @@ export function CalculadoraCompletaPage() {
     }
   }, [disableCorrecaoTotal, watchTipoCorrecao, setValue]);
 
+  // ── Resultado desatualizado ──────────────────────────────────────────
+  // O resultado continua na tela ao trocar de modo; se algum dado que entrou
+  // no cálculo mudar depois, avisa que é preciso recalcular.
+  const valoresAtuais = useWatch({ control });
+  const assinaturaCalagemAtual = useMemo(
+    () => assinaturaCalagem(valoresAtuais, [ufSelecionada, cidadeSelecionada, modoAlSatAtual, monitoramentoAtivo]),
+    [valoresAtuais, ufSelecionada, cidadeSelecionada, modoAlSatAtual, monitoramentoAtivo]
+  );
+  const assinaturaAdubacaoAtual = useMemo(
+    () => assinaturaAdubacao(valoresAtuais, [ufSelecionada, cidadeSelecionada]),
+    [valoresAtuais, ufSelecionada, cidadeSelecionada]
+  );
+  const [assinaturaCalculoCalagem, setAssinaturaCalculoCalagem] = useState<string | null>(null);
+  const [assinaturaCalculoAdubacao, setAssinaturaCalculoAdubacao] = useState<string | null>(null);
+  const calagemDesatualizada = assinaturaCalculoCalagem !== null && assinaturaCalculoCalagem !== assinaturaCalagemAtual;
+  const adubacaoDesatualizada = assinaturaCalculoAdubacao !== null && assinaturaCalculoAdubacao !== assinaturaAdubacaoAtual;
+
   // ── Submit ───────────────────────────────────────────────────────────
   const onSubmitValidado: SubmitHandler<FormCompleta> = async (dados) => {
     let temErro = false;
-    if (calagemAtiva && (!cidadeSelecionada || !municipios.some((m) => m.nome === cidadeSelecionada))) {
+    if (!cidadeSelecionada || !municipios.some((m) => m.nome === cidadeSelecionada)) {
       setErroCidade(true);
       temErro = true;
     }
@@ -323,25 +476,36 @@ export function CalculadoraCompletaPage() {
     }
     if (temErro) return;
 
-    setResultadoCalagem(null);
-    setErroCalagem(null);
-    setResultadoAdubacao(null);
-    setErroAdubacao(null);
-    setSalvoCalagem(false);
-    setSalvoAdubacao(false);
-
     const tarefas: Promise<unknown>[] = [];
+    const localizacaoUsada = { uf: ufSelecionada, cidade: cidadeSelecionada };
+    const dataAnaliseUsada = dataAnalise || null;
+    setSalvoEdicao(false);
 
     if (calagemAtiva) {
+      setResultadoCalagem(null);
+      setErroCalagem(null);
+      setSalvoCalagem(false);
+      setIdCalculoCalagem(null);
+      setAssinaturaCalculoCalagem(assinaturaCalagemAtual);
       setLoadingCalagem(true);
       const dadosCalagem = CalagemSchema.parse(dados);
+      const extrasCalagem = {
+        uf: ufSelecionada,
+        cidade: cidadeSelecionada,
+        modo_al_sat: modoAlSatAtual,
+        monitoramento_ativo: monitoramentoAtivo,
+      };
       tarefas.push(
-        calcularCalagem(dadosCalagem, {
-          uf: ufSelecionada,
-          cidade: cidadeSelecionada,
-          modo_al_sat: modoAlSatAtual,
-          monitoramento_ativo: monitoramentoAtivo,
-        })
+        (edicao
+          ? atualizarCalagem(edicao.id, dadosCalagem, { ...extrasCalagem, data_analise: dataAnaliseUsada }).then((resposta) => {
+              setSalvoEdicao(true);
+              return resposta;
+            })
+          : calcularCalagem(dadosCalagem, extrasCalagem).then(({ resultado, id }) => {
+              setIdCalculoCalagem(id);
+              return resultado;
+            })
+        )
           .then((resposta) => setResultadoCalagem(resposta))
           .catch((error) => setErroCalagem(extrairMensagemErroCalagem(error)))
           .finally(() => setLoadingCalagem(false))
@@ -349,11 +513,21 @@ export function CalculadoraCompletaPage() {
     }
 
     if (adubacaoAtiva) {
+      setResultadoAdubacao(null);
+      setErroAdubacao(null);
+      setSalvoAdubacao(false);
+      setAssinaturaCalculoAdubacao(assinaturaAdubacaoAtual);
       setLoadingAdubacao(true);
       const dadosAdubacao = AdubacaoSchema.parse(dados);
       tarefas.push(
-        calcularAdubacao(dadosAdubacao)
-          .then((res) => setResultadoAdubacao({ ...res.resultado, dadosEntrada: dadosAdubacao }))
+        (edicao
+          ? atualizarAdubacao(edicao.id, { ...dadosAdubacao, ...localizacaoUsada, data_analise: dataAnaliseUsada }).then((resultado) => {
+              setSalvoEdicao(true);
+              return { resultado };
+            })
+          : calcularAdubacao(dadosAdubacao)
+        )
+          .then((res) => setResultadoAdubacao({ ...res.resultado, dadosEntrada: dadosAdubacao, localizacao: localizacaoUsada }))
           .catch((error) => setErroAdubacao(extrairMensagemErroAdubacao(error)))
           .finally(() => setLoadingAdubacao(false))
       );
@@ -363,54 +537,80 @@ export function CalculadoraCompletaPage() {
   };
 
   const onErrorNoForm = () => {
-    if (calagemAtiva && (!cidadeSelecionada || !municipios.some((m) => m.nome === cidadeSelecionada))) {
+    if (!cidadeSelecionada || !municipios.some((m) => m.nome === cidadeSelecionada)) {
       setErroCidade(true);
     }
     if (!termosAceitos) setErroTermos(true);
   };
 
-  // ── Salvar (cada módulo mantém exatamente o comportamento da página de
-  //     origem — calagem é auto-persistida pelo backend no cálculo em si
-  //     quando logado; adubação exige uma chamada explícita de salvar) ──
-  const handleTentarSalvarCalagem = () => {
+  // ── Salvar: o cálculo é temporário até o usuário salvar. A calagem já foi
+  //     registrada sem dono no cálculo (Monitoramento Regional) e o salvar só
+  //     a vincula à conta; a adubação é gravada no salvar. ──
+  const handleTentarSalvarCalagem = async () => {
+    if (!resultadoCalagem || salvoCalagem || salvandoCalagem) return;
+    if (!idCalculoCalagem) {
+      alert('Este cálculo não pôde ser registrado. Calcule novamente para salvar.');
+      return;
+    }
+
     if (!isLoggedIn) {
       sessionStorage.setItem(
         'analisePendente',
         JSON.stringify({
-          dados: getValues(),
-          localizacao: { uf: ufSelecionada, cidade: cidadeSelecionada },
+          id: idCalculoCalagem,
+          resultado: resultadoCalagem,
+          data_analise: dataAnalise || null,
           destino: location.pathname,
         })
       );
       navigate('/login');
       return;
     }
-    setSalvoCalagem(true);
-    setTimeout(() => setSalvoCalagem(false), 3000);
+
+    setSalvandoCalagem(true);
+    try {
+      await salvarCalagem(idCalculoCalagem, { data_analise: dataAnalise || null });
+      setSalvoCalagem(true);
+    } catch (error) {
+      const mensagem = (error as { response?: { data?: { mensagem?: string } } }).response?.data?.mensagem;
+      alert(mensagem ?? 'Erro ao salvar a calagem. Tente novamente.');
+    } finally {
+      setSalvandoCalagem(false);
+    }
   };
 
   const handleTentarSalvarAdubacao = async () => {
-    if (!resultadoAdubacao) return;
+    if (!resultadoAdubacao || salvoAdubacao || salvandoAdubacao) return;
+
+    // Salva exatamente a entrada e a localização que geraram o resultado
+    // exibido (não o que estiver no formulário agora).
+    const dadosForm = {
+      ...(resultadoAdubacao.dadosEntrada as EntradaAdubacaoForm),
+      ...(resultadoAdubacao.localizacao ?? { uf: ufSelecionada, cidade: cidadeSelecionada }),
+      data_analise: dataAnalise || null,
+    };
 
     if (!isLoggedIn) {
       sessionStorage.setItem(
         'adubacaoPendente',
-        JSON.stringify({ dados: getValues(), destino: location.pathname })
+        JSON.stringify({ dados: dadosForm, destino: location.pathname })
       );
       navigate('/login');
       return;
     }
 
+    setSalvandoAdubacao(true);
     try {
       await salvarAdubacao({
-        dadosForm: getValues() as unknown as EntradaAdubacaoForm,
+        dadosForm,
         resultado: resultadoAdubacao.recomendacao ? resultadoAdubacao : resultadoAdubacao.resultado,
       });
       setSalvoAdubacao(true);
-      setTimeout(() => setSalvoAdubacao(false), 3000);
     } catch (error) {
       console.error('Erro ao salvar adubação:', error);
       alert('Erro ao salvar adubação. Tente novamente.');
+    } finally {
+      setSalvandoAdubacao(false);
     }
   };
 
@@ -418,10 +618,12 @@ export function CalculadoraCompletaPage() {
     resultadoCalagem?.aplicar_calcario === false ? 'Aplicação não recomendada' : 'Diagnóstico Concluído';
 
   const nenhumResultadoAinda =
-    !resultadoCalagem && !erroCalagem && !resultadoAdubacao && !erroAdubacao && !loadingCalagem && !loadingAdubacao;
+    !(calagemAtiva && (resultadoCalagem || erroCalagem || loadingCalagem)) &&
+    !(adubacaoAtiva && (resultadoAdubacao || erroAdubacao || loadingAdubacao));
 
-  const labelBotaoCalcular =
-    modo === 'AMBOS' ? 'Calcular Calagem + Adubação' : modo === 'CALAGEM' ? 'Calcular Calagem' : 'Calcular Adubação';
+  const labelBotaoCalcular = emEdicao
+    ? 'Recalcular e salvar alterações'
+    : modo === 'AMBOS' ? 'Calcular Calagem + Adubação' : modo === 'CALAGEM' ? 'Calcular Calagem' : 'Calcular Adubação';
 
   // ── Render ───────────────────────────────────────────────────────────
 
@@ -458,12 +660,38 @@ export function CalculadoraCompletaPage() {
             <Layers className="text-white" size={24} />
           </div>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-stone-800">Calculadora Completa</h1>
-            <p className="text-sm font-medium text-stone-500">Calagem e adubação em um único lugar</p>
+            <h1 className="text-2xl font-bold tracking-tight text-stone-800">
+              {emEdicao ? `Editar análise de ${modo === 'CALAGEM' ? 'calagem' : 'adubação'}` : 'Calculadora Completa'}
+            </h1>
+            <p className="text-sm font-medium text-stone-500">
+              {emEdicao ? 'Corrija os dados e salve: a mesma análise é atualizada no histórico' : 'Calagem e adubação em um único lugar'}
+            </p>
           </div>
         </div>
 
+        {emEdicao ? (
+          <div className="mb-8 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+            Ao salvar, o resultado é recalculado com as regras atuais do Ibiferti e substitui o anterior nesta
+            análise. A data de inserção no sistema não muda.
+          </div>
+        ) : null}
+
+        {erroEdicao ? (
+          <div className="space-y-3 rounded-2xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">
+            <p>{erroEdicao}</p>
+            <button type="button" onClick={() => navigate('/historico')} className="font-bold underline">
+              Voltar ao histórico
+            </button>
+          </div>
+        ) : carregandoEdicao ? (
+          <div className="flex items-center gap-2 rounded-2xl border border-stone-100 bg-stone-50 p-6 text-sm text-stone-500">
+            <span className="h-4 w-4 animate-spin rounded-full border-2 border-stone-300 border-t-green-600" />
+            Carregando análise...
+          </div>
+        ) : (
+        <>
         {/* ── Seletor de Módulo (destaque) ─────────────────────────────── */}
+        {!emEdicao ? (
         <div className="mb-8 grid grid-cols-1 gap-3 sm:grid-cols-3">
           {OPCOES_MODO.map((opcao) => {
             const Icone = opcao.icone;
@@ -496,34 +724,32 @@ export function CalculadoraCompletaPage() {
             );
           })}
         </div>
+        ) : null}
 
         <form onSubmit={handleSubmit(onSubmitValidado, onErrorNoForm)} noValidate className="space-y-8">
           {calagemAtiva ? (
             <input type="hidden" {...register('primeira_calagem', { setValueAs: () => false })} />
           ) : null}
 
-          {/* ── Bloco: Identificação (+ Localização se calagem ativa) ──── */}
+          {/* ── Bloco: Identificação e Localização (os dois motores) ──── */}
           <div className="space-y-5 rounded-2xl border border-stone-100 bg-stone-50 p-6">
             <h3 className="text-sm font-bold uppercase tracking-wider text-stone-500">
-              Identificação{calagemAtiva ? ' e Localização' : ''}
+              Identificação e Localização
             </h3>
 
-            {calagemAtiva ? (
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                 <div className="col-span-1 space-y-1">
                   <label className="text-xs font-semibold text-stone-600">Estado *</label>
                   <select
                     value={ufSelecionada}
                     onChange={(e) => {
-                      setUfSelecionada(e.target.value);
+                      setLocalizacaoManual({ uf: e.target.value, cidade: '' });
                       setErroCidade(false);
-                      if (!e.target.value) { setMunicipios([]); setCidadeSelecionada(''); }
                     }}
                     className="w-full rounded-xl border border-stone-200 bg-white px-4 py-3 shadow-sm outline-none focus:border-green-500"
                   >
-                    <option value="">UF</option>
-                    {estados.map((estado) => (
-                      <option key={estado.id} value={estado.sigla}>{estado.sigla}</option>
+                    {ESTADOS_ATENDIDOS.map((estado) => (
+                      <option key={estado.sigla} value={estado.sigla}>{estado.sigla}</option>
                     ))}
                   </select>
                 </div>
@@ -533,7 +759,7 @@ export function CalculadoraCompletaPage() {
                   <input
                     list="lista-municipios-completa"
                     value={cidadeSelecionada}
-                    onChange={(e) => { setCidadeSelecionada(e.target.value); setErroCidade(false); }}
+                    onChange={(e) => { setLocalizacaoManual({ uf: ufSelecionada, cidade: e.target.value }); setErroCidade(false); }}
                     disabled={municipios.length === 0}
                     placeholder={ufSelecionada ? 'Digite para buscar...' : 'Selecione o Estado'}
                     autoComplete="off"
@@ -551,7 +777,6 @@ export function CalculadoraCompletaPage() {
                   ) : null}
                 </div>
               </div>
-            ) : null}
 
             <div className="space-y-1">
               <label className="flex justify-between text-xs font-semibold text-stone-600">
@@ -564,6 +789,21 @@ export function CalculadoraCompletaPage() {
                 className="w-full rounded-xl border border-stone-200 bg-white px-4 py-3 shadow-sm outline-none focus:border-green-500"
               />
               <p className="text-[11px] text-stone-400">Não inclua dados pessoais (nome, CPF, telefone) — use só um apelido do talhão ou da amostra.</p>
+            </div>
+
+            <div className="space-y-1 md:w-1/2">
+              <label htmlFor="data-analise" className="flex justify-between text-xs font-semibold text-stone-600">
+                Data da análise <span className="font-normal text-stone-400">Opcional</span>
+              </label>
+              <input
+                id="data-analise"
+                type="date"
+                value={dataAnalise}
+                max={hojeLocalISO()}
+                onChange={(e) => setDataAnalise(e.target.value)}
+                className="w-full rounded-xl border border-stone-200 bg-white px-4 py-3 shadow-sm outline-none focus:border-green-500"
+              />
+              <p className="text-[11px] text-stone-400">Dia em que a amostra foi analisada. A data de inserção no sistema é registrada à parte.</p>
             </div>
           </div>
 
@@ -1014,7 +1254,8 @@ export function CalculadoraCompletaPage() {
             </div>
           ) : null}
 
-          {/* ── Termos de Uso ─────────────────────────────────────────── */}
+          {/* ── Termos de Uso (já aceitos na edição) ──────────────────── */}
+          {!emEdicao ? (
           <div className={`rounded-2xl border p-5 transition-colors ${erroTermos ? 'border-red-200 bg-red-50' : 'border-stone-200 bg-stone-50'}`}>
             <label className="flex items-start gap-3">
               <input
@@ -1040,6 +1281,7 @@ export function CalculadoraCompletaPage() {
               </div>
             </label>
           </div>
+          ) : null}
 
           {/* ── Botão Calcular ────────────────────────────────────────── */}
           <button
@@ -1057,6 +1299,8 @@ export function CalculadoraCompletaPage() {
             )}
           </button>
         </form>
+        </>
+        )}
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════
@@ -1075,6 +1319,15 @@ export function CalculadoraCompletaPage() {
           </div>
         ) : (
           <>
+            {salvoEdicao ? (
+              <div className="flex items-center justify-between gap-3 rounded-xl border border-green-200 bg-green-50 p-3 text-sm font-semibold text-green-800">
+                <span className="flex items-center gap-2"><CheckCircle2 size={16} /> Alterações salvas no histórico.</span>
+                <button type="button" onClick={() => navigate('/historico')} className="text-xs font-bold underline">
+                  Voltar ao histórico
+                </button>
+              </div>
+            ) : null}
+
             {/* ── Resultado: Calagem ─────────────────────────────────── */}
             {calagemAtiva ? (
               <div className="space-y-4">
@@ -1098,6 +1351,8 @@ export function CalculadoraCompletaPage() {
                     <div className="flex items-center gap-2 text-sm font-bold text-stone-800">
                       <CheckCircle2 size={18} className="text-green-500" /> {tituloResultadoCalagem}
                     </div>
+                    {emEdicao ? null : <SeloSalvamento salvo={salvoCalagem} />}
+                    {calagemDesatualizada ? <AvisoDesatualizado /> : null}
 
                     {resultadoCalagem.aplicar_calcario ? (
                       <div className="rounded-[1.5rem] bg-white p-6 text-center shadow-xl">
@@ -1143,28 +1398,13 @@ export function CalculadoraCompletaPage() {
                       </div>
                     ) : null}
 
-                    {resultadoCalagem.nota_tecnica ? (
-                      <div className="rounded-xl border border-blue-200 bg-blue-50 p-3 text-xs text-blue-900">
-                        {resultadoCalagem.nota_tecnica}
-                      </div>
-                    ) : null}
-
-                    {resultadoCalagem.acao_requerida ? (
-                      <div className="rounded-xl border border-orange-200 bg-orange-50 p-3 text-xs text-orange-900">
-                        <strong>Ação requerida:</strong> {resultadoCalagem.acao_requerida}
-                      </div>
-                    ) : null}
-
-                    {resultadoCalagem.alertas?.length > 0 ? (
-                      <div className="space-y-2">
-                        {resultadoCalagem.alertas.map((alerta, i) => (
-                          <div key={`${alerta}-${i}`} className="flex items-start gap-2 rounded-xl border border-orange-200 bg-orange-50 p-2 text-xs text-orange-800">
-                            <AlertCircle size={12} className="mt-0.5 shrink-0" />
-                            <span>{alerta}</span>
-                          </div>
-                        ))}
-                      </div>
-                    ) : null}
+                    <SecaoObservacoes mensagens={resultadoCalagem.nota_tecnica ? [resultadoCalagem.nota_tecnica] : []} />
+                    <SecaoAlertas
+                      mensagens={[
+                        ...(resultadoCalagem.acao_requerida ? [`Ação requerida: ${resultadoCalagem.acao_requerida}`] : []),
+                        ...(resultadoCalagem.alertas ?? []),
+                      ]}
+                    />
 
                     <div className="grid grid-cols-2 gap-3">
                       <button
@@ -1180,15 +1420,16 @@ export function CalculadoraCompletaPage() {
                       >
                         <FileDown size={16} /> PDF
                       </button>
-                      <button
+                      {emEdicao ? null : <button
                         type="button"
                         onClick={handleTentarSalvarCalagem}
+                        disabled={salvoCalagem || salvandoCalagem}
                         className={`flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-semibold shadow-sm transition-all ${
                           salvoCalagem ? 'bg-green-500 text-white' : 'border border-stone-200 bg-white hover:bg-stone-50'
                         }`}
                       >
-                        {salvoCalagem ? <><Check size={16} /> Salvo!</> : <><Save size={16} /> Salvar</>}
-                      </button>
+                        {salvoCalagem ? <><Check size={16} /> Salvo</> : <><Save size={16} /> {salvandoCalagem ? 'Salvando...' : 'Salvar no histórico'}</>}
+                      </button>}
                     </div>
                   </div>
                 ) : null}
@@ -1217,67 +1458,9 @@ export function CalculadoraCompletaPage() {
                   </div>
                 ) : resultadoAdubacao ? (
                   <div className="space-y-4">
-                    <div className="space-y-3">
-                      <div className="rounded-[1.5rem] bg-white p-5 text-center shadow-xl">
-                        <p className="mb-1 text-xs font-bold uppercase tracking-wider text-stone-400">Nitrogênio (N)</p>
-                        <div className="mb-1 flex items-baseline justify-center gap-2">
-                          <span className="bg-gradient-to-r from-emerald-600 to-emerald-400 bg-clip-text text-3xl font-extrabold text-transparent">
-                            {resultadoAdubacao.recomendacao.n.dose_total_kg_ha}
-                          </span>
-                          <span className="text-sm font-bold text-emerald-700">kg/ha</span>
-                        </div>
-                        <p className="text-[11px] font-semibold text-stone-400">{resultadoAdubacao.recomendacao.n.tipo}</p>
-                      </div>
-
-                      <div className="rounded-[1.5rem] bg-white p-5 text-center shadow-xl">
-                        <p className="mb-1 text-xs font-bold uppercase tracking-wider text-stone-400">Fósforo (P₂O₅)</p>
-                        <div className="mb-1 flex items-baseline justify-center gap-2">
-                          <span className="bg-gradient-to-r from-emerald-600 to-emerald-400 bg-clip-text text-3xl font-extrabold text-transparent">
-                            {resultadoAdubacao.recomendacao.p2o5.dose_total_kg_ha}
-                          </span>
-                          <span className="text-sm font-bold text-emerald-700">kg/ha</span>
-                        </div>
-                        <p className="text-[11px] font-semibold text-stone-400">{resultadoAdubacao.recomendacao.p2o5.tipo_adubacao}</p>
-                      </div>
-
-                      <div className="rounded-[1.5rem] bg-white p-5 text-center shadow-xl">
-                        <p className="mb-1 text-xs font-bold uppercase tracking-wider text-stone-400">Potássio (K₂O)</p>
-                        <div className="mb-1 flex items-baseline justify-center gap-2">
-                          <span className="bg-gradient-to-r from-emerald-600 to-emerald-400 bg-clip-text text-3xl font-extrabold text-transparent">
-                            {resultadoAdubacao.recomendacao.k2o.dose_total_kg_ha}
-                          </span>
-                          <span className="text-sm font-bold text-emerald-700">kg/ha</span>
-                        </div>
-                        <p className="text-[11px] font-semibold text-stone-400">{resultadoAdubacao.recomendacao.k2o.tipo_adubacao}</p>
-                        <div className="mt-2 flex justify-center gap-4 border-t border-stone-100 pt-2">
-                          <span className="text-[10px] font-bold uppercase text-stone-500">
-                            Linha: <strong className="text-emerald-700">{resultadoAdubacao.recomendacao.k2o.k2o_semeadura_kg_ha}</strong> kg/ha
-                          </span>
-                          <span className="text-[10px] font-bold uppercase text-stone-500">
-                            Lanço: <strong className="text-emerald-700">{resultadoAdubacao.recomendacao.k2o.k2o_complementar_kg_ha}</strong> kg/ha
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {resultadoAdubacao.alertas?.length > 0 ? (
-                      <div className="space-y-2">
-                        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                        {resultadoAdubacao.alertas.map((alerta: any, idx: number) => (
-                          <div
-                            key={idx}
-                            className={`flex flex-col gap-1 rounded-xl border p-3 text-xs ${
-                              alerta.nivel === 'AVISO' ? 'border-orange-200 bg-orange-50 text-orange-800' : 'border-blue-200 bg-blue-50 text-blue-800'
-                            }`}
-                          >
-                            <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest opacity-80">
-                              <ShieldCheck size={12} /> {alerta.nivel}
-                            </div>
-                            <span className="font-medium leading-relaxed">{alerta.mensagem}</span>
-                          </div>
-                        ))}
-                      </div>
-                    ) : null}
+                    {emEdicao ? null : <SeloSalvamento salvo={salvoAdubacao} />}
+                    {adubacaoDesatualizada ? <AvisoDesatualizado /> : null}
+                    <RecomendacaoAdubacao resultado={resultadoAdubacao} />
 
                     <div className="grid grid-cols-2 gap-3">
                       <button
@@ -1286,21 +1469,25 @@ export function CalculadoraCompletaPage() {
                           gerarPDFRelatorioAdubacao({
                             dadosEntrada: resultadoAdubacao.dadosEntrada,
                             resultado: resultadoAdubacao,
+                            identificacao: resultadoAdubacao.dadosEntrada?.identificacao,
+                            uf: resultadoAdubacao.localizacao?.uf,
+                            cidade: resultadoAdubacao.localizacao?.cidade,
                           });
                         }}
                         className="flex items-center justify-center gap-2 rounded-xl border-2 border-green-600 bg-transparent py-2.5 text-sm font-bold text-green-600 shadow-sm transition-all hover:bg-green-50 active:scale-95"
                       >
                         <FileDown size={16} /> PDF
                       </button>
-                      <button
+                      {emEdicao ? null : <button
                         type="button"
                         onClick={handleTentarSalvarAdubacao}
+                        disabled={salvoAdubacao || salvandoAdubacao}
                         className={`flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-bold shadow-sm transition-all active:scale-95 ${
                           salvoAdubacao ? 'bg-green-500 text-white' : 'bg-green-600 text-white hover:bg-green-700'
                         }`}
                       >
-                        {salvoAdubacao ? <><CheckCircle2 size={16} /> Salvo!</> : <><Save size={16} /> Salvar</>}
-                      </button>
+                        {salvoAdubacao ? <><CheckCircle2 size={16} /> Salvo</> : <><Save size={16} /> {salvandoAdubacao ? 'Salvando...' : 'Salvar no histórico'}</>}
+                      </button>}
                     </div>
                   </div>
                 ) : null}

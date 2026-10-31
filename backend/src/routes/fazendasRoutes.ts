@@ -7,10 +7,12 @@ import { CriarFazendaSchema, CriarTalhaoSchema } from '../schemas/fazendasSchema
 import {
   createFazenda,
   deleteFazenda,
+  updateFazenda,
   getFazendasByUsuario,
   getFazendaPorIdEUsuario,
   createTalhao,
   deleteTalhao,
+  updateTalhao,
   getTalhoesByFazenda,
   getTalhaoById,
   getAnalisesByTalhao,
@@ -39,7 +41,7 @@ fazendasRouter.get('/', async (req, res) => {
     res.json(result);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Erro ao buscar fazendas.' });
+    res.status(500).json({ error: 'Erro ao buscar propriedades.' });
   }
 });
 
@@ -56,7 +58,25 @@ fazendasRouter.post('/', async (req, res) => {
       return res.status(400).json({ error: 'Erro de validação', details: err.errors });
     }
     console.error(err);
-    res.status(500).json({ error: 'Erro ao criar fazenda.' });
+    res.status(500).json({ error: 'Erro ao criar propriedade.' });
+  }
+});
+
+// PUT /api/fazendas/:id  →  edita nome, município e UF (só do dono)
+fazendasRouter.put('/:id', async (req, res) => {
+  try {
+    const usuarioId = (req as AuthRequest).userId as string;
+    const dados = CriarFazendaSchema.safeParse(req.body);
+    if (!dados.success) {
+      return res.status(400).json({ error: dados.error.issues[0].message });
+    }
+
+    const fazenda = await updateFazenda(req.params.id, usuarioId, dados.data);
+    if (!fazenda) return res.status(404).json({ error: 'Propriedade não encontrada.' });
+    res.json(fazenda);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao editar propriedade.' });
   }
 });
 
@@ -65,11 +85,11 @@ fazendasRouter.delete('/:id', async (req, res) => {
   try {
     const usuarioId = (req as AuthRequest).userId as string;
     const fazenda = await deleteFazenda(req.params.id, usuarioId);
-    if (!fazenda) return res.status(404).json({ error: 'Fazenda não encontrada.' });
+    if (!fazenda) return res.status(404).json({ error: 'Propriedade não encontrada.' });
     res.json(fazenda);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Erro ao deletar fazenda.' });
+    res.status(500).json({ error: 'Erro ao remover propriedade.' });
   }
 });
 
@@ -83,7 +103,7 @@ fazendasRouter.post('/:fazendaId/talhoes', async (req, res) => {
     const { nome, cultura } = CriarTalhaoSchema.parse(req.body);
 
     const fazenda = await getFazendaPorIdEUsuario(fazendaId, usuarioId);
-    if (!fazenda) return res.status(404).json({ error: 'Fazenda não encontrada.' });
+    if (!fazenda) return res.status(404).json({ error: 'Propriedade não encontrada.' });
 
     const talhao = await createTalhao({ fazenda_id: fazendaId, nome, cultura });
     res.status(201).json(talhao);
@@ -93,6 +113,24 @@ fazendasRouter.post('/:fazendaId/talhoes', async (req, res) => {
     }
     console.error(err);
     res.status(500).json({ error: 'Erro ao criar talhão.' });
+  }
+});
+
+// PUT /api/fazendas/talhoes/:id  →  edita nome e cultura do talhão (só do dono)
+fazendasRouter.put('/talhoes/:id', async (req, res) => {
+  try {
+    const usuarioId = (req as AuthRequest).userId as string;
+    const dados = CriarTalhaoSchema.safeParse(req.body);
+    if (!dados.success) {
+      return res.status(400).json({ error: dados.error.issues[0].message });
+    }
+
+    const talhao = await updateTalhao(req.params.id, usuarioId, dados.data);
+    if (!talhao) return res.status(404).json({ error: 'Talhão não encontrado.' });
+    res.json(talhao);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao editar talhão.' });
   }
 });
 

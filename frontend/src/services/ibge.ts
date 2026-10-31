@@ -1,23 +1,9 @@
-export interface Estado {
-  id: number;
-  sigla: string;
-  nome: string;
-}
-
 export interface Municipio {
   id: number;
   nome: string;
 }
 
 export const ibgeService = {
-  getEstados: async (): Promise<Estado[]> => {
-    const response = await fetch('https://servicodados.ibge.gov.br/api/v1/localidades/estados');
-    const data: Estado[] = await response.json();
-    return data
-      .filter((estado) => ['RS', 'SC'].includes(estado.sigla))
-      .sort((a, b) => a.sigla.localeCompare(b.sigla));
-  },
-
   getMunicipios: async (uf: string): Promise<Municipio[]> => {
     const response = await fetch(`https://servicodados.ibge.gov.br/api/v1/localidades/estados/${uf}/municipios`);
     const data = await response.json();

@@ -126,19 +126,68 @@ export function sanitizarPayloadCalagem(dados: EntradaCalagem): CalagemPayload {
   ) as CalagemPayload;
 }
 
+// O backend registra todo cálculo sem dono (Monitoramento Regional) e devolve
+// o id; o cálculo só entra no histórico do usuário via salvarCalagem(id).
 export async function calcularCalagem(
   dados: EntradaCalagem,
   localizacao: { uf: string; cidade: string; modo_al_sat?: 'direto' | 'calculado'; monitoramento_ativo?: boolean }
-): Promise<CalagemResultado> {
+): Promise<{ resultado: CalagemResultado; id: string | null }> {
   const payload = {
     ...sanitizarPayloadCalagem(dados),
+    identificacao:       dados.identificacao || undefined,
     uf:                  localizacao.uf,
     cidade:              localizacao.cidade,
     modo_al_sat:         localizacao.modo_al_sat,
     monitoramento_ativo: localizacao.monitoramento_ativo,
   };
   const resposta = await api.post('/analises/calcular', payload);
-  return resposta.data.resultado ?? resposta.data;
+  return { resultado: resposta.data.resultado, id: resposta.data.id ?? null };
+}
+
+export async function salvarCalagem(id: string, dados: { data_analise?: string | null; talhao_id?: string | null } = {}) {
+  const res = await api.post(`/analises/${id}/salvar`, dados);
+  return res.data;
+}
+
+// ── Gerenciamento de análises salvas (histórico) ──────────────────────────────
+
+export type TipoAnalise = 'CALAGEM' | 'ADUBACAO';
+
+const rotaAnalise = (tipo: TipoAnalise) => (tipo === 'CALAGEM' ? '/analises' : '/adubacao');
+
+export async function buscarAnaliseSalva(tipo: TipoAnalise, id: string): Promise<Record<string, unknown>> {
+  const res = await api.get(`${rotaAnalise(tipo)}/${id}`);
+  return tipo === 'CALAGEM' ? res.data.dados : res.data;
+}
+
+// Edição: o backend recalcula com o motor e atualiza o mesmo registro.
+export async function atualizarCalagem(
+  id: string,
+  dados: EntradaCalagem,
+  extras: { uf: string; cidade: string; modo_al_sat?: 'direto' | 'calculado'; monitoramento_ativo?: boolean; data_analise?: string | null }
+): Promise<CalagemResultado> {
+  const res = await api.put(`/analises/${id}`, {
+    ...sanitizarPayloadCalagem(dados),
+    identificacao: dados.identificacao || undefined,
+    ...extras,
+  });
+  return res.data.resultado;
+}
+
+export async function atualizarAdubacao(
+  id: string,
+  dadosForm: EntradaAdubacao & { uf: string; cidade: string; data_analise?: string | null }
+) {
+  const res = await api.put(`/adubacao/${id}`, { dadosForm });
+  return res.data.resultado;
+}
+
+export async function excluirAnaliseSalva(tipo: TipoAnalise, id: string) {
+  await api.delete(`${rotaAnalise(tipo)}/${id}`);
+}
+
+export async function arquivarAnaliseSalva(tipo: TipoAnalise, id: string, arquivada: boolean) {
+  await api.patch(`${rotaAnalise(tipo)}/${id}/arquivar`, { arquivada });
 }
 
 
@@ -158,6 +207,11 @@ export async function postFazenda(data: { nome: string; municipio: string; uf: s
   return res.data;
 }
  
+export async function putFazenda(id: string, data: { nome: string; municipio: string; uf: string }) {
+  const res = await api.put(`/fazendas/${id}`, data);
+  return res.data;
+}
+ 
 export async function deleteFazendaApi(id: string) {
   const res = await api.delete(`/fazendas/${id}`);
   return res.data;
@@ -170,6 +224,11 @@ export async function postTalhao(
   data: { nome: string; cultura: string }
 ) {
   const res = await api.post(`/fazendas/${fazendaId}/talhoes`, data);
+  return res.data;
+}
+ 
+export async function putTalhao(id: string, data: { nome: string; cultura: string }) {
+  const res = await api.put(`/fazendas/talhoes/${id}`, data);
   return res.data;
 }
  
@@ -192,6 +251,7 @@ export async function postAnalisesBulk(data: {
   talhao_id: string;
   uf: string;
   cidade: string;
+  data_analise?: string | null;
   amostras: any[];
 }) {
   const res = await api.post('/analises/bulk', data);
@@ -205,7 +265,10 @@ export async function calcularAdubacao(dados: EntradaAdubacao) {
   return res.data;
 }
 
-export async function salvarAdubacao(payload: { dadosForm: EntradaAdubacaoForm, resultado: any }) {
+export async function salvarAdubacao(payload: {
+  dadosForm: EntradaAdubacaoForm & { uf: string; cidade: string; data_analise?: string | null },
+  resultado: any,
+}) {
   const res = await api.post('/adubacao/salvar', payload);
   return res.data;
 }
@@ -222,6 +285,7 @@ export async function getAnaliseAdubacaoId(id: string) {
 
 export async function postAdubacaoBulk(data: {
   talhao_id: string;
+  data_analise?: string | null;
   amostras: any[];
 }) {
   const res = await api.post('/adubacao/bulk', data);
