@@ -5,7 +5,7 @@ import { CalagemValidationError } from '../schemas/calagemSchema';
 import { LocalizacaoSchema } from '../schemas/localizacaoSchema';
 import { eq, count, sql, inArray, desc } from 'drizzle-orm';
 import { db } from '../database/db';
-import { analises, analisesAdubacao } from '../database/schema';
+import { analises, analisesAdubacao, talhoes } from '../database/schema';
 import { salvarAnalise, listarAnalises, salvarLoteAnalises } from '../database/analises';
 import { verificarToken, obterUsuarioOpcional, AuthRequest } from '../middlewares/authMiddleware';
 import { limitadorCalculoPublico } from '../middlewares/rateLimit';
@@ -219,9 +219,21 @@ analisesRoutes.get('/historico', verificarToken, async (req: AuthRequest, res) =
       adubacoes = await db.select().from(analisesAdubacao).where(eq(analisesAdubacao.usuario_id, req.userId)).orderBy(desc(analisesAdubacao.criado_em));
     }
 
+    // Nome do talhão vinculado (a coluna "Talhão" do histórico mostrava a
+    // identificação livre, não o talhão de fato).
+    const talhaoIds = [...new Set(
+      [...calagens, ...adubacoes].map(a => a.talhao_id).filter((id): id is string => !!id)
+    )];
+    const nomesTalhao = new Map<string, string>();
+    if (talhaoIds.length > 0) {
+      const rows = await db.select({ id: talhoes.id, nome: talhoes.nome }).from(talhoes).where(inArray(talhoes.id, talhaoIds));
+      for (const t of rows) nomesTalhao.set(t.id, t.nome);
+    }
+    const nomeTalhao = (id: string | null) => (id ? nomesTalhao.get(id) ?? null : null);
+
     const unified = [
-      ...calagens.map(a => ({ ...a, tipo: 'CALAGEM' })),
-      ...adubacoes.map(a => ({ ...a, tipo: 'ADUBACAO' }))
+      ...calagens.map(a => ({ ...a, tipo: 'CALAGEM', talhao_nome: nomeTalhao(a.talhao_id) })),
+      ...adubacoes.map(a => ({ ...a, tipo: 'ADUBACAO', talhao_nome: nomeTalhao(a.talhao_id) }))
     ];
 
     unified.sort((a, b) => new Date(b.criado_em).getTime() - new Date(a.criado_em).getTime());

@@ -22,6 +22,7 @@ interface AnaliseResumo {
   uf: string;
   cidade: string;
   identificacao: string | null;
+  talhao_nome?: string | null;
   tipo: 'CALAGEM' | 'ADUBACAO';
   
   // Calagem
@@ -89,6 +90,7 @@ export function HistoricoAnalisesPage() {
       a.cidade?.toLowerCase().includes(termo) ||
       a.uf?.toLowerCase().includes(termo) ||
       (a.identificacao ?? '').toLowerCase().includes(termo) ||
+      (a.talhao_nome ?? '').toLowerCase().includes(termo) ||
       (a.sistema_manejo && rotuloSistemaManejo(a.sistema_manejo).toLowerCase().includes(termo)) ||
       (a.cultura ?? '').toLowerCase().includes(termo) ||
       (a.sistema_cultivo ?? '').toLowerCase().includes(termo);
@@ -248,7 +250,14 @@ export function HistoricoAnalisesPage() {
 
                     {/* Talhão */}
                     <td className="px-4 py-3 text-stone-500">
-                      {a.identificacao ?? <span className="text-stone-300">—</span>}
+                      {a.talhao_nome ? (
+                        <span className="font-medium text-stone-700">{a.talhao_nome}</span>
+                      ) : (
+                        <span className="text-stone-300">—</span>
+                      )}
+                      {a.identificacao ? (
+                        <span className="block text-[11px] text-stone-400">{a.identificacao}</span>
+                      ) : null}
                     </td>
 
                     {/* Sistema / Cultura */}
