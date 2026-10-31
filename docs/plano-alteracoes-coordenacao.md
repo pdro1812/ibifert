@@ -2,7 +2,7 @@
 
 Origem: `especificacao_alteracoes_ibiferti.md` (síntese, feita por IA, dos prints dos coordenadores).
 Este documento confronta cada item com o código atual e define como implementar.
-**Status: aguardando confirmação das dúvidas (seção 3) antes de executar.**
+**Status: implementado na branch `feat/alteracoes-coordenacao` (31/10/2026)** — ver seção 5.
 
 ---
 
@@ -123,3 +123,37 @@ Nada quebra se for feito com cuidado. Os riscos reais estão no **007** (pode al
 - E2E nas fases 2, 3, 5 e 6: `cd frontend && npm run test:e2e`
 - Conferência visual no navegador (preview) de cada tela alterada.
 - Os testes de calagem e adubação (`calagem.test.ts`, `adubacao.test.ts`) precisam continuar verdes sem nenhuma alteração: nenhuma fase mexe em fórmula.
+
+---
+
+## 5. Decisões da coordenação e o que foi feito
+
+Respostas às dúvidas da seção 3: (1) os prints eram de uma versão antiga;
+(2) opção A; (3) só RS/SC em todo lugar; (4) reaproveitar cidade/estado do
+cadastro; (5) micronutrientes só os que têm alerta/recomendação; (6) um bloco
+de localização só; (7) navegação "Análise Rápida" fica para depois (ALT-009
+não foi feito); (8) telas antigas removidas.
+
+| ALT | Situação |
+|---|---|
+| 001 | feito — `constants/sistemaManejo.ts` |
+| 002/003 | feito — `services/organizarRecomendacaoAdubacao.ts` (tela + PDF) |
+| 004 | feito — seletores com lista fixa RS/SC, sem "UF" |
+| 005 | feito — localização nos 3 modos; adubação passa a salvar a localização |
+| 006 | feito — "Perfil regional" no cadastro e em Minha Conta (`PATCH /auth/me/localidade`) |
+| 007 | feito — valores e resultados preservados na troca de modo, aviso de resultado desatualizado |
+| 008 | ajuste visual (o seletor já funcionava) + "usar o da 1ª linha em todas" |
+| 009 | **não feito** (pedido para aguardar) |
+| 010 | feito — editar propriedade/talhão + "Fazenda" → "Propriedade" |
+| 011/012 | feito — Editar/Arquivar/Excluir, aba Arquivadas, edição na própria calculadora |
+| 013 | feito — `data_analise` (migração `0006_data_analise_e_arquivamento`, só colunas nulas) |
+| 014 | feito — opção A (`POST /analises/:id/salvar`, selo "Cálculo temporário" / "Salvo") |
+
+Também corrigido no caminho: a identificação da calagem digitada na
+calculadora nunca era salva; a coluna "Talhão" do histórico mostrava a
+identificação; o cadastro após "Salvar" perdia o tipo do resultado.
+
+Limitação conhecida: os campos do monitoramento 10–20 cm (pH, Al sat e
+checkboxes) não são gravados pelo cálculo da calculadora (o payload do motor
+só leva o que o motor usa), então ao editar uma análise com monitoramento
+eles precisam ser preenchidos de novo.
