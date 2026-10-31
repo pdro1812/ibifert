@@ -178,7 +178,7 @@ export function AdminUsersPage() {
           <div className="space-y-4">
             <h2 className="text-lg font-bold text-stone-800 flex items-center gap-2">
               <Warehouse size={20} className="text-green-600" />
-              Fazendas e Talhões
+              Propriedades e Talhões
             </h2>
 
             {loadingDetails ? (
@@ -187,7 +187,7 @@ export function AdminUsersPage() {
               </div>
             ) : !fullData || fullData.fazendas.length === 0 ? (
               <div className="rounded-2xl border-2 border-dashed border-stone-200 p-12 text-center text-stone-400 bg-white">
-                Este usuário ainda não possui fazendas cadastradas.
+                Este usuário ainda não possui propriedades cadastradas.
               </div>
             ) : (
               <div className="space-y-4">
@@ -223,7 +223,7 @@ export function AdminUsersPage() {
                       {isExpanded && (
                         <div className="bg-stone-50/50 p-5 border-t border-stone-100 space-y-4">
                           {talhoesFazenda.length === 0 ? (
-                            <p className="text-sm text-stone-400 text-center py-4">Nenhum talhão nesta fazenda.</p>
+                            <p className="text-sm text-stone-400 text-center py-4">Nenhum talhão nesta propriedade.</p>
                           ) : (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                               {talhoesFazenda.map(talhao => {

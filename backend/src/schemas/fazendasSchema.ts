@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { UfAtendidaSchema } from './localizacaoSchema';
 
 export const CriarFazendaSchema = z.object({
-  nome: z.string().min(2, 'Nome da fazenda é obrigatório.'),
+  nome: z.string().min(2, 'Nome da propriedade é obrigatório.'),
   municipio: z.string().min(2, 'Município é obrigatório.'),
   uf: UfAtendidaSchema,
 });

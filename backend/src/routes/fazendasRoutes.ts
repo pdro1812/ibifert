@@ -39,7 +39,7 @@ fazendasRouter.get('/', async (req, res) => {
     res.json(result);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Erro ao buscar fazendas.' });
+    res.status(500).json({ error: 'Erro ao buscar propriedades.' });
   }
 });
 
@@ -56,7 +56,7 @@ fazendasRouter.post('/', async (req, res) => {
       return res.status(400).json({ error: 'Erro de validação', details: err.errors });
     }
     console.error(err);
-    res.status(500).json({ error: 'Erro ao criar fazenda.' });
+    res.status(500).json({ error: 'Erro ao criar propriedade.' });
   }
 });
 
@@ -65,11 +65,11 @@ fazendasRouter.delete('/:id', async (req, res) => {
   try {
     const usuarioId = (req as AuthRequest).userId as string;
     const fazenda = await deleteFazenda(req.params.id, usuarioId);
-    if (!fazenda) return res.status(404).json({ error: 'Fazenda não encontrada.' });
+    if (!fazenda) return res.status(404).json({ error: 'Propriedade não encontrada.' });
     res.json(fazenda);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Erro ao deletar fazenda.' });
+    res.status(500).json({ error: 'Erro ao remover propriedade.' });
   }
 });
 
@@ -83,7 +83,7 @@ fazendasRouter.post('/:fazendaId/talhoes', async (req, res) => {
     const { nome, cultura } = CriarTalhaoSchema.parse(req.body);
 
     const fazenda = await getFazendaPorIdEUsuario(fazendaId, usuarioId);
-    if (!fazenda) return res.status(404).json({ error: 'Fazenda não encontrada.' });
+    if (!fazenda) return res.status(404).json({ error: 'Propriedade não encontrada.' });
 
     const talhao = await createTalhao({ fazenda_id: fazendaId, nome, cultura });
     res.status(201).json(talhao);

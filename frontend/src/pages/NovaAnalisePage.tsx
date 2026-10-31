@@ -278,7 +278,7 @@ export function NovaAnalisePage() {
       setNovaFazendaMunicipio('');
     } catch (err) {
       console.error(err);
-      alert('Erro ao salvar fazenda.');
+      alert('Erro ao salvar propriedade.');
     } finally {
       setSalvandoFazenda(false);
     }
@@ -440,7 +440,7 @@ export function NovaAnalisePage() {
     setResumoEnvio([]);
 
     if (!fazendaSelecionada) {
-      alert('Selecione uma fazenda para prosseguir.');
+      alert('Selecione uma propriedade para prosseguir.');
       return;
     }
 
@@ -685,10 +685,10 @@ export function NovaAnalisePage() {
           {/* Localização (Ocupa 1 coluna) */}
           <div className="space-y-4 col-span-1 border-r border-stone-200 pr-6">
             <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-stone-500">
-              <MapPin size={16} /> Fazenda Principal
+              <MapPin size={16} /> Propriedade
             </h3>
             <div className="space-y-1">
-              <label className="text-xs font-bold text-stone-600">Selecione a Fazenda</label>
+              <label className="text-xs font-bold text-stone-600">Selecione a Propriedade</label>
               <div className="flex items-center gap-2">
               <select 
                 value={fazendaId}
@@ -699,7 +699,7 @@ export function NovaAnalisePage() {
               </select>
               <button
                 type="button"
-                title="Adicionar nova fazenda"
+                title="Adicionar nova propriedade"
                 onClick={() => setModalFazendaOpen(true)}
                 className="shrink-0 rounded-xl border border-stone-200 bg-white p-2 text-stone-500 shadow-sm transition-all hover:border-green-500 hover:bg-green-50 hover:text-green-700"
               >
@@ -1022,7 +1022,7 @@ export function NovaAnalisePage() {
             className="w-full max-w-sm space-y-4 rounded-2xl bg-white p-6 shadow-2xl"
           >
             <h3 className="text-lg font-bold text-stone-900">Novo talhão</h3>
-            <p className="text-xs text-stone-500">Fazenda: {fazendaSelecionada?.nome}</p>
+            <p className="text-xs text-stone-500">Propriedade: {fazendaSelecionada?.nome}</p>
             <div>
               <label className="text-sm font-semibold text-stone-700">Nome</label>
               <input
@@ -1058,9 +1058,9 @@ export function NovaAnalisePage() {
             onSubmit={(e) => { e.preventDefault(); salvarNovaFazenda(); }}
             className="w-full max-w-md space-y-4 rounded-2xl bg-white p-6 shadow-2xl"
           >
-            <h3 className="text-lg font-bold text-stone-900">Nova fazenda</h3>
+            <h3 className="text-lg font-bold text-stone-900">Nova propriedade</h3>
             <div>
-              <label className="text-sm font-semibold text-stone-700">Nome da Fazenda</label>
+              <label className="text-sm font-semibold text-stone-700">Nome da Propriedade</label>
               <input
                 autoFocus
                 required
