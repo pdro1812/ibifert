@@ -195,10 +195,15 @@ export function RegisterPage() {
             ) : null}
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
+          <fieldset className="space-y-3 rounded-2xl border border-stone-200 bg-stone-50/60 p-4">
+            <legend className="px-1 text-sm font-bold text-stone-700">Perfil regional</legend>
+            <p className="text-xs text-stone-500">
+              Região onde você costuma fazer suas análises. Usamos para já preencher a localização nos cálculos — dá para trocar a qualquer momento em Minha Conta.
+            </p>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {/* Estado */}
-            <div className="col-span-1 space-y-1">
-              <label className="text-sm font-semibold text-stone-700">UF</label>
+            <div className="space-y-1">
+              <label className="text-sm font-semibold text-stone-700">Estado</label>
               <select
                 {...register('estado', { onChange: () => setValue('cidade', '') })}
                 className={`w-full rounded-xl border px-4 py-3 outline-none transition-all disabled:opacity-50 ${
@@ -207,7 +212,7 @@ export function RegisterPage() {
                     : 'border-stone-200 bg-stone-50 focus:border-green-500 focus:bg-white'
                 }`}
               >
-{ESTADOS_ATENDIDOS.map((estado) => (
+                {ESTADOS_ATENDIDOS.map((estado) => (
                   <option key={estado.sigla} value={estado.sigla}>{estado.sigla} — {estado.nome}</option>
                 ))}
               </select>
@@ -219,7 +224,7 @@ export function RegisterPage() {
             </div>
 
             {/* Cidade */}
-            <div className="col-span-2 space-y-1">
+            <div className="space-y-1">
               <label className="text-sm font-semibold text-stone-700">Cidade</label>
               <input
                 type="text"
@@ -244,6 +249,7 @@ export function RegisterPage() {
               ) : null}
             </div>
           </div>
+          </fieldset>
 
           {/* Senha */}
           <div className="space-y-1">

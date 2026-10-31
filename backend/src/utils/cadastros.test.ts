@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { UfAtendidaSchema, LocalizacaoSchema } from '../schemas/localizacaoSchema';
-import { RegistroSchema } from '../schemas/authSchema';
+import { RegistroSchema, LocalidadePreferencialSchema } from '../schemas/authSchema';
 import { CriarFazendaSchema } from '../schemas/fazendasSchema';
 import { CriarFeedbackSchema } from '../schemas/feedbackSchema';
 
@@ -28,5 +28,15 @@ test('Estados atendidos: só RS e SC', async (t) => {
     );
     assert.equal(LocalizacaoSchema.safeParse({ uf: 'RS', cidade: 'Ibirubá' }).success, true);
     assert.equal(LocalizacaoSchema.safeParse({ uf: 'RS', cidade: '' }).success, false);
+  });
+});
+
+test('Perfil regional (localidade preferencial)', async (t) => {
+  await t.test('aceita cidade + RS/SC', () => {
+    assert.equal(LocalidadePreferencialSchema.safeParse({ cidade: 'Chapecó', estado: 'SC' }).success, true);
+  });
+  await t.test('rejeita estado fora de RS/SC e cidade vazia', () => {
+    assert.equal(LocalidadePreferencialSchema.safeParse({ cidade: 'Londrina', estado: 'PR' }).success, false);
+    assert.equal(LocalidadePreferencialSchema.safeParse({ cidade: ' ', estado: 'RS' }).success, false);
   });
 });

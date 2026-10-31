@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { eq, inArray, or } from 'drizzle-orm';
 import { db } from '../database/db';
 import { users, analises, analisesAdubacao, fazendas, talhoes } from '../database/schema';
-import { RegistroSchema, LoginSchema, ExcluirContaSchema } from '../schemas/authSchema';
+import { RegistroSchema, LoginSchema, ExcluirContaSchema, LocalidadePreferencialSchema } from '../schemas/authSchema';
 import {
   AuthRequest, verificarToken, gerarTokenSessao, definirCookieSessao, limparCookieSessao,
 } from '../middlewares/authMiddleware';
@@ -17,6 +17,12 @@ export const authRoutes = Router();
 // Comparado quando o e-mail não existe, para o tempo de resposta não revelar
 // se a conta está cadastrada.
 const HASH_FICTICIO = bcrypt.hashSync('senha-ficticia-para-tempo-constante', 10);
+
+// Dados do usuário devolvidos ao frontend (cidade/estado = perfil regional,
+// usado para pré-preencher a localização nos cálculos).
+function usuarioPublico(u: { id: string; nome: string; email: string; role: string; cidade: string; estado: string }) {
+  return { id: u.id, nome: u.nome, email: u.email, role: u.role, cidade: u.cidade, estado: u.estado };
+}
 
 function responderErroValidacao(res: Response, erro: string, error: unknown) {
   if (error instanceof z.ZodError) {
@@ -60,7 +66,7 @@ authRoutes.post('/register', limitadorCadastro, async (req, res) => {
 
     res.status(201).json({
       mensagem: 'Usuário criado com sucesso!',
-      usuario: { id: novoUsuario.id, nome: novoUsuario.nome, email: novoUsuario.email, role: novoUsuario.role },
+      usuario: usuarioPublico(novoUsuario),
     });
 
   } catch (error) {
@@ -87,7 +93,7 @@ authRoutes.post('/login', limitadorLoginPorIp, limitadorLoginPorConta, async (re
     definirCookieSessao(res, gerarTokenSessao(usuario));
 
     res.status(200).json({
-      usuario: { id: usuario.id, nome: usuario.nome, email: usuario.email, role: usuario.role },
+      usuario: usuarioPublico(usuario),
     });
 
   } catch (error) {
@@ -103,7 +109,7 @@ authRoutes.post('/logout', (_req, res) => {
 // Restaura a sessão ao recarregar a página (o token não é legível pelo frontend)
 authRoutes.get('/me', verificarToken, async (req: AuthRequest, res) => {
   const [usuario] = await db
-    .select({ id: users.id, nome: users.nome, email: users.email, role: users.role })
+    .select({ id: users.id, nome: users.nome, email: users.email, role: users.role, cidade: users.cidade, estado: users.estado })
     .from(users)
     .where(eq(users.id, req.userId!))
     .limit(1);
@@ -113,6 +119,24 @@ authRoutes.get('/me', verificarToken, async (req: AuthRequest, res) => {
     return res.status(401).json({ erro: 'Sessão inválida.' });
   }
   res.json({ usuario });
+});
+
+// Perfil regional (localidade preferencial): só cidade e estado, sem exigir
+// os demais dados do cadastro. Não mexe em análises já feitas.
+authRoutes.patch('/me/localidade', verificarToken, async (req: AuthRequest, res) => {
+  try {
+    const dados = LocalidadePreferencialSchema.parse(req.body);
+    const [usuario] = await db
+      .update(users)
+      .set({ cidade: dados.cidade, estado: dados.estado })
+      .where(eq(users.id, req.userId!))
+      .returning();
+
+    if (!usuario) return res.status(404).json({ erro: 'Usuário não encontrado.' });
+    res.json({ usuario: usuarioPublico(usuario) });
+  } catch (error) {
+    responderErroValidacao(res, 'Falha ao salvar o perfil regional', error);
+  }
 });
 
 // Exclusão da própria conta e de todos os dados ligados a ela (LGPD — item 7)

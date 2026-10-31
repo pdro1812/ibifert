@@ -1,7 +1,103 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertCircle, Loader2, Trash2, User } from 'lucide-react';
+import { AlertCircle, Check, Loader2, MapPin, Trash2, User } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { ESTADOS_ATENDIDOS } from '../constants/estados';
+import { ibgeService, type Municipio } from '../services/ibge';
+
+// Localidade preferencial: pré-preenche Estado/Cidade nos cálculos. Mudar
+// aqui não altera análises já feitas, só os próximos preenchimentos.
+function PerfilRegional() {
+  const { user, atualizarLocalidade } = useAuth();
+  const [estado, setEstado] = useState(user?.estado === 'SC' ? 'SC' : 'RS');
+  const [cidade, setCidade] = useState(user?.cidade ?? '');
+  const [municipios, setMunicipios] = useState<Municipio[]>([]);
+  const [salvando, setSalvando] = useState(false);
+  const [salvo, setSalvo] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+
+  useEffect(() => {
+    ibgeService.getMunicipios(estado).then(setMunicipios).catch(() => setMunicipios([]));
+  }, [estado]);
+
+  const handleSalvar = async (e: FormEvent) => {
+    e.preventDefault();
+    setErro(null);
+    setSalvo(false);
+    if (!municipios.some((m) => m.nome === cidade)) {
+      setErro('Selecione uma cidade da lista.');
+      return;
+    }
+    setSalvando(true);
+    try {
+      await atualizarLocalidade({ estado, cidade });
+      setSalvo(true);
+    } catch (error) {
+      const resposta = (error as { response?: { data?: { erro?: string } } }).response;
+      setErro(resposta?.data?.erro ?? 'Não foi possível salvar. Tente novamente.');
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  return (
+    <section className="rounded-2xl border border-stone-100 bg-white p-6 shadow-sm">
+      <h2 className="flex items-center gap-2 text-lg font-bold text-stone-800">
+        <MapPin size={18} className="text-green-600" /> Perfil regional
+      </h2>
+      <p className="mt-1 text-sm text-stone-500">
+        Região onde você costuma fazer suas análises. Ela já vem preenchida na localização da calculadora — você ainda
+        pode trocar em cada cálculo, sem mudar esta preferência.
+      </p>
+
+      <form onSubmit={handleSalvar} className="mt-4 space-y-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="space-y-1">
+            <label htmlFor="perfil-estado" className="text-sm font-semibold text-stone-700">Estado</label>
+            <select
+              id="perfil-estado"
+              value={estado}
+              onChange={(e) => { setEstado(e.target.value); setCidade(''); setSalvo(false); }}
+              className="w-full rounded-xl border border-stone-200 bg-stone-50 px-4 py-3 outline-none focus:border-green-500 focus:bg-white"
+            >
+              {ESTADOS_ATENDIDOS.map((uf) => (
+                <option key={uf.sigla} value={uf.sigla}>{uf.sigla} — {uf.nome}</option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-1">
+            <label htmlFor="perfil-cidade" className="text-sm font-semibold text-stone-700">Cidade</label>
+            <input
+              id="perfil-cidade"
+              list="lista-municipios-perfil"
+              autoComplete="off"
+              value={cidade}
+              onChange={(e) => { setCidade(e.target.value); setSalvo(false); }}
+              placeholder="Digite para buscar..."
+              className="w-full rounded-xl border border-stone-200 bg-stone-50 px-4 py-3 outline-none focus:border-green-500 focus:bg-white"
+            />
+            <datalist id="lista-municipios-perfil">
+              {municipios.map((m) => <option key={m.id} value={m.nome} />)}
+            </datalist>
+          </div>
+        </div>
+
+        {erro ? (
+          <p className="flex items-center gap-2 text-sm text-red-600"><AlertCircle size={14} /> {erro}</p>
+        ) : null}
+
+        <button
+          type="submit"
+          disabled={salvando}
+          className="flex items-center gap-2 rounded-xl bg-green-600 px-5 py-3 text-sm font-bold text-white transition-all hover:bg-green-700 disabled:opacity-50"
+        >
+          {salvando ? <Loader2 size={16} className="animate-spin" /> : salvo ? <Check size={16} /> : <MapPin size={16} />}
+          {salvo ? 'Perfil regional salvo' : 'Salvar perfil regional'}
+        </button>
+      </form>
+    </section>
+  );
+}
 
 export function MinhaContaPage() {
   const { user, excluirConta } = useAuth();
@@ -44,6 +140,8 @@ export function MinhaContaPage() {
           </div>
         </div>
       </section>
+
+      <PerfilRegional />
 
       <section className="rounded-2xl border border-red-100 bg-white p-6 shadow-sm">
         <h2 className="flex items-center gap-2 text-lg font-bold text-red-600">

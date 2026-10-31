@@ -18,6 +18,11 @@ export const RegistroSchema = z.object({
   senha: SenhaForteSchema
 });
 
+export const LocalidadePreferencialSchema = z.object({
+  cidade: z.string().trim().min(2, 'Cidade é obrigatória.'),
+  estado: UfAtendidaSchema,
+});
+
 export const ExcluirContaSchema = z.object({
   senha: z.string().min(1, 'Informe sua senha para confirmar.')
 });
