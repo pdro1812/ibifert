@@ -3,7 +3,7 @@ import { z } from 'zod';
 export const FeedbackSchema = z.object({
   nome: z.string().trim().min(2, 'Informe seu nome.').max(120, 'Nome muito longo.'),
   telefone: z.string().trim().min(8, 'Informe um telefone para contato.').max(20, 'Telefone inválido.'),
-  uf: z.string().trim().length(2, 'Selecione o estado.'),
+  uf: z.enum(['RS', 'SC'], { message: 'Selecione o estado.' }),
   cidade: z.string().trim().min(2, 'Selecione a cidade.'),
   email: z
     .string()

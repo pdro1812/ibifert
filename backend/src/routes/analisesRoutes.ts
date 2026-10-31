@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { executarMotorCalagem } from '../services/motorCalagem';
 import { validarEntrada } from '../services/calculadoraCalagem';
 import { CalagemValidationError } from '../schemas/calagemSchema';
+import { LocalizacaoSchema } from '../schemas/localizacaoSchema';
 import { eq, count, sql, inArray, desc } from 'drizzle-orm';
 import { db } from '../database/db';
 import { analises, analisesAdubacao } from '../database/schema';
@@ -13,6 +14,15 @@ export const analisesRoutes = Router();
 
 analisesRoutes.post('/calcular', limitadorCalculoPublico, async (req: AuthRequest, res) => {
   try {
+    const localizacao = LocalizacaoSchema.safeParse(req.body);
+    if (!localizacao.success) {
+      return res.status(400).json({
+        sucesso: false,
+        codigo_erro: 'E001_FALHA_VALIDACAO_ENTRADA',
+        mensagem: localizacao.error.issues[0].message,
+      });
+    }
+
     const entrada = validarEntrada(req.body);
     const resultado = executarMotorCalagem(entrada);
 
@@ -22,8 +32,8 @@ analisesRoutes.post('/calcular', limitadorCalculoPublico, async (req: AuthReques
     salvarAnalise({
       entrada,
       resultado,
-      uf:                  req.body.uf,
-      cidade:              req.body.cidade,
+      uf:                  localizacao.data.uf,
+      cidade:              localizacao.data.cidade,
       talhao_id:           req.body.talhao_id,
       modo_al_sat:         req.body.modo_al_sat,
       monitoramento_ativo: req.body.monitoramento_ativo,

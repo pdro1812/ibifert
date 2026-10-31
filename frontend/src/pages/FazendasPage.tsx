@@ -5,7 +5,8 @@ import type { FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FlaskConical, MapPin, Plus, Tractor } from 'lucide-react';
 import { ibgeService } from '../services/ibge';
-import type { Estado, Municipio } from '../services/ibge';
+import type { Municipio } from '../services/ibge';
+import { ESTADOS_ATENDIDOS } from '../constants/estados';
 import { Modal } from '../components/Modal';
 import { useAuth } from '../contexts/AuthContext';
 import {
@@ -55,7 +56,6 @@ export function FazendasPage() {
   const [modalFazendaOpen, setModalFazendaOpen] = useState(false);
   const [modalTalhaoOpen, setModalTalhaoOpen] = useState(false);
 
-  const [estados, setEstados] = useState<Estado[]>([]);
   const [municipios, setMunicipios] = useState<Municipio[]>([]);
   const [ufSelecionada, setUfSelecionada] = useState('RS');
 
@@ -74,9 +74,6 @@ export function FazendasPage() {
       .finally(() => setLoading(false));
   }, [user, navigate]);
 
-  useEffect(() => {
-    ibgeService.getEstados().then(setEstados);
-  }, []);
 
   useEffect(() => {
     if (ufSelecionada) {
@@ -307,9 +304,8 @@ export function FazendasPage() {
                 }}
                 className="mt-1 w-full rounded-xl border border-stone-200 bg-stone-50 px-4 py-3 outline-none focus:border-green-500"
               >
-                <option value="">UF</option>
-                {estados.map((estado) => (
-                  <option key={estado.id} value={estado.sigla}>{estado.sigla}</option>
+                {ESTADOS_ATENDIDOS.map((estado) => (
+                  <option key={estado.sigla} value={estado.sigla}>{estado.sigla}</option>
                 ))}
               </select>
             </div>

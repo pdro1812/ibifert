@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ArrowRight, Plus, TableProperties, Tractor, MapPin, AlertCircle, CheckCircle2, Leaf, Sprout, FlaskConical, Layers } from 'lucide-react';
 import { getFazendas, postFazenda, postTalhao, postAnalisesBulk, postAdubacaoBulk } from '../services/api';
-import { ibgeService, type Estado, type Municipio } from '../services/ibge';
+import { ibgeService, type Municipio } from '../services/ibge';
+import { ESTADOS_ATENDIDOS } from '../constants/estados';
 import { CalagemSchema, precisaAlSatPDConsolidado, rotearMetodoCalagem, type SistemaManejo } from '../schemas/calagemSchema';
 import { AdubacaoSchema } from '../schemas/adubacaoSchema';
 
@@ -250,16 +251,12 @@ export function NovaAnalisePage() {
 
   // ── Criação rápida de fazenda (botão "+" ao lado do seletor de fazenda)
   const [modalFazendaOpen, setModalFazendaOpen] = useState(false);
-  const [estados, setEstados] = useState<Estado[]>([]);
   const [municipios, setMunicipios] = useState<Municipio[]>([]);
   const [novaFazendaNome, setNovaFazendaNome] = useState('');
   const [novaFazendaUf, setNovaFazendaUf] = useState('RS');
   const [novaFazendaMunicipio, setNovaFazendaMunicipio] = useState('');
   const [salvandoFazenda, setSalvandoFazenda] = useState(false);
 
-  useEffect(() => {
-    if (modalFazendaOpen && estados.length === 0) ibgeService.getEstados().then(setEstados).catch(console.error);
-  }, [modalFazendaOpen, estados.length]);
 
   useEffect(() => {
     if (modalFazendaOpen && novaFazendaUf) ibgeService.getMunicipios(novaFazendaUf).then(setMunicipios).catch(console.error);
@@ -1048,8 +1045,7 @@ export function NovaAnalisePage() {
                   onChange={(e) => { setNovaFazendaUf(e.target.value); setNovaFazendaMunicipio(''); if (!e.target.value) setMunicipios([]); }}
                   className="mt-1 w-full rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 outline-none focus:border-green-500"
                 >
-                  <option value="">UF</option>
-                  {estados.map((e) => <option key={e.id} value={e.sigla}>{e.sigla}</option>)}
+                  {ESTADOS_ATENDIDOS.map((e) => <option key={e.sigla} value={e.sigla}>{e.sigla} — {e.nome}</option>)}
                 </select>
               </div>
               <div className="col-span-2">

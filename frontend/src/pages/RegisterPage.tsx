@@ -7,7 +7,8 @@ import { AlertCircle, Check, Circle, Leaf, Loader2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { recuperarAnalisePendente } from '../services/pendencias';
 import { ibgeService } from '../services/ibge';
-import type { Estado, Municipio } from '../services/ibge';
+import type { Municipio } from '../services/ibge';
+import { ESTADOS_ATENDIDOS } from '../constants/estados';
 import { REGRAS_SENHA, SenhaForteSchema } from '../schemas/senhaSchema';
 
 // ─── Schema ──────────────────────────────────────────────────────────────────
@@ -16,7 +17,7 @@ const RegisterSchema = z.object({
   nome: z.string().min(3, 'Nome deve ter no mínimo 3 caracteres'),
   email: z.string().email('E-mail inválido'),
   cidade: z.string().min(2, 'Cidade é obrigatória'),
-  estado: z.string().length(2, 'Use a sigla do estado (Ex: RS)'),
+  estado: z.enum(['RS', 'SC'], { message: 'Selecione RS ou SC' }),
   telefone: z.string().optional(),
   senha: SenhaForteSchema,
   confirmarSenha: z.string().min(1, 'Confirme sua senha'),
@@ -35,7 +36,6 @@ export function RegisterPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const [apiError, setApiError] = useState<string | null>(null);
-  const [estados, setEstados] = useState<Estado[]>([]);
   const [municipiosCarregados, setMunicipios] = useState<Municipio[]>([]);
 
   // Redirecionamento após sucesso
@@ -66,7 +66,6 @@ export function RegisterPage() {
   const municipios = ufSelecionada ? municipiosCarregados : [];
 
   useEffect(() => {
-    ibgeService.getEstados().then(setEstados).catch(() => setApiError('Não foi possível carregar a lista de estados.'));
   }, []);
 
   useEffect(() => {
@@ -208,9 +207,8 @@ export function RegisterPage() {
                     : 'border-stone-200 bg-stone-50 focus:border-green-500 focus:bg-white'
                 }`}
               >
-                <option value="">UF</option>
-                {estados.map((estado) => (
-                  <option key={estado.id} value={estado.sigla}>{estado.sigla}</option>
+{ESTADOS_ATENDIDOS.map((estado) => (
+                  <option key={estado.sigla} value={estado.sigla}>{estado.sigla} — {estado.nome}</option>
                 ))}
               </select>
               {errors.estado ? (

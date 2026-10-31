@@ -6,10 +6,10 @@ import { AlertCircle, CheckCircle2, MessageSquareWarning, Send } from 'lucide-re
 import { FeedbackSchema, type EntradaFeedback } from '../schemas/feedbackSchema';
 import { postFeedback } from '../services/api';
 import { ibgeService } from '../services/ibge';
-import type { Estado, Municipio } from '../services/ibge';
+import type { Municipio } from '../services/ibge';
+import { ESTADOS_ATENDIDOS } from '../constants/estados';
 
 export function FeedbackPage() {
-  const [estados, setEstados] = useState<Estado[]>([]);
   const [municipios, setMunicipios] = useState<Municipio[]>([]);
   const [loading, setLoading] = useState(false);
   const [enviado, setEnviado] = useState(false);
@@ -23,11 +23,11 @@ export function FeedbackPage() {
     formState: { errors },
   } = useForm<EntradaFeedback>({
     resolver: zodResolver(FeedbackSchema),
+    defaultValues: { uf: 'RS' },
   });
 
   const ufSelecionada = useWatch({ control, name: 'uf' });
 
-  useEffect(() => { ibgeService.getEstados().then(setEstados); }, []);
   useEffect(() => {
     if (ufSelecionada) ibgeService.getMunicipios(ufSelecionada).then(setMunicipios);
   }, [ufSelecionada]);
@@ -147,9 +147,8 @@ export function FeedbackPage() {
                     errors.uf ? 'border-red-400 bg-red-50' : 'border-stone-200 bg-white focus:border-green-500'
                   }`}
                 >
-                  <option value="">UF</option>
-                  {estados.map((estado) => (
-                    <option key={estado.id} value={estado.sigla}>{estado.sigla}</option>
+                  {ESTADOS_ATENDIDOS.map((estado) => (
+                    <option key={estado.sigla} value={estado.sigla}>{estado.sigla}</option>
                   ))}
                 </select>
                 {errors.uf ? (

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { UfAtendidaSchema } from './localizacaoSchema';
 
 // Mesmas regras de frontend/src/schemas/senhaSchema.ts — manter as duas em sincronia.
 export const SenhaForteSchema = z.string()
@@ -11,7 +12,7 @@ export const SenhaForteSchema = z.string()
 export const RegistroSchema = z.object({
   nome: z.string().min(3, 'O nome deve ter pelo menos 3 caracteres.'),
   cidade: z.string().min(2, 'Cidade é obrigatória.'),
-  estado: z.string().length(2, 'Use a sigla do estado (ex: RS).'),
+  estado: UfAtendidaSchema,
   email: z.string().email('E-mail inválido.'),
   telefone: z.string().optional(),
   senha: SenhaForteSchema

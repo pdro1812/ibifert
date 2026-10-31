@@ -34,7 +34,8 @@ import { calcularCalagem, calcularAdubacao, salvarAdubacao } from '../services/a
 import { gerarPDFRelatorio } from '../services/pdfGenerator';
 import { gerarPDFRelatorioAdubacao } from '../services/pdfGeneratorAdubacao';
 import { ibgeService } from '../services/ibge';
-import type { Estado, Municipio } from '../services/ibge';
+import type { Municipio } from '../services/ibge';
+import { ESTADOS_ATENDIDOS } from '../constants/estados';
 import { Modal } from '../components/Modal';
 import { CampoNumerico, SelectPadrao } from '../components/FormFields';
 import { useAuth } from '../contexts/AuthContext';
@@ -191,7 +192,6 @@ export function CalculadoraCompletaPage() {
 
   // ── Estado: formulário/UX compartilhados ──────────────────────────────
   const [modalTermosOpen, setModalTermosOpen] = useState(false);
-  const [estados, setEstados] = useState<Estado[]>([]);
   const [municipios, setMunicipios] = useState<Municipio[]>([]);
   const [ufSelecionada, setUfSelecionada] = useState('RS');
   const [cidadeSelecionada, setCidadeSelecionada] = useState('Ibirubá');
@@ -212,7 +212,6 @@ export function CalculadoraCompletaPage() {
   }, []);
 
   // ── IBGE ─────────────────────────────────────────────────────────────
-  useEffect(() => { ibgeService.getEstados().then(setEstados); }, []);
   useEffect(() => {
     if (ufSelecionada) ibgeService.getMunicipios(ufSelecionada).then(setMunicipios);
   }, [ufSelecionada]);
@@ -517,13 +516,12 @@ export function CalculadoraCompletaPage() {
                     onChange={(e) => {
                       setUfSelecionada(e.target.value);
                       setErroCidade(false);
-                      if (!e.target.value) { setMunicipios([]); setCidadeSelecionada(''); }
+                      setCidadeSelecionada('');
                     }}
                     className="w-full rounded-xl border border-stone-200 bg-white px-4 py-3 shadow-sm outline-none focus:border-green-500"
                   >
-                    <option value="">UF</option>
-                    {estados.map((estado) => (
-                      <option key={estado.id} value={estado.sigla}>{estado.sigla}</option>
+                    {ESTADOS_ATENDIDOS.map((estado) => (
+                      <option key={estado.sigla} value={estado.sigla}>{estado.sigla}</option>
                     ))}
                   </select>
                 </div>
