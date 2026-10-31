@@ -3,10 +3,20 @@ import { executarMotorCalagem } from '../services/motorCalagem';
 import { validarEntrada } from '../services/calculadoraCalagem';
 import { CalagemValidationError } from '../schemas/calagemSchema';
 import { LocalizacaoSchema } from '../schemas/localizacaoSchema';
-import { eq, count, sql, inArray, desc } from 'drizzle-orm';
+import { count, sql, inArray } from 'drizzle-orm';
 import { db } from '../database/db';
-import { analises, analisesAdubacao, talhoes } from '../database/schema';
-import { salvarAnalise, listarAnalises, salvarLoteAnalises } from '../database/analises';
+import { analises, talhoes } from '../database/schema';
+import {
+  salvarAnalise,
+  listarAnalises,
+  salvarLoteAnalises,
+  buscarAnalisePorId,
+  atualizarAnalise,
+  excluirAnalise,
+  arquivarAnalise,
+} from '../database/analises';
+import { listarAnalisesAdubacaoHistorico } from '../database/adubacao';
+import { ArquivarAnaliseSchema, DataAnaliseSchema, filtroArquivadas } from '../schemas/gestaoAnaliseSchema';
 import { verificarToken, obterUsuarioOpcional, AuthRequest } from '../middlewares/authMiddleware';
 import { limitadorCalculoPublico } from '../middlewares/rateLimit';
 
@@ -75,6 +85,10 @@ analisesRoutes.post('/bulk', verificarToken, async (req: AuthRequest, res) => {
     if (!Array.isArray(amostras) || amostras.length === 0) {
       return res.status(400).json({ sucesso: false, mensagem: 'Nenhuma amostra enviada.' });
     }
+    const dataAnalise = DataAnaliseSchema.safeParse(req.body.data_analise);
+    if (!dataAnalise.success) {
+      return res.status(400).json({ sucesso: false, mensagem: dataAnalise.error.issues[0].message });
+    }
 
     const registrosParaSalvar = amostras.map((amostra: any) => {
       const entrada = validarEntrada(amostra);
@@ -88,7 +102,8 @@ analisesRoutes.post('/bulk', verificarToken, async (req: AuthRequest, res) => {
         talhao_id,
         modo_al_sat: amostra.modo_al_sat ?? 'direto',
         monitoramento_ativo: !!amostra.monitoramento,
-        usuario_id, 
+        usuario_id,
+        data_analise: dataAnalise.data,
       };
     });
 
@@ -209,15 +224,11 @@ analisesRoutes.get('/regional-stats', async (req: AuthRequest, res) => {
 analisesRoutes.get('/historico', verificarToken, async (req: AuthRequest, res) => {
   try {
     const isAdmin = req.userRole === 'ADMIN';
-    const calagens = await listarAnalises(isAdmin ? undefined : req.userId);
-    
-    // Buscar também as de adubação
-    let adubacoes: any[] = [];
-    if (isAdmin) {
-      adubacoes = await db.select().from(analisesAdubacao).orderBy(desc(analisesAdubacao.criado_em));
-    } else if (req.userId) {
-      adubacoes = await db.select().from(analisesAdubacao).where(eq(analisesAdubacao.usuario_id, req.userId)).orderBy(desc(analisesAdubacao.criado_em));
-    }
+    // ?arquivadas=true → área de análises arquivadas; padrão → só as ativas
+    const arquivadas = filtroArquivadas(req.query.arquivadas);
+    const usuarioFiltro = isAdmin ? undefined : req.userId;
+    const calagens = await listarAnalises(usuarioFiltro, arquivadas);
+    const adubacoes = await listarAnalisesAdubacaoHistorico(usuarioFiltro, arquivadas);
 
     // Nome do talhão vinculado (a coluna "Talhão" do histórico mostrava a
     // identificação livre, não o talhão de fato).
@@ -246,5 +257,80 @@ analisesRoutes.get('/historico', verificarToken, async (req: AuthRequest, res) =
       mensagem: 'Erro ao buscar histórico de análises.',
       detalhes: error?.message,
     });
+  }
+});
+
+// ── Gerenciamento (só o dono) ─────────────────────────────────────────────────
+// Rotas com :id ficam por último para não capturar /historico e /regional-stats.
+
+// GET /api/analises/:id  →  análise completa (para abrir na edição)
+analisesRoutes.get('/:id', verificarToken, async (req: AuthRequest, res) => {
+  try {
+    const analise = await buscarAnalisePorId(req.params.id as string, req.userId!);
+    if (!analise) return res.status(404).json({ sucesso: false, mensagem: 'Análise não encontrada.' });
+    res.json({ sucesso: true, dados: analise });
+  } catch (error: any) {
+    res.status(500).json({ sucesso: false, mensagem: 'Erro ao buscar análise.', detalhes: error?.message });
+  }
+});
+
+// PUT /api/analises/:id  →  corrige os dados e recalcula com o motor,
+// atualizando o mesmo registro (sem criar outro).
+analisesRoutes.put('/:id', verificarToken, async (req: AuthRequest, res) => {
+  try {
+    const localizacao = LocalizacaoSchema.safeParse(req.body);
+    if (!localizacao.success) {
+      return res.status(400).json({ sucesso: false, codigo_erro: 'E001_FALHA_VALIDACAO_ENTRADA', mensagem: localizacao.error.issues[0].message });
+    }
+    const dataAnalise = DataAnaliseSchema.safeParse(req.body.data_analise);
+    if (!dataAnalise.success) {
+      return res.status(400).json({ sucesso: false, codigo_erro: 'E001_FALHA_VALIDACAO_ENTRADA', mensagem: dataAnalise.error.issues[0].message });
+    }
+
+    const entrada = validarEntrada(req.body);
+    const resultado = executarMotorCalagem(entrada);
+
+    const analise = await atualizarAnalise(req.params.id as string, req.userId!, {
+      entrada,
+      resultado,
+      uf: localizacao.data.uf,
+      cidade: localizacao.data.cidade,
+      modo_al_sat: req.body.modo_al_sat,
+      monitoramento_ativo: req.body.monitoramento_ativo,
+      data_analise: dataAnalise.data,
+    });
+    if (!analise) return res.status(404).json({ sucesso: false, mensagem: 'Análise não encontrada.' });
+
+    res.json({ sucesso: true, resultado, dados: analise });
+  } catch (error: any) {
+    if (error instanceof CalagemValidationError) {
+      return res.status(400).json({ sucesso: false, codigo_erro: 'E001_FALHA_VALIDACAO_ENTRADA', mensagem: error.message });
+    }
+    res.status(500).json({ sucesso: false, codigo_erro: 'E002_ERRO_INTERNO', mensagem: 'Erro ao salvar a análise.', detalhes: error?.message });
+  }
+});
+
+// DELETE /api/analises/:id  →  exclusão definitiva
+analisesRoutes.delete('/:id', verificarToken, async (req: AuthRequest, res) => {
+  try {
+    const analise = await excluirAnalise(req.params.id as string, req.userId!);
+    if (!analise) return res.status(404).json({ sucesso: false, mensagem: 'Análise não encontrada.' });
+    res.json({ sucesso: true, id: analise.id });
+  } catch (error: any) {
+    res.status(500).json({ sucesso: false, mensagem: 'Erro ao excluir análise.', detalhes: error?.message });
+  }
+});
+
+// PATCH /api/analises/:id/arquivar  →  { arquivada: true } arquiva, false restaura
+analisesRoutes.patch('/:id/arquivar', verificarToken, async (req: AuthRequest, res) => {
+  try {
+    const dados = ArquivarAnaliseSchema.safeParse(req.body);
+    if (!dados.success) return res.status(400).json({ sucesso: false, mensagem: dados.error.issues[0].message });
+
+    const analise = await arquivarAnalise(req.params.id as string, req.userId!, dados.data.arquivada);
+    if (!analise) return res.status(404).json({ sucesso: false, mensagem: 'Análise não encontrada.' });
+    res.json({ sucesso: true, ...analise });
+  } catch (error: any) {
+    res.status(500).json({ sucesso: false, mensagem: 'Erro ao arquivar análise.', detalhes: error?.message });
   }
 });
