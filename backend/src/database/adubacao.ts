@@ -1,4 +1,4 @@
-import { and, eq, desc, isNotNull, isNull } from 'drizzle-orm';
+import { and, eq, desc, isNotNull, isNull, sql } from 'drizzle-orm';
 import { db } from './db';
 import { analisesAdubacao } from './schema';
 
@@ -69,7 +69,7 @@ export async function excluirAnaliseAdubacao(id: string, usuario_id: string) {
 export async function arquivarAnaliseAdubacao(id: string, usuario_id: string, arquivada: boolean) {
   const [analise] = await db
     .update(analisesAdubacao)
-    .set({ arquivada_em: arquivada ? new Date() : null })
+    .set({ arquivada_em: arquivada ? sql`now()` : null })
     .where(doUsuario(id, usuario_id))
     .returning({ id: analisesAdubacao.id, arquivada_em: analisesAdubacao.arquivada_em });
   return analise;

@@ -14,10 +14,12 @@ import {
   atualizarAnalise,
   excluirAnalise,
   arquivarAnalise,
+  vincularAnaliseAoUsuario,
 } from '../database/analises';
+import { getTalhaoById } from '../database/fazendas';
 import { listarAnalisesAdubacaoHistorico } from '../database/adubacao';
 import { ArquivarAnaliseSchema, DataAnaliseSchema, filtroArquivadas } from '../schemas/gestaoAnaliseSchema';
-import { verificarToken, obterUsuarioOpcional, AuthRequest } from '../middlewares/authMiddleware';
+import { verificarToken, AuthRequest } from '../middlewares/authMiddleware';
 import { limitadorCalculoPublico } from '../middlewares/rateLimit';
 
 export const analisesRoutes = Router();
@@ -36,23 +38,27 @@ analisesRoutes.post('/calcular', limitadorCalculoPublico, async (req: AuthReques
     const entrada = validarEntrada(req.body);
     const resultado = executarMotorCalagem(entrada);
 
-    // Rota pública: associa a análise ao usuário só se houver sessão válida
-    const usuario_id = obterUsuarioOpcional(req);
-
-    salvarAnalise({
-      entrada,
-      resultado,
-      uf:                  localizacao.data.uf,
-      cidade:              localizacao.data.cidade,
-      talhao_id:           req.body.talhao_id,
-      modo_al_sat:         req.body.modo_al_sat,
-      monitoramento_ativo: req.body.monitoramento_ativo,
-      usuario_id,
-    }).catch((err) => {
+    // Todo cálculo é registrado de forma anônima (alimenta o Monitoramento
+    // Regional), mas só entra no histórico de alguém quando a pessoa clica
+    // em "Salvar" (POST /:id/salvar). Se a gravação falhar, o cálculo ainda
+    // é devolvido — só não poderá ser salvo.
+    let id: string | null = null;
+    try {
+      const registro = await salvarAnalise({
+        entrada,
+        resultado,
+        uf:                  localizacao.data.uf,
+        cidade:              localizacao.data.cidade,
+        modo_al_sat:         req.body.modo_al_sat,
+        monitoramento_ativo: req.body.monitoramento_ativo,
+        usuario_id:          null,
+      });
+      id = registro.id;
+    } catch (err) {
       console.error('[analises] Falha ao salvar no banco:', err);
-    });
+    }
 
-    res.status(200).json({ sucesso: true, resultado });
+    res.status(200).json({ sucesso: true, resultado, id });
 
   } catch (error: any) {
     if (error instanceof CalagemValidationError) {
@@ -262,6 +268,33 @@ analisesRoutes.get('/historico', verificarToken, async (req: AuthRequest, res) =
 
 // ── Gerenciamento (só o dono) ─────────────────────────────────────────────────
 // Rotas com :id ficam por último para não capturar /historico e /regional-stats.
+
+// POST /api/analises/:id/salvar  →  leva um cálculo feito na calculadora
+// (registro anônimo, recente) para o histórico do usuário logado.
+analisesRoutes.post('/:id/salvar', verificarToken, async (req: AuthRequest, res) => {
+  try {
+    const dataAnalise = DataAnaliseSchema.safeParse(req.body?.data_analise);
+    if (!dataAnalise.success) {
+      return res.status(400).json({ sucesso: false, mensagem: dataAnalise.error.issues[0].message });
+    }
+
+    const talhaoId = typeof req.body?.talhao_id === 'string' && req.body.talhao_id ? req.body.talhao_id : null;
+    if (talhaoId && !(await getTalhaoById(talhaoId, req.userId!))) {
+      return res.status(404).json({ sucesso: false, mensagem: 'Talhão não encontrado.' });
+    }
+
+    const analise = await vincularAnaliseAoUsuario(req.params.id as string, req.userId!, {
+      data_analise: dataAnalise.data,
+      talhao_id: talhaoId,
+    });
+    if (!analise) {
+      return res.status(404).json({ sucesso: false, mensagem: 'Cálculo não encontrado ou já salvo. Calcule novamente para salvar.' });
+    }
+    res.status(201).json({ sucesso: true, id: analise.id });
+  } catch (error: any) {
+    res.status(500).json({ sucesso: false, mensagem: 'Erro ao salvar análise.', detalhes: error?.message });
+  }
+});
 
 // GET /api/analises/:id  →  análise completa (para abrir na edição)
 analisesRoutes.get('/:id', verificarToken, async (req: AuthRequest, res) => {

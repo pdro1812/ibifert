@@ -1,10 +1,15 @@
-import { calcularCalagem, calcularAdubacao, salvarAdubacao } from './api';
+import { calcularCalagem, calcularAdubacao, salvarAdubacao, salvarCalagem } from './api';
 import type { EntradaCalagem, CalagemResultado } from '../schemas/calagemSchema';
 import type { EntradaAdubacao } from '../schemas/adubacaoSchema';
 
 interface CalagemPendente {
-  dados: EntradaCalagem;
-  localizacao: { uf: string; cidade: string };
+  // Cálculo já registrado (sem dono): basta vinculá-lo à conta.
+  id?: string | null;
+  resultado?: CalagemResultado;
+  data_analise?: string | null;
+  // Formato antigo (sem id): recalcula antes de salvar.
+  dados?: EntradaCalagem;
+  localizacao?: { uf: string; cidade: string };
   // Página de origem para onde voltar após o login. Opcional por
   // compatibilidade com pendências gravadas antes deste campo existir.
   destino?: string;
@@ -32,7 +37,12 @@ export async function recuperarAnalisePendente(): Promise<AnalisePendenteRecuper
     sessionStorage.removeItem('analisePendente');
     try {
       const pendente: CalagemPendente = JSON.parse(calagemRaw);
-      const resultado = await calcularCalagem(pendente.dados, pendente.localizacao);
+      let { id, resultado } = pendente;
+      if ((!id || !resultado) && pendente.dados && pendente.localizacao) {
+        ({ id, resultado } = await calcularCalagem(pendente.dados, pendente.localizacao));
+      }
+      if (!id || !resultado) return null;
+      await salvarCalagem(id, { data_analise: pendente.data_analise ?? null });
       return { tipo: 'CALAGEM', destino: pendente.destino ?? '/', resultado };
     } catch {
       return null;

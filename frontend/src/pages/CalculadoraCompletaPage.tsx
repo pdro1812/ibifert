@@ -37,6 +37,7 @@ import {
   calcularAdubacao,
   calcularCalagem,
   salvarAdubacao,
+  salvarCalagem,
   sanitizarPayloadCalagem,
   type TipoAnalise,
 } from '../services/api';
@@ -179,6 +180,19 @@ function assinaturaAdubacao(valores: unknown, extras: unknown): string {
 
 const LOCALIZACAO_PADRAO = { uf: 'RS', cidade: 'Ibirubá' };
 
+// Deixa claro se o resultado na tela é só um cálculo ou já está no histórico.
+function SeloSalvamento({ salvo }: { salvo: boolean }) {
+  return salvo ? (
+    <div data-testid="selo-salvo" className="flex items-center gap-2 rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-xs font-semibold text-green-800">
+      <CheckCircle2 size={13} /> Salvo no seu histórico
+    </div>
+  ) : (
+    <div data-testid="selo-temporario" className="flex items-center gap-2 rounded-xl border border-dashed border-stone-300 bg-white/70 px-3 py-2 text-xs text-stone-600">
+      <Save size={13} /> Cálculo temporário — clique em <strong>Salvar no histórico</strong> para guardá-lo.
+    </div>
+  );
+}
+
 function AvisoDesatualizado() {
   return (
     <div data-testid="aviso-desatualizado" className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
@@ -253,14 +267,19 @@ export function CalculadoraCompletaPage({ edicao }: CalculadoraCompletaProps = {
   const [resultadoCalagem, setResultadoCalagem] = useState<CalagemResultado | null>(calagemRecuperada ?? null);
   const [erroCalagem, setErroCalagem] = useState<string | null>(null);
   const [loadingCalagem, setLoadingCalagem] = useState(false);
-  const [salvoCalagem, setSalvoCalagem] = useState(false);
+  // Id do registro anônimo do último cálculo — o "Salvar" leva ele ao histórico.
+  const [idCalculoCalagem, setIdCalculoCalagem] = useState<string | null>(null);
+  // Resultado recuperado após o login já foi salvo no caminho (pendencias.ts).
+  const [salvoCalagem, setSalvoCalagem] = useState(calagemRecuperada !== undefined);
+  const [salvandoCalagem, setSalvandoCalagem] = useState(false);
 
   // ── Estado: adubação ──────────────────────────────────────────────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [resultadoAdubacao, setResultadoAdubacao] = useState<any | null>(adubacaoRecuperada ?? null);
   const [erroAdubacao, setErroAdubacao] = useState<string | null>(null);
   const [loadingAdubacao, setLoadingAdubacao] = useState(false);
-  const [salvoAdubacao, setSalvoAdubacao] = useState(false);
+  const [salvoAdubacao, setSalvoAdubacao] = useState(adubacaoRecuperada !== undefined);
+  const [salvandoAdubacao, setSalvandoAdubacao] = useState(false);
 
   // ── Estado: formulário/UX compartilhados ──────────────────────────────
   const [modalTermosOpen, setModalTermosOpen] = useState(false);
@@ -466,6 +485,7 @@ export function CalculadoraCompletaPage({ edicao }: CalculadoraCompletaProps = {
       setResultadoCalagem(null);
       setErroCalagem(null);
       setSalvoCalagem(false);
+      setIdCalculoCalagem(null);
       setAssinaturaCalculoCalagem(assinaturaCalagemAtual);
       setLoadingCalagem(true);
       const dadosCalagem = CalagemSchema.parse(dados);
@@ -481,7 +501,10 @@ export function CalculadoraCompletaPage({ edicao }: CalculadoraCompletaProps = {
               setSalvoEdicao(true);
               return resposta;
             })
-          : calcularCalagem(dadosCalagem, extrasCalagem)
+          : calcularCalagem(dadosCalagem, extrasCalagem).then(({ resultado, id }) => {
+              setIdCalculoCalagem(id);
+              return resultado;
+            })
         )
           .then((resposta) => setResultadoCalagem(resposta))
           .catch((error) => setErroCalagem(extrairMensagemErroCalagem(error)))
@@ -520,28 +543,44 @@ export function CalculadoraCompletaPage({ edicao }: CalculadoraCompletaProps = {
     if (!termosAceitos) setErroTermos(true);
   };
 
-  // ── Salvar (cada módulo mantém exatamente o comportamento da página de
-  //     origem — calagem é auto-persistida pelo backend no cálculo em si
-  //     quando logado; adubação exige uma chamada explícita de salvar) ──
-  const handleTentarSalvarCalagem = () => {
+  // ── Salvar: o cálculo é temporário até o usuário salvar. A calagem já foi
+  //     registrada sem dono no cálculo (Monitoramento Regional) e o salvar só
+  //     a vincula à conta; a adubação é gravada no salvar. ──
+  const handleTentarSalvarCalagem = async () => {
+    if (!resultadoCalagem || salvoCalagem || salvandoCalagem) return;
+    if (!idCalculoCalagem) {
+      alert('Este cálculo não pôde ser registrado. Calcule novamente para salvar.');
+      return;
+    }
+
     if (!isLoggedIn) {
       sessionStorage.setItem(
         'analisePendente',
         JSON.stringify({
-          dados: getValues(),
-          localizacao: { uf: ufSelecionada, cidade: cidadeSelecionada },
+          id: idCalculoCalagem,
+          resultado: resultadoCalagem,
+          data_analise: dataAnalise || null,
           destino: location.pathname,
         })
       );
       navigate('/login');
       return;
     }
-    setSalvoCalagem(true);
-    setTimeout(() => setSalvoCalagem(false), 3000);
+
+    setSalvandoCalagem(true);
+    try {
+      await salvarCalagem(idCalculoCalagem, { data_analise: dataAnalise || null });
+      setSalvoCalagem(true);
+    } catch (error) {
+      const mensagem = (error as { response?: { data?: { mensagem?: string } } }).response?.data?.mensagem;
+      alert(mensagem ?? 'Erro ao salvar a calagem. Tente novamente.');
+    } finally {
+      setSalvandoCalagem(false);
+    }
   };
 
   const handleTentarSalvarAdubacao = async () => {
-    if (!resultadoAdubacao) return;
+    if (!resultadoAdubacao || salvoAdubacao || salvandoAdubacao) return;
 
     // Salva exatamente a entrada e a localização que geraram o resultado
     // exibido (não o que estiver no formulário agora).
@@ -560,16 +599,18 @@ export function CalculadoraCompletaPage({ edicao }: CalculadoraCompletaProps = {
       return;
     }
 
+    setSalvandoAdubacao(true);
     try {
       await salvarAdubacao({
         dadosForm,
         resultado: resultadoAdubacao.recomendacao ? resultadoAdubacao : resultadoAdubacao.resultado,
       });
       setSalvoAdubacao(true);
-      setTimeout(() => setSalvoAdubacao(false), 3000);
     } catch (error) {
       console.error('Erro ao salvar adubação:', error);
       alert('Erro ao salvar adubação. Tente novamente.');
+    } finally {
+      setSalvandoAdubacao(false);
     }
   };
 
@@ -1310,6 +1351,7 @@ export function CalculadoraCompletaPage({ edicao }: CalculadoraCompletaProps = {
                     <div className="flex items-center gap-2 text-sm font-bold text-stone-800">
                       <CheckCircle2 size={18} className="text-green-500" /> {tituloResultadoCalagem}
                     </div>
+                    {emEdicao ? null : <SeloSalvamento salvo={salvoCalagem} />}
                     {calagemDesatualizada ? <AvisoDesatualizado /> : null}
 
                     {resultadoCalagem.aplicar_calcario ? (
@@ -1381,11 +1423,12 @@ export function CalculadoraCompletaPage({ edicao }: CalculadoraCompletaProps = {
                       {emEdicao ? null : <button
                         type="button"
                         onClick={handleTentarSalvarCalagem}
+                        disabled={salvoCalagem || salvandoCalagem}
                         className={`flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-semibold shadow-sm transition-all ${
                           salvoCalagem ? 'bg-green-500 text-white' : 'border border-stone-200 bg-white hover:bg-stone-50'
                         }`}
                       >
-                        {salvoCalagem ? <><Check size={16} /> Salvo!</> : <><Save size={16} /> Salvar</>}
+                        {salvoCalagem ? <><Check size={16} /> Salvo</> : <><Save size={16} /> {salvandoCalagem ? 'Salvando...' : 'Salvar no histórico'}</>}
                       </button>}
                     </div>
                   </div>
@@ -1415,6 +1458,7 @@ export function CalculadoraCompletaPage({ edicao }: CalculadoraCompletaProps = {
                   </div>
                 ) : resultadoAdubacao ? (
                   <div className="space-y-4">
+                    {emEdicao ? null : <SeloSalvamento salvo={salvoAdubacao} />}
                     {adubacaoDesatualizada ? <AvisoDesatualizado /> : null}
                     <RecomendacaoAdubacao resultado={resultadoAdubacao} />
 
@@ -1437,11 +1481,12 @@ export function CalculadoraCompletaPage({ edicao }: CalculadoraCompletaProps = {
                       {emEdicao ? null : <button
                         type="button"
                         onClick={handleTentarSalvarAdubacao}
+                        disabled={salvoAdubacao || salvandoAdubacao}
                         className={`flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-bold shadow-sm transition-all active:scale-95 ${
                           salvoAdubacao ? 'bg-green-500 text-white' : 'bg-green-600 text-white hover:bg-green-700'
                         }`}
                       >
-                        {salvoAdubacao ? <><CheckCircle2 size={16} /> Salvo!</> : <><Save size={16} /> Salvar</>}
+                        {salvoAdubacao ? <><CheckCircle2 size={16} /> Salvo</> : <><Save size={16} /> {salvandoAdubacao ? 'Salvando...' : 'Salvar no histórico'}</>}
                       </button>}
                     </div>
                   </div>

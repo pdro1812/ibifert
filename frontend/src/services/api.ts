@@ -126,10 +126,12 @@ export function sanitizarPayloadCalagem(dados: EntradaCalagem): CalagemPayload {
   ) as CalagemPayload;
 }
 
+// O backend registra todo cálculo sem dono (Monitoramento Regional) e devolve
+// o id; o cálculo só entra no histórico do usuário via salvarCalagem(id).
 export async function calcularCalagem(
   dados: EntradaCalagem,
   localizacao: { uf: string; cidade: string; modo_al_sat?: 'direto' | 'calculado'; monitoramento_ativo?: boolean }
-): Promise<CalagemResultado> {
+): Promise<{ resultado: CalagemResultado; id: string | null }> {
   const payload = {
     ...sanitizarPayloadCalagem(dados),
     identificacao:       dados.identificacao || undefined,
@@ -139,7 +141,12 @@ export async function calcularCalagem(
     monitoramento_ativo: localizacao.monitoramento_ativo,
   };
   const resposta = await api.post('/analises/calcular', payload);
-  return resposta.data.resultado ?? resposta.data;
+  return { resultado: resposta.data.resultado, id: resposta.data.id ?? null };
+}
+
+export async function salvarCalagem(id: string, dados: { data_analise?: string | null; talhao_id?: string | null } = {}) {
+  const res = await api.post(`/analises/${id}/salvar`, dados);
+  return res.data;
 }
 
 // ── Gerenciamento de análises salvas (histórico) ──────────────────────────────

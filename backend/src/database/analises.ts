@@ -1,4 +1,4 @@
-import { and, desc, eq, isNotNull, isNull } from 'drizzle-orm';
+import { and, desc, eq, gt, isNotNull, isNull, sql } from 'drizzle-orm';
 import { db } from './db';
 import { analises } from './schema';
 import type { EntradaCalagem, ResultadoCalagem } from '../schemas/calagemSchema';
@@ -109,6 +109,30 @@ export async function atualizarAnalise(id: string, usuario_id: string, params: O
   return registro;
 }
 
+// Prazo para salvar um cálculo depois de feito (cobre o caminho
+// calcular → login → salvar). Depois disso o registro fica só anônimo.
+// Comparado no relógio do banco, o mesmo que preenche criado_em.
+const PRAZO_PARA_SALVAR = sql`now() - interval '24 hours'`;
+
+// "Salvar" da calculadora: o cálculo já foi gravado sem dono; aqui ele
+// passa a ser do usuário (só se ainda não tiver dono e for recente).
+export async function vincularAnaliseAoUsuario(
+  id: string,
+  usuario_id: string,
+  dados: { data_analise: string | null; talhao_id: string | null }
+) {
+  const [registro] = await db
+    .update(analises)
+    .set({ usuario_id, data_analise: dados.data_analise, talhao_id: dados.talhao_id })
+    .where(and(
+      eq(analises.id, id),
+      isNull(analises.usuario_id),
+      gt(analises.criado_em, PRAZO_PARA_SALVAR),
+    ))
+    .returning({ id: analises.id });
+  return registro;
+}
+
 export async function excluirAnalise(id: string, usuario_id: string) {
   const [registro] = await db.delete(analises).where(doUsuario(id, usuario_id)).returning({ id: analises.id });
   return registro;
@@ -117,7 +141,7 @@ export async function excluirAnalise(id: string, usuario_id: string) {
 export async function arquivarAnalise(id: string, usuario_id: string, arquivada: boolean) {
   const [registro] = await db
     .update(analises)
-    .set({ arquivada_em: arquivada ? new Date() : null })
+    .set({ arquivada_em: arquivada ? sql`now()` : null })
     .where(doUsuario(id, usuario_id))
     .returning({ id: analises.id, arquivada_em: analises.arquivada_em });
   return registro;
