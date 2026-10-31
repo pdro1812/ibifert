@@ -55,7 +55,7 @@ fazendasRouter.post('/', async (req, res) => {
     res.status(201).json(fazenda);
   } catch (err: any) {
     if (err.name === 'ZodError') {
-      return res.status(400).json({ error: 'Erro de validação', details: err.errors });
+      return res.status(400).json({ error: 'Erro de validação', details: err.issues });
     }
     console.error(err);
     res.status(500).json({ error: 'Erro ao criar propriedade.' });
@@ -109,7 +109,7 @@ fazendasRouter.post('/:fazendaId/talhoes', async (req, res) => {
     res.status(201).json(talhao);
   } catch (err: any) {
     if (err.name === 'ZodError') {
-      return res.status(400).json({ error: 'Erro de validação', details: err.errors });
+      return res.status(400).json({ error: 'Erro de validação', details: err.issues });
     }
     console.error(err);
     res.status(500).json({ error: 'Erro ao criar talhão.' });

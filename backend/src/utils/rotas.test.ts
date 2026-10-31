@@ -167,3 +167,29 @@ test('Erros não expõem detalhes internos', async (t) => {
     assert.deepEqual(await resposta.json(), { erro: 'JSON inválido.' });
   });
 });
+
+// AUD-20: no zod 4 a lista de problemas é error.issues (error.errors não
+// existe), então os 400 de validação saíam sem dizer qual campo falhou.
+test('Erros de validação dizem qual campo falhou', async (t) => {
+  const cookie = await cadastrar(requisitar, 'validacao@exemplo.test');
+  const casos: [string, string, string | undefined, unknown][] = [
+    ['POST /feedback', '/feedback', undefined, {}],
+    ['POST /adubacao/calcular', '/adubacao/calcular', undefined, {}],
+    ['POST /fazendas', '/fazendas', cookie, {}],
+  ];
+  for (const [nome, caminho, comCookie, corpo] of casos) {
+    await t.test(nome, async () => {
+      const r = await requisitar('POST', caminho, { cookie: comCookie, corpo });
+      assert.equal(r.status, 400);
+      assert.ok(Array.isArray(r.corpo.details) && r.corpo.details.length > 0, JSON.stringify(r.corpo));
+      assert.ok(r.corpo.details.every((d: { path: unknown; message: unknown }) => Array.isArray(d.path) && typeof d.message === 'string'));
+    });
+  }
+
+  await t.test('POST /fazendas/:id/talhoes', async () => {
+    const fazenda = await requisitar('POST', '/fazendas', { cookie, corpo: { nome: 'Fazenda Validação', municipio: 'Ibirubá', uf: 'RS' } });
+    const r = await requisitar('POST', `/fazendas/${fazenda.corpo.id}/talhoes`, { cookie, corpo: {} });
+    assert.equal(r.status, 400);
+    assert.deepEqual(r.corpo.details.map((d: { path: string[] }) => d.path[0]).sort(), ['cultura', 'nome']);
+  });
+});

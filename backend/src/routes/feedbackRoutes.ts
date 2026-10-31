@@ -15,7 +15,7 @@ feedbackRouter.post('/', limitadorFeedback, async (req, res) => {
     res.status(201).json(feedback);
   } catch (err: any) {
     if (err.name === 'ZodError') {
-      return res.status(400).json({ error: 'Erro de validação', details: err.errors });
+      return res.status(400).json({ error: 'Erro de validação', details: err.issues });
     }
     console.error(err);
     res.status(500).json({ error: 'Erro ao enviar feedback.' });

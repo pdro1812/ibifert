@@ -86,7 +86,7 @@ adubacaoRoutes.post('/calcular', limitadorCalculoPublico, async (req: AuthReques
     });
   } catch (error: any) {
     if (error.name === 'ZodError') {
-      res.status(400).json({ error: 'Erro de validação', details: error.errors });
+      res.status(400).json({ error: 'Erro de validação', details: error.issues });
     } else {
       responderErroInterno(req, res, error, { error: MENSAGEM_ERRO_INTERNO });
     }
