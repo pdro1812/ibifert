@@ -90,10 +90,11 @@ adubacaoRoutes.post('/calcular', limitadorCalculoPublico, async (req: AuthReques
   }
 });
 
-// Endpoint exclusivo para salvar o resultado da adubação no banco
+// Endpoint exclusivo para salvar o resultado da adubação no banco. A
+// recomendação gravada é recalculada aqui; um `resultado` no corpo é ignorado.
 adubacaoRoutes.post('/salvar', verificarToken, async (req: AuthRequest, res) => {
   try {
-    const { dadosForm, resultado } = req.body;
+    const { dadosForm } = req.body;
 
     // A localização vem do formulário (mesmo bloco da calagem); antes caía
     // silenciosamente em RS / "Não informada".
@@ -111,7 +112,7 @@ adubacaoRoutes.post('/salvar', verificarToken, async (req: AuthRequest, res) => 
     const analiseSalva = await criarAnaliseAdubacao({
       usuario_id: req.userId,
       talhao_id: talhaoId,
-      ...colunasAdubacao(entrada, localizacao.data, resultado, data_analise),
+      ...colunasAdubacao(entrada, localizacao.data, executarMotorAdubacao(entrada), data_analise),
     });
 
     res.status(201).json({

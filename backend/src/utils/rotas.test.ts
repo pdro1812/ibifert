@@ -91,3 +91,19 @@ test('Talhão de outro usuário é recusado ao gravar análises', async (t) => {
     assert.equal(r.status, 200);
   });
 });
+
+// AUD-04: a recomendação salva é sempre a do motor, nunca a enviada pelo cliente.
+test('POST /adubacao/salvar recalcula a recomendação no servidor', async () => {
+  const cookie = await cadastrar(requisitar, 'recalculo-adubacao@exemplo.test');
+  const calculado = await requisitar('POST', '/adubacao/calcular', { corpo: FORM_ADUBACAO });
+  assert.equal(calculado.status, 200);
+
+  const forjado = { recomendacao: { n: { dose_total_kg_ha: 99999, tipo: 'FORJADO' } }, alertas: [] };
+  const salvo = await requisitar('POST', '/adubacao/salvar', { cookie, corpo: { dadosForm: FORM_ADUBACAO, resultado: forjado } });
+  assert.equal(salvo.status, 201);
+  assert.deepEqual(salvo.corpo.data.recomendacao_json, calculado.corpo.resultado);
+
+  const semResultado = await requisitar('POST', '/adubacao/salvar', { cookie, corpo: { dadosForm: FORM_ADUBACAO } });
+  assert.equal(semResultado.status, 201);
+  assert.deepEqual(semResultado.corpo.data.recomendacao_json, calculado.corpo.resultado);
+});
