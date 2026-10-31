@@ -326,6 +326,26 @@ export function NovaAnalisePage() {
     }
   };
 
+  // Copia o talhão da primeira linha para todas — atalho para lotes em que
+  // todas as amostras são do mesmo talhão. Continua editável linha a linha.
+  const aplicarTalhaoATodas = () => {
+    setLinhas((prev) => {
+      const talhaoId = prev[0]?.talhao_id;
+      if (!talhaoId) return prev;
+      return prev.map((l) => ({ ...l, talhao_id: talhaoId }));
+    });
+    setErrosGlobais((prev) => {
+      const novos = { ...prev };
+      for (const linhaId of Object.keys(novos)) {
+        if (novos[linhaId]?.talhao_id) {
+          novos[linhaId] = { ...novos[linhaId] };
+          delete novos[linhaId].talhao_id;
+        }
+      }
+      return novos;
+    });
+  };
+
   const removerLinha = (id: string) => {
     if (linhas.length === 1) return;
     setLinhas((prev) => prev.filter((l) => l.id !== id));
@@ -823,7 +843,18 @@ export function NovaAnalisePage() {
                 <tr>
                   <th className="sticky left-0 z-10 w-10 bg-stone-50 px-3 py-4 text-center">#</th>
                   <th className="sticky left-10 z-10 w-40 bg-stone-50 px-3 py-4">Gleba / Amostra</th>
-                  <th className="w-40 px-3 py-4">Talhão Vinculado</th>
+                  <th className="min-w-[11rem] px-3 py-4">
+                    <div>Talhão Vinculado</div>
+                    {linhas.length > 1 && linhas[0]?.talhao_id ? (
+                      <button
+                        type="button"
+                        onClick={aplicarTalhaoATodas}
+                        className="mt-1 text-[10px] font-semibold normal-case text-green-700 hover:underline"
+                      >
+                        Usar o da 1ª linha em todas
+                      </button>
+                    ) : null}
+                  </th>
                   {colunas.map(({ key, label }) => (
                     <th key={key} className={`${modo === 'AMBOS' ? 'min-w-[5rem]' : 'w-24'} px-2 py-4 text-center`}>{label}</th>
                   ))}
@@ -854,10 +885,12 @@ export function NovaAnalisePage() {
                         className={`w-full rounded-lg border px-2 py-2 text-sm outline-none transition-all ${
                           errosGlobais[linha.id]?.talhao_id
                             ? 'border-red-500 bg-red-50 focus:border-red-500 focus:bg-red-50 text-red-600'
-                            : 'border-transparent bg-transparent focus:border-stone-200 focus:bg-white text-stone-600'
+                            : 'border-stone-200 bg-white focus:border-green-500 text-stone-700'
                         }`}
                       >
-                        <option value="">Selecione...</option>
+                        <option value="">
+                          {talhoesDisponiveis.length === 0 ? 'Nenhum talhão — use o +' : 'Selecione o talhão'}
+                        </option>
                         {talhoesDisponiveis.map((t) => (
                           <option key={t.id} value={t.id}>{t.nome}</option>
                         ))}
