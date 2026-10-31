@@ -8,6 +8,7 @@ import { fazendasRouter } from './routes/fazendasRoutes';
 import { adminRoutes }    from './routes/adminRoutes';
 import { feedbackRouter } from './routes/feedbackRoutes';
 import { limitadorGeralApi } from './middlewares/rateLimit';
+import { tratarErro } from './middlewares/erros';
 
 // Configuração do Express separada do listen (server.ts) para os testes de
 // rota usarem exatamente o mesmo app.
@@ -40,3 +41,5 @@ app.use('/api/adubacao', adubacaoRoutes);
 app.use('/api/fazendas', fazendasRouter);
 app.use('/api/admin',    adminRoutes);
 app.use('/api/feedback', feedbackRouter);
+
+app.use(tratarErro);

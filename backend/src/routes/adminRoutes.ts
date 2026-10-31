@@ -4,11 +4,13 @@ import { db } from '../database/db';
 import { users, analises, fazendas, talhoes, analisesAdubacao } from '../database/schema';
 import { verificarToken, verificarRole, AuthRequest } from '../middlewares/authMiddleware';
 import { getAllFeedbacks } from '../database/feedback';
+import { exigirIdValido, responderErroInterno } from '../middlewares/erros';
 
 export const adminRoutes = Router();
 
 // Todas as rotas de admin exigem token e papel de ADMIN
 adminRoutes.use(verificarToken, verificarRole(['ADMIN']));
+adminRoutes.param('id', exigirIdValido({ erro: 'Usuário não encontrado.' }));
 
 adminRoutes.get('/stats', async (req: AuthRequest, res) => {
   try {
@@ -71,11 +73,7 @@ adminRoutes.get('/stats', async (req: AuthRequest, res) => {
       }
     });
   } catch (error: any) {
-    console.error('[admin] Erro ao buscar estatísticas:', error);
-    res.status(500).json({
-      erro: 'Falha ao buscar estatísticas do sistema.',
-      detalhes: error.message,
-    });
+    responderErroInterno(req, res, error, { erro: 'Falha ao buscar estatísticas do sistema.' });
   }
 });
 
@@ -123,7 +121,7 @@ adminRoutes.get('/users', async (req, res) => {
 
     res.status(200).json(resultado);
   } catch (error: any) {
-    res.status(500).json({ erro: 'Erro ao listar usuários', detalhes: error.message });
+    responderErroInterno(req, res, error, { erro: 'Erro ao listar usuários' });
   }
 });
 
@@ -192,8 +190,7 @@ adminRoutes.get('/analises', async (req, res) => {
 
     res.status(200).json(unified);
   } catch (error: any) {
-    console.error('[admin] Erro ao listar análises:', error);
-    res.status(500).json({ erro: 'Erro ao listar todas as análises', detalhes: error.message });
+    responderErroInterno(req, res, error, { erro: 'Erro ao listar todas as análises' });
   }
 });
 
@@ -203,8 +200,7 @@ adminRoutes.get('/feedbacks', async (req, res) => {
     const lista = await getAllFeedbacks();
     res.status(200).json(lista);
   } catch (error: any) {
-    console.error('[admin] Erro ao listar feedbacks:', error);
-    res.status(500).json({ erro: 'Erro ao listar feedbacks', detalhes: error.message });
+    responderErroInterno(req, res, error, { erro: 'Erro ao listar feedbacks' });
   }
 });
 
@@ -251,7 +247,6 @@ adminRoutes.get('/users/:id/full-details', async (req, res) => {
       adubacoes: userAdubacoes,
     });
   } catch (error: any) {
-    console.error('[admin] Erro ao buscar detalhes completos do usuário:', error);
-    res.status(500).json({ erro: 'Erro ao buscar detalhes do usuário', detalhes: error.message });
+    responderErroInterno(req, res, error, { erro: 'Erro ao buscar detalhes do usuário' });
   }
 });

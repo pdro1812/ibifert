@@ -3,6 +3,7 @@
 import { and, eq, desc } from 'drizzle-orm';
 import { db } from './db';
 import { fazendas, talhoes, analises } from './schema';
+import { ehId } from '../middlewares/erros';
 
 // ── Fazendas ──────────────────────────────────────────────────────────────────
 
@@ -127,7 +128,7 @@ export async function getTalhaoById(id: string, usuarioId: string) {
 // talhão não encontrado (de outra pessoa ou inexistente).
 export async function resolverTalhaoDoUsuario(talhaoId: unknown, usuarioId: string): Promise<string | null | undefined> {
   if (talhaoId === undefined || talhaoId === null || talhaoId === '') return null;
-  if (typeof talhaoId !== 'string') return undefined;
+  if (!ehId(talhaoId)) return undefined;
   return (await getTalhaoById(talhaoId, usuarioId))?.id;
 }
 

@@ -11,11 +11,14 @@ import {
 } from '../database/adubacao';
 import { resolverTalhaoDoUsuario } from '../database/fazendas';
 import { verificarToken, AuthRequest } from '../middlewares/authMiddleware';
+import { exigirIdValido, MENSAGEM_ERRO_INTERNO, responderErroInterno } from '../middlewares/erros';
 import { limitadorCalculoPublico } from '../middlewares/rateLimit';
 import { LocalizacaoSchema } from '../schemas/localizacaoSchema';
 import { ArquivarAnaliseSchema, DataAnaliseSchema } from '../schemas/gestaoAnaliseSchema';
 
 export const adubacaoRoutes = Router();
+
+adubacaoRoutes.param('id', exigirIdValido({ error: 'Análise não encontrada' }));
 
 // Entrada validada + localização + resultado do motor → colunas da tabela.
 // Usado no salvar, no lote e na edição.
@@ -85,7 +88,7 @@ adubacaoRoutes.post('/calcular', limitadorCalculoPublico, async (req: AuthReques
     if (error.name === 'ZodError') {
       res.status(400).json({ error: 'Erro de validação', details: error.errors });
     } else {
-      res.status(500).json({ error: error.message });
+      responderErroInterno(req, res, error, { error: MENSAGEM_ERRO_INTERNO });
     }
   }
 });
@@ -122,7 +125,7 @@ adubacaoRoutes.post('/salvar', verificarToken, async (req: AuthRequest, res) => 
   } catch (error: any) {
     const erroValidacao = primeiraMensagemZod(error);
     if (erroValidacao) return res.status(400).json({ error: erroValidacao });
-    res.status(500).json({ error: error.message });
+    responderErroInterno(req, res, error, { error: MENSAGEM_ERRO_INTERNO });
   }
 });
 
@@ -164,7 +167,7 @@ adubacaoRoutes.post('/bulk', verificarToken, async (req: AuthRequest, res) => {
         resultadosProcessados.push({ sucesso: true, id: analiseSalva.id, identificacao: amostra.identificacao });
       } catch (err: any) {
         console.error(`Erro ao processar amostra ${amostra.identificacao}:`, err);
-        resultadosProcessados.push({ sucesso: false, identificacao: amostra.identificacao, erro: err.message });
+        resultadosProcessados.push({ sucesso: false, identificacao: amostra.identificacao, erro: primeiraMensagemZod(err) ?? 'Erro ao processar a amostra.' });
       }
     }
 
@@ -175,7 +178,7 @@ adubacaoRoutes.post('/bulk', verificarToken, async (req: AuthRequest, res) => {
     });
 
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    responderErroInterno(req, res, error, { error: MENSAGEM_ERRO_INTERNO });
   }
 });
 
@@ -188,7 +191,7 @@ adubacaoRoutes.get('/', verificarToken, async (req: AuthRequest, res) => {
     const analises = await listarAnalisesAdubacaoPorUsuario(req.userId);
     res.json(analises);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    responderErroInterno(req, res, error, { error: MENSAGEM_ERRO_INTERNO });
   }
 });
 
@@ -204,7 +207,7 @@ adubacaoRoutes.get('/:id', verificarToken, async (req: AuthRequest, res) => {
     }
     res.json(analise);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    responderErroInterno(req, res, error, { error: MENSAGEM_ERRO_INTERNO });
   }
 });
 
@@ -233,7 +236,7 @@ adubacaoRoutes.put('/:id', verificarToken, async (req: AuthRequest, res) => {
   } catch (error: any) {
     const erroValidacao = primeiraMensagemZod(error);
     if (erroValidacao) return res.status(400).json({ error: erroValidacao });
-    res.status(500).json({ error: error.message });
+    responderErroInterno(req, res, error, { error: MENSAGEM_ERRO_INTERNO });
   }
 });
 
@@ -244,7 +247,7 @@ adubacaoRoutes.delete('/:id', verificarToken, async (req: AuthRequest, res) => {
     if (!analise) return res.status(404).json({ error: 'Análise não encontrada' });
     res.json(analise);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    responderErroInterno(req, res, error, { error: MENSAGEM_ERRO_INTERNO });
   }
 });
 
@@ -258,6 +261,6 @@ adubacaoRoutes.patch('/:id/arquivar', verificarToken, async (req: AuthRequest, r
     if (!analise) return res.status(404).json({ error: 'Análise não encontrada' });
     res.json(analise);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    responderErroInterno(req, res, error, { error: MENSAGEM_ERRO_INTERNO });
   }
 });

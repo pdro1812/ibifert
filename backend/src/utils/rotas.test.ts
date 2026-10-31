@@ -107,3 +107,63 @@ test('POST /adubacao/salvar recalcula a recomendação no servidor', async () =>
   assert.equal(semResultado.status, 201);
   assert.deepEqual(semResultado.corpo.data.recomendacao_json, calculado.corpo.resultado);
 });
+
+// AUD-06: erro interno não devolve error.message (trazia a query SQL e os
+// parâmetros) e id que não é UUID vira 404, não 500.
+function assertSemVazamento(corpo: unknown) {
+  const texto = JSON.stringify(corpo);
+  assert.doesNotMatch(texto, /Failed query|select |insert into|params:|invalid input/i);
+  assert.equal(typeof corpo === 'object' && corpo !== null && 'detalhes' in corpo, false);
+}
+
+test('Erros não expõem detalhes internos', async (t) => {
+  const cookie = await cadastrar(requisitar, 'erros-internos@exemplo.test');
+
+  await t.test('id que não é UUID → 404 nas rotas de análise', async () => {
+    const casos: [string, string, unknown?][] = [
+      ['GET', '/analises/nao-e-uuid'],
+      ['PUT', '/analises/nao-e-uuid', { ...AMOSTRA_CALAGEM, uf: 'RS', cidade: 'Ibirubá' }],
+      ['DELETE', '/analises/nao-e-uuid'],
+      ['PATCH', '/analises/nao-e-uuid/arquivar', { arquivada: true }],
+      ['POST', '/analises/nao-e-uuid/salvar', {}],
+      ['GET', '/adubacao/nao-e-uuid'],
+      ['PUT', '/adubacao/nao-e-uuid', { dadosForm: FORM_ADUBACAO }],
+      ['DELETE', '/adubacao/nao-e-uuid'],
+      ['PATCH', '/adubacao/nao-e-uuid/arquivar', { arquivada: true }],
+    ];
+    for (const [metodo, caminho, corpo] of casos) {
+      const r = await requisitar(metodo, caminho, { cookie, corpo });
+      assert.equal(r.status, 404, `${metodo} ${caminho}`);
+      assertSemVazamento(r.corpo);
+    }
+  });
+
+  await t.test('talhao_id que não é UUID → 404', async () => {
+    const r = await requisitar('POST', '/analises/bulk', { cookie, corpo: { talhao_id: 'xyz', uf: 'RS', cidade: 'Ibirubá', amostras: [AMOSTRA_CALAGEM] } });
+    assert.equal(r.status, 404);
+    assertSemVazamento(r.corpo);
+  });
+
+  await t.test('falha do banco → 500 com mensagem genérica', async () => {
+    // Sem uf/cidade o insert viola NOT NULL no banco.
+    const r = await requisitar('POST', '/analises/bulk', { cookie, corpo: { amostras: [AMOSTRA_CALAGEM] } });
+    assert.equal(r.status, 500);
+    assertSemVazamento(r.corpo);
+    assert.equal(r.corpo.mensagem, 'Erro ao processar lote de análises.');
+  });
+
+  await t.test('amostra inválida no lote de adubação devolve só a mensagem de validação', async () => {
+    const r = await requisitar('POST', '/adubacao/bulk', { cookie, corpo: { amostras: [{ ...FORM_ADUBACAO, argila: 150 }] } });
+    assert.equal(r.status, 200);
+    assert.equal(r.corpo.resultados[0].sucesso, false);
+    assert.equal(r.corpo.resultados[0].erro, 'Argila deve ser <= 99%');
+  });
+
+  await t.test('JSON malformado → 400 em JSON', async () => {
+    const resposta = await fetch(`${ambiente.url}/feedback`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': '192.0.2.200' }, body: '{"nome":',
+    });
+    assert.equal(resposta.status, 400);
+    assert.deepEqual(await resposta.json(), { erro: 'JSON inválido.' });
+  });
+});
