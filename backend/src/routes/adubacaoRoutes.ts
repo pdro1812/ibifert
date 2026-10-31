@@ -8,6 +8,7 @@ import {
 } from '../database/adubacao';
 import { verificarToken, AuthRequest } from '../middlewares/authMiddleware';
 import { limitadorCalculoPublico } from '../middlewares/rateLimit';
+import { LocalizacaoSchema } from '../schemas/localizacaoSchema';
 
 export const adubacaoRoutes = Router();
 
@@ -41,15 +42,22 @@ adubacaoRoutes.post('/calcular', limitadorCalculoPublico, async (req: AuthReques
 adubacaoRoutes.post('/salvar', verificarToken, async (req: AuthRequest, res) => {
   try {
     const { dadosForm, resultado } = req.body;
-    
+
+    // A localização vem do formulário (mesmo bloco da calagem); antes caía
+    // silenciosamente em RS / "Não informada".
+    const localizacao = LocalizacaoSchema.safeParse({ uf: dadosForm?.uf, cidade: dadosForm?.cidade });
+    if (!localizacao.success) {
+      return res.status(400).json({ error: localizacao.error.issues[0].message });
+    }
+
     // Como verificarToken está ativo, garantimos req.userId
     const usuario_id = req.userId;
 
     const payloadBanco = {
       usuario_id: usuario_id,
       talhao_id: dadosForm.talhao_id || undefined,
-      uf: dadosForm.uf || 'RS',
-      cidade: dadosForm.cidade || 'Não informada',
+      uf: localizacao.data.uf,
+      cidade: localizacao.data.cidade,
       identificacao: dadosForm.identificacao || 'Análise Adubação',
       
       argila: dadosForm.argila,

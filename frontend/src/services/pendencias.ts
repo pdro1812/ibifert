@@ -11,7 +11,7 @@ interface CalagemPendente {
 }
 
 interface AdubacaoPendente {
-  dados: EntradaAdubacao;
+  dados: EntradaAdubacao & { uf: string; cidade: string };
   // Ver comentário em CalagemPendente — mesmo padrão.
   destino?: string;
 }

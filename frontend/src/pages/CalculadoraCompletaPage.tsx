@@ -129,6 +129,8 @@ function extrairMensagemErroAdubacao(error: unknown): string {
   return 'Erro ao calcular adubação.';
 }
 
+const LOCALIZACAO_PADRAO = { uf: 'RS', cidade: 'Ibirubá' };
+
 // ─── Seletor de módulo ──────────────────────────────────────────────────────
 
 const OPCOES_MODO: Array<{
@@ -157,7 +159,7 @@ const CULTURAS_COM_ANTECEDENTE = [
 export function CalculadoraCompletaPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { isLoggedIn } = useAuth();
+  const { isLoggedIn, user } = useAuth();
 
   const [modo, setModo] = useState<ModoCalculo>('AMBOS');
 
@@ -194,8 +196,13 @@ export function CalculadoraCompletaPage() {
   // ── Estado: formulário/UX compartilhados ──────────────────────────────
   const [modalTermosOpen, setModalTermosOpen] = useState(false);
   const [municipios, setMunicipios] = useState<Municipio[]>([]);
-  const [ufSelecionada, setUfSelecionada] = useState('RS');
-  const [cidadeSelecionada, setCidadeSelecionada] = useState('Ibirubá');
+  // Localização: um bloco só, usado pelos dois motores. Até o usuário mexer
+  // nela, vem do perfil regional (se logado) ou do padrão; depois de editada,
+  // fica como ele deixou — trocar de modo ou o perfil carregar não sobrescreve.
+  const [localizacaoManual, setLocalizacaoManual] = useState<{ uf: string; cidade: string } | null>(null);
+  const localizacaoPerfil =
+    user?.estado === 'RS' || user?.estado === 'SC' ? { uf: user.estado, cidade: user.cidade ?? '' } : null;
+  const { uf: ufSelecionada, cidade: cidadeSelecionada } = localizacaoManual ?? localizacaoPerfil ?? LOCALIZACAO_PADRAO;
   const [termosAceitos, setTermosAceitos] = useState(false);
   const [erroCidade, setErroCidade] = useState(false);
   const [erroTermos, setErroTermos] = useState(false);
@@ -313,7 +320,7 @@ export function CalculadoraCompletaPage() {
   // ── Submit ───────────────────────────────────────────────────────────
   const onSubmitValidado: SubmitHandler<FormCompleta> = async (dados) => {
     let temErro = false;
-    if (calagemAtiva && (!cidadeSelecionada || !municipios.some((m) => m.nome === cidadeSelecionada))) {
+    if (!cidadeSelecionada || !municipios.some((m) => m.nome === cidadeSelecionada)) {
       setErroCidade(true);
       temErro = true;
     }
@@ -331,6 +338,7 @@ export function CalculadoraCompletaPage() {
     setSalvoAdubacao(false);
 
     const tarefas: Promise<unknown>[] = [];
+    const localizacaoUsada = { uf: ufSelecionada, cidade: cidadeSelecionada };
 
     if (calagemAtiva) {
       setLoadingCalagem(true);
@@ -353,7 +361,7 @@ export function CalculadoraCompletaPage() {
       const dadosAdubacao = AdubacaoSchema.parse(dados);
       tarefas.push(
         calcularAdubacao(dadosAdubacao)
-          .then((res) => setResultadoAdubacao({ ...res.resultado, dadosEntrada: dadosAdubacao }))
+          .then((res) => setResultadoAdubacao({ ...res.resultado, dadosEntrada: dadosAdubacao, localizacao: localizacaoUsada }))
           .catch((error) => setErroAdubacao(extrairMensagemErroAdubacao(error)))
           .finally(() => setLoadingAdubacao(false))
       );
@@ -363,7 +371,7 @@ export function CalculadoraCompletaPage() {
   };
 
   const onErrorNoForm = () => {
-    if (calagemAtiva && (!cidadeSelecionada || !municipios.some((m) => m.nome === cidadeSelecionada))) {
+    if (!cidadeSelecionada || !municipios.some((m) => m.nome === cidadeSelecionada)) {
       setErroCidade(true);
     }
     if (!termosAceitos) setErroTermos(true);
@@ -392,10 +400,17 @@ export function CalculadoraCompletaPage() {
   const handleTentarSalvarAdubacao = async () => {
     if (!resultadoAdubacao) return;
 
+    // Salva exatamente a entrada e a localização que geraram o resultado
+    // exibido (não o que estiver no formulário agora).
+    const dadosForm = {
+      ...(resultadoAdubacao.dadosEntrada as EntradaAdubacaoForm),
+      ...(resultadoAdubacao.localizacao ?? { uf: ufSelecionada, cidade: cidadeSelecionada }),
+    };
+
     if (!isLoggedIn) {
       sessionStorage.setItem(
         'adubacaoPendente',
-        JSON.stringify({ dados: getValues(), destino: location.pathname })
+        JSON.stringify({ dados: dadosForm, destino: location.pathname })
       );
       navigate('/login');
       return;
@@ -403,7 +418,7 @@ export function CalculadoraCompletaPage() {
 
     try {
       await salvarAdubacao({
-        dadosForm: getValues() as unknown as EntradaAdubacaoForm,
+        dadosForm,
         resultado: resultadoAdubacao.recomendacao ? resultadoAdubacao : resultadoAdubacao.resultado,
       });
       setSalvoAdubacao(true);
@@ -502,22 +517,20 @@ export function CalculadoraCompletaPage() {
             <input type="hidden" {...register('primeira_calagem', { setValueAs: () => false })} />
           ) : null}
 
-          {/* ── Bloco: Identificação (+ Localização se calagem ativa) ──── */}
+          {/* ── Bloco: Identificação e Localização (os dois motores) ──── */}
           <div className="space-y-5 rounded-2xl border border-stone-100 bg-stone-50 p-6">
             <h3 className="text-sm font-bold uppercase tracking-wider text-stone-500">
-              Identificação{calagemAtiva ? ' e Localização' : ''}
+              Identificação e Localização
             </h3>
 
-            {calagemAtiva ? (
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                 <div className="col-span-1 space-y-1">
                   <label className="text-xs font-semibold text-stone-600">Estado *</label>
                   <select
                     value={ufSelecionada}
                     onChange={(e) => {
-                      setUfSelecionada(e.target.value);
+                      setLocalizacaoManual({ uf: e.target.value, cidade: '' });
                       setErroCidade(false);
-                      setCidadeSelecionada('');
                     }}
                     className="w-full rounded-xl border border-stone-200 bg-white px-4 py-3 shadow-sm outline-none focus:border-green-500"
                   >
@@ -532,7 +545,7 @@ export function CalculadoraCompletaPage() {
                   <input
                     list="lista-municipios-completa"
                     value={cidadeSelecionada}
-                    onChange={(e) => { setCidadeSelecionada(e.target.value); setErroCidade(false); }}
+                    onChange={(e) => { setLocalizacaoManual({ uf: ufSelecionada, cidade: e.target.value }); setErroCidade(false); }}
                     disabled={municipios.length === 0}
                     placeholder={ufSelecionada ? 'Digite para buscar...' : 'Selecione o Estado'}
                     autoComplete="off"
@@ -550,7 +563,6 @@ export function CalculadoraCompletaPage() {
                   ) : null}
                 </div>
               </div>
-            ) : null}
 
             <div className="space-y-1">
               <label className="flex justify-between text-xs font-semibold text-stone-600">
@@ -1210,6 +1222,9 @@ export function CalculadoraCompletaPage() {
                           gerarPDFRelatorioAdubacao({
                             dadosEntrada: resultadoAdubacao.dadosEntrada,
                             resultado: resultadoAdubacao,
+                            identificacao: resultadoAdubacao.dadosEntrada?.identificacao,
+                            uf: resultadoAdubacao.localizacao?.uf,
+                            cidade: resultadoAdubacao.localizacao?.cidade,
                           });
                         }}
                         className="flex items-center justify-center gap-2 rounded-xl border-2 border-green-600 bg-transparent py-2.5 text-sm font-bold text-green-600 shadow-sm transition-all hover:bg-green-50 active:scale-95"
