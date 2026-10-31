@@ -5,8 +5,6 @@ import { PublicLayout } from './layouts/PublicLayout';
 import { DashboardLayout } from './layouts/DashboardLayout';
 
 // Pages
-import { CalculadoraPage } from './pages/CalculadoraPage';
-import { AdubacaoPage } from './pages/AdubacaoPage';
 import { CalculadoraCompletaPage } from './pages/CalculadoraCompletaPage';
 import { FeedbackPage } from './pages/FeedbackPage';
 import { MonitoramentoPage } from './pages/MonitoramentoPage';
@@ -36,9 +34,6 @@ export default function App() {
           <Route element={<PublicLayout />}>
             <Route path="/" element={<CalculadoraCompletaPage />} />
             <Route path="/calculadora-completa" element={<CalculadoraCompletaPage />} />
-            {/* Telas antigas, mantidas como backup (sem link na navbar) */}
-            <Route path="/calagem" element={<CalculadoraPage />} />
-            <Route path="/adubacao" element={<AdubacaoPage />} />
             <Route path="/monitoramento" element={<MonitoramentoPage />} />
             <Route path="/feedback" element={<FeedbackPage />} />
             <Route path="/login" element={<LoginPage />} />

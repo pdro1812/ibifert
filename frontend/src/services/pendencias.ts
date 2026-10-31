@@ -6,14 +6,13 @@ interface CalagemPendente {
   dados: EntradaCalagem;
   localizacao: { uf: string; cidade: string };
   // Página de origem para onde voltar após o login. Opcional por
-  // compatibilidade: páginas antigas que não enviam este campo continuam
-  // caindo no destino da tela antiga ('/calagem').
+  // compatibilidade com pendências gravadas antes deste campo existir.
   destino?: string;
 }
 
 interface AdubacaoPendente {
   dados: EntradaAdubacao;
-  // Ver comentário em CalagemPendente — mesmo padrão, default '/adubacao'.
+  // Ver comentário em CalagemPendente — mesmo padrão.
   destino?: string;
 }
 
@@ -34,7 +33,7 @@ export async function recuperarAnalisePendente(): Promise<AnalisePendenteRecuper
     try {
       const pendente: CalagemPendente = JSON.parse(calagemRaw);
       const resultado = await calcularCalagem(pendente.dados, pendente.localizacao);
-      return { tipo: 'CALAGEM', destino: pendente.destino ?? '/calagem', resultado };
+      return { tipo: 'CALAGEM', destino: pendente.destino ?? '/', resultado };
     } catch {
       return null;
     }
@@ -49,7 +48,7 @@ export async function recuperarAnalisePendente(): Promise<AnalisePendenteRecuper
       await salvarAdubacao({ dadosForm: pendente.dados, resultado: calculado.resultado });
       return {
         tipo: 'ADUBACAO',
-        destino: pendente.destino ?? '/adubacao',
+        destino: pendente.destino ?? '/',
         resultado: { ...calculado.resultado, dadosEntrada: pendente.dados },
       };
     } catch {

@@ -1,15 +1,6 @@
 import type { FieldError, FieldPath, FieldValues, UseFormRegister } from 'react-hook-form';
 import { AlertCircle, Info } from 'lucide-react';
-
-function normalizarNumero(valor: unknown): number | undefined {
-  if (valor === '' || valor === null || valor === undefined) return undefined;
-  if (typeof valor === 'number') return Number.isNaN(valor) ? undefined : valor;
-  if (typeof valor === 'string') {
-    const n = Number(valor.replace(',', '.').trim());
-    return Number.isNaN(n) ? undefined : n;
-  }
-  return undefined;
-}
+import { normalizarNumero } from '../utils/normalizarNumero';
 
 interface CampoNumericoProps<T extends FieldValues> {
   label: string;

@@ -28,7 +28,7 @@ Requisição típica ponta a ponta (exemplo: usuário autenticado calcula e
 salva uma calagem vinculada a um talhão):
 
 ```
-CalculadoraPage.tsx (form)
+CalculadoraCompletaPage.tsx (form)
   → services/api.ts::calcularCalagem()          [injeta JWT automaticamente]
   → POST /api/analises/calcular                  (analisesRoutes.ts)
       → schemas/calagemSchema.ts (validarEntrada)
@@ -109,8 +109,7 @@ que o middleware exige antes do handler rodar.
 
 | Rota | Arquivo | Acesso | O que faz |
 |---|---|---|---|
-| `/` | `CalculadoraPage.tsx` | público | formulário + resultado de calagem (funciona sem login) |
-| `/adubacao` | `AdubacaoPage.tsx` | público | formulário + resultado de adubação (funciona sem login) |
+| `/` | `CalculadoraCompletaPage.tsx` | público | calculadora única: calagem, adubação ou as duas (funciona sem login) |
 | `/monitoramento` | `MonitoramentoPage.tsx` | público | painel regional agregado (médias, sistemas, alertas) |
 | `/validacao` | `ValidacaoAgronomicaPage.tsx` | público | compara `motorCalagem` vs. `motorStandalone` lado a lado (ferramenta interna de QA) |
 | `/login` | `LoginPage.tsx` | público | formulário de login |

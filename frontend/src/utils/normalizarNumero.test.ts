@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { normalizarNumero } from './AdubacaoPage';
+import { normalizarNumero } from './normalizarNumero';
 import { AdubacaoSchema } from '../schemas/adubacaoSchema';
 
 /**
