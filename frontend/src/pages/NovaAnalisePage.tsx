@@ -6,6 +6,7 @@ import { ibgeService, type Municipio } from '../services/ibge';
 import { ESTADOS_ATENDIDOS } from '../constants/estados';
 import { CalagemSchema, precisaAlSatPDConsolidado, rotearMetodoCalagem, type SistemaManejo } from '../schemas/calagemSchema';
 import { AdubacaoSchema } from '../schemas/adubacaoSchema';
+import { hojeLocalISO } from '../utils/datas';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -201,6 +202,8 @@ export function NovaAnalisePage() {
   // ── Config Globais: Calagem
   const [sistemaManejo, setSistemaManejo] = useState<'CONVENCIONAL' | 'PD_IMPLANTACAO' | 'PD_CONSOLIDADO'>('CONVENCIONAL');
   const [prnt, setPrnt] = useState('90');
+  // Data em que o lote foi analisado (laboratório); vale para todas as linhas
+  const [dataAnalise, setDataAnalise] = useState('');
   const [calcularPolinomial, setCalcularPolinomial] = useState(false);
 
   // ── Config Globais: Adubacao
@@ -555,6 +558,7 @@ export function NovaAnalisePage() {
               talhao_id: tId,
               uf: fazendaSelecionada.uf,
               cidade: fazendaSelecionada.municipio,
+              data_analise: dataAnalise || null,
               amostras: itens.map(i => i.payload),
             });
             okCalagem += itens.length;
@@ -569,7 +573,7 @@ export function NovaAnalisePage() {
       const enviarAdubacao = Promise.allSettled(
         Object.entries(gruposAdubacao).map(async ([tId, itens]) => {
           try {
-            const res = await postAdubacaoBulk({ talhao_id: tId, amostras: itens.map(i => i.payload) });
+            const res = await postAdubacaoBulk({ talhao_id: tId, data_analise: dataAnalise || null, amostras: itens.map(i => i.payload) });
             // O bulk responde 200 mesmo com falhas individuais — conferir cada amostra.
             const resultados: Array<{ sucesso: boolean; erro?: string }> = res?.resultados ?? [];
             itens.forEach((item, idx) => {
@@ -706,6 +710,20 @@ export function NovaAnalisePage() {
                 <Plus size={16} />
               </button>
               </div>
+            </div>
+            <div className="space-y-1">
+              <label htmlFor="data-analise-lote" className="text-xs font-bold text-stone-600">
+                Data da análise <span className="font-normal text-stone-400">(opcional)</span>
+              </label>
+              <input
+                id="data-analise-lote"
+                type="date"
+                value={dataAnalise}
+                max={hojeLocalISO()}
+                onChange={(e) => setDataAnalise(e.target.value)}
+                className="w-full rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm outline-none shadow-sm focus:border-green-500"
+              />
+              <p className="text-[10px] text-stone-400">Vale para todas as amostras do lote.</p>
             </div>
           </div>
 

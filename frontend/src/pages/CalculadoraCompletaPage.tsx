@@ -41,6 +41,7 @@ import {
   type TipoAnalise,
 } from '../services/api';
 import { adubacaoParaFormulario, calagemParaFormulario } from '../services/analiseParaFormulario';
+import { hojeLocalISO } from '../utils/datas';
 import { gerarPDFRelatorio } from '../services/pdfGenerator';
 import { gerarPDFRelatorioAdubacao } from '../services/pdfGeneratorAdubacao';
 import { ibgeService } from '../services/ibge';
@@ -547,6 +548,7 @@ export function CalculadoraCompletaPage({ edicao }: CalculadoraCompletaProps = {
     const dadosForm = {
       ...(resultadoAdubacao.dadosEntrada as EntradaAdubacaoForm),
       ...(resultadoAdubacao.localizacao ?? { uf: ufSelecionada, cidade: cidadeSelecionada }),
+      data_analise: dataAnalise || null,
     };
 
     if (!isLoggedIn) {
@@ -746,6 +748,21 @@ export function CalculadoraCompletaPage({ edicao }: CalculadoraCompletaProps = {
                 className="w-full rounded-xl border border-stone-200 bg-white px-4 py-3 shadow-sm outline-none focus:border-green-500"
               />
               <p className="text-[11px] text-stone-400">Não inclua dados pessoais (nome, CPF, telefone) — use só um apelido do talhão ou da amostra.</p>
+            </div>
+
+            <div className="space-y-1 md:w-1/2">
+              <label htmlFor="data-analise" className="flex justify-between text-xs font-semibold text-stone-600">
+                Data da análise <span className="font-normal text-stone-400">Opcional</span>
+              </label>
+              <input
+                id="data-analise"
+                type="date"
+                value={dataAnalise}
+                max={hojeLocalISO()}
+                onChange={(e) => setDataAnalise(e.target.value)}
+                className="w-full rounded-xl border border-stone-200 bg-white px-4 py-3 shadow-sm outline-none focus:border-green-500"
+              />
+              <p className="text-[11px] text-stone-400">Dia em que a amostra foi analisada. A data de inserção no sistema é registrada à parte.</p>
             </div>
           </div>
 

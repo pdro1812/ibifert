@@ -1,9 +1,11 @@
 import { X, MapPin, FlaskConical, Beaker, ClipboardList, AlertTriangle } from 'lucide-react';
 import { rotuloSistemaManejo } from '../constants/sistemaManejo';
+import { formatarDataAnalise, formatarDataInsercao } from '../utils/datas';
 
 interface AnaliseDetalhes {
   id: string;
   criado_em: string;
+  data_analise?: string | null;
   uf: string;
   cidade: string;
   identificacao: string | null;
@@ -40,13 +42,7 @@ interface ModalDetalhesAnaliseProps {
 export function ModalDetalhesAnalise({ analise, onClose }: ModalDetalhesAnaliseProps) {
   if (!analise) return null;
 
-  const dataFormatada = new Date(analise.criado_em).toLocaleDateString('pt-BR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  const dataAnalise = formatarDataAnalise(analise.data_analise);
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
@@ -62,7 +58,12 @@ export function ModalDetalhesAnalise({ analise, onClose }: ModalDetalhesAnaliseP
             </div>
             <div>
               <h2 className="font-bold text-stone-800">Detalhes da Amostra</h2>
-              <p className="text-[10px] text-stone-400 font-medium uppercase tracking-wider">{dataFormatada}</p>
+              <p className="text-[11px] font-medium text-stone-600">
+                Data da análise: {dataAnalise ?? <span className="italic text-stone-400">não informada</span>}
+              </p>
+              <p className="text-[10px] font-medium text-stone-400">
+                Inserida no sistema em {formatarDataInsercao(analise.criado_em)}
+              </p>
             </div>
           </div>
           <button 

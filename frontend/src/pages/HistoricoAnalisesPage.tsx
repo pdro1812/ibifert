@@ -18,12 +18,16 @@ import {
 import { api, arquivarAnaliseSalva, excluirAnaliseSalva } from '../services/api';
 import { ModalDetalhesAnalise } from '../components/ModalDetalhesAnalise';
 import { rotuloSistemaManejo } from '../constants/sistemaManejo';
+import { formatarDataAnalise, formatarDataInsercao } from '../utils/datas';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface AnaliseResumo {
   id: string;
   criado_em: string;
+  data_analise?: string | null;
+  // data_analise quando informada, senão a de inserção — usada para ordenar
+  data_referencia?: string;
   uf: string;
   cidade: string;
   identificacao: string | null;
@@ -59,12 +63,6 @@ const SISTEMA_COLOR: Record<string, string> = {
   PD_CONSOLIDADO: 'bg-green-100 text-green-700',
 };
 
-function formatarData(iso: string) {
-  return new Date(iso).toLocaleDateString('pt-BR', {
-    day: '2-digit', month: '2-digit', year: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-  });
-}
 
 function ThOrdenavel({ ativo, onClick, children }: { ativo: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
@@ -96,7 +94,7 @@ export function HistoricoAnalisesPage() {
   const [filtroTipo, setFiltroTipo] = useState<'TODOS' | 'CALAGEM' | 'ADUBACAO'>('TODOS');
   const [pagina, setPagina]     = useState(1);
   const [ordenacao, setOrdenacao] = useState<{ campo: keyof AnaliseResumo; dir: 'asc' | 'desc' }>({
-    campo: 'criado_em',
+    campo: 'data_referencia',
     dir: 'desc',
   });
   const [selectedAnalise, setSelectedAnalise] = useState<AnaliseResumo | null>(null);
@@ -105,7 +103,14 @@ export function HistoricoAnalisesPage() {
   useEffect(() => {
     let ativo = true;
     api.get('/analises/historico', { params: verArquivadas ? { arquivadas: 'true' } : undefined })
-      .then((res) => { if (ativo) setCarregado({ chave, analises: res.data.dados ?? [], erro: null }); })
+      .then((res) => {
+        if (!ativo) return;
+        const lista: AnaliseResumo[] = (res.data.dados ?? []).map((a: AnaliseResumo) => ({
+          ...a,
+          data_referencia: a.data_analise ?? a.criado_em,
+        }));
+        setCarregado({ chave, analises: lista, erro: null });
+      })
       .catch(() => { if (ativo) setCarregado({ chave, analises: [], erro: 'Não foi possível carregar o histórico.' }); });
     return () => { ativo = false; };
   }, [chave, verArquivadas]);
@@ -295,7 +300,7 @@ export function HistoricoAnalisesPage() {
             <table className="w-full text-sm">
               <thead className="border-b border-stone-100 bg-stone-50">
                 <tr>
-                  <ThOrdenavel ativo={ordenacao.campo === 'criado_em'} onClick={() => alternarOrdem('criado_em')}>Data</ThOrdenavel>
+                  <ThOrdenavel ativo={ordenacao.campo === 'data_referencia'} onClick={() => alternarOrdem('data_referencia')}>Data da análise</ThOrdenavel>
                   <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-stone-500">Tipo</th>
                   <ThOrdenavel ativo={ordenacao.campo === 'cidade'} onClick={() => alternarOrdem('cidade')}>Localização</ThOrdenavel>
                   <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-stone-500">Talhão</th>
@@ -314,8 +319,13 @@ export function HistoricoAnalisesPage() {
                   >
 
                     {/* Data */}
-                    <td className="whitespace-nowrap px-4 py-3 text-xs text-stone-500">
-                      {formatarData(a.criado_em)}
+                    <td className="whitespace-nowrap px-4 py-3 text-xs">
+                      {formatarDataAnalise(a.data_analise) ? (
+                        <span className="font-semibold text-stone-700">{formatarDataAnalise(a.data_analise)}</span>
+                      ) : (
+                        <span className="italic text-stone-400">Não informada</span>
+                      )}
+                      <span className="block text-[10px] text-stone-400">inserida em {formatarDataInsercao(a.criado_em)}</span>
                     </td>
 
                     {/* Tipo */}

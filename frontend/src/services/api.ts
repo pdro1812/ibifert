@@ -244,6 +244,7 @@ export async function postAnalisesBulk(data: {
   talhao_id: string;
   uf: string;
   cidade: string;
+  data_analise?: string | null;
   amostras: any[];
 }) {
   const res = await api.post('/analises/bulk', data);
@@ -258,7 +259,7 @@ export async function calcularAdubacao(dados: EntradaAdubacao) {
 }
 
 export async function salvarAdubacao(payload: {
-  dadosForm: EntradaAdubacaoForm & { uf: string; cidade: string },
+  dadosForm: EntradaAdubacaoForm & { uf: string; cidade: string; data_analise?: string | null },
   resultado: any,
 }) {
   const res = await api.post('/adubacao/salvar', payload);
@@ -277,6 +278,7 @@ export async function getAnaliseAdubacaoId(id: string) {
 
 export async function postAdubacaoBulk(data: {
   talhao_id: string;
+  data_analise?: string | null;
   amostras: any[];
 }) {
   const res = await api.post('/adubacao/bulk', data);
