@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { api } from '../services/api';
 import { ModalDetalhesAnalise } from '../components/ModalDetalhesAnalise';
+import { rotuloSistemaManejo } from '../constants/sistemaManejo';
 
 interface UserItem {
   id: string;
@@ -297,7 +298,7 @@ export function AdminUsersPage() {
                     >
                        <div className="flex items-center justify-between mb-2">
                           <span className="text-[10px] text-stone-400 font-bold">{new Date(a.criado_em).toLocaleDateString('pt-BR')}</span>
-                          <span className="text-[10px] text-green-600 font-bold uppercase">{a.sistema_manejo}</span>
+                          <span className="text-[10px] text-green-600 font-bold uppercase">{rotuloSistemaManejo(a.sistema_manejo)}</span>
                        </div>
                        <p className="font-bold text-stone-700 text-sm truncate">{a.identificacao || 'Sem Identificação'}</p>
                        <p className="text-[10px] text-stone-400">{a.cidade} - {a.uf}</p>

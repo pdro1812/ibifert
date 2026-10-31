@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { getTalhao, api } from '../services/api';
 import { ModalDetalhesAnalise } from '../components/ModalDetalhesAnalise';
+import { rotuloSistemaManejo } from '../constants/sistemaManejo';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -47,12 +48,6 @@ interface TalhaoInfo {
   nome: string;
   cultura: string;
 }
-
-const SISTEMA_LABEL: Record<string, string> = {
-  CONVENCIONAL: 'Convencional',
-  PD_IMPLANTACAO: 'PD Implantação',
-  PD_CONSOLIDADO: 'PD Consolidado',
-};
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -217,7 +212,7 @@ export function TalhaoDetalhesPage() {
                         <h4 className="font-bold text-stone-800">{a.identificacao || 'Amostra sem identificação'}</h4>
                         <div className="flex items-center gap-3 text-xs text-stone-400 mt-1">
                           <span className="flex items-center gap-1"><Calendar size={12} /> {new Date(a.criado_em).toLocaleDateString()}</span>
-                          <span className="flex items-center gap-1"><Info size={12} /> {a.tipo === 'CALAGEM' ? (SISTEMA_LABEL[a.sistema_manejo || ''] || a.sistema_manejo) : a.sistema_cultivo}</span>
+                          <span className="flex items-center gap-1"><Info size={12} /> {a.tipo === 'CALAGEM' ? rotuloSistemaManejo(a.sistema_manejo) : a.sistema_cultivo}</span>
                         </div>
                       </div>
                       

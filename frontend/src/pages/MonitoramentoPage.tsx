@@ -23,6 +23,7 @@ import {
   CartesianGrid,
 } from 'recharts';
 import { api } from '../services/api';
+import { rotuloSistemaManejo } from '../constants/sistemaManejo';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -200,7 +201,7 @@ export function MonitoramentoPage() {
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
-                      data={data.sistemas}
+                      data={data.sistemas.map((s) => ({ ...s, name: rotuloSistemaManejo(s.name) }))}
                       cx="50%"
                       cy="50%"
                       innerRadius={60}

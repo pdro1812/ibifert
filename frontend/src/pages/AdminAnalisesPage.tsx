@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { api } from '../services/api';
 import { ModalDetalhesAnalise } from '../components/ModalDetalhesAnalise';
+import { rotuloSistemaManejo } from '../constants/sistemaManejo';
 
 interface GlobalAnalise {
   id: string;
@@ -217,7 +218,7 @@ export function AdminAnalisesPage() {
                   <div className="flex flex-col">
                     <span className="text-[9px] text-stone-400 font-bold uppercase tracking-wider">Sistema</span>
                     <span className="text-[10px] font-semibold text-stone-600 uppercase">
-                      {a.sistema_manejo?.replace('_', ' ') || 'N/A'}
+                      {a.sistema_manejo ? rotuloSistemaManejo(a.sistema_manejo) : 'N/A'}
                     </span>
                   </div>
                   <div className="text-right">

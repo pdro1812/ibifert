@@ -1,4 +1,5 @@
 import { X, MapPin, FlaskConical, Beaker, ClipboardList, AlertTriangle } from 'lucide-react';
+import { rotuloSistemaManejo } from '../constants/sistemaManejo';
 
 interface AnaliseDetalhes {
   id: string;
@@ -143,7 +144,7 @@ export function ModalDetalhesAnalise({ analise, onClose }: ModalDetalhesAnaliseP
                 <div className="grid grid-cols-2 gap-4 mt-6">
                   <div className="space-y-1">
                     <p className="text-[10px] text-green-600 font-bold uppercase">Sistema</p>
-                    <p className="text-sm font-bold text-stone-700">{analise.sistema_manejo?.replace('_', ' ')}</p>
+                    <p className="text-sm font-bold text-stone-700">{rotuloSistemaManejo(analise.sistema_manejo)}</p>
                   </div>
                   <div className="space-y-1 text-right">
                     <p className="text-[10px] text-green-600 font-bold uppercase">Aplicação</p>

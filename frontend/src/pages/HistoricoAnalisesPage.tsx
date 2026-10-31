@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { api } from '../services/api';
 import { ModalDetalhesAnalise } from '../components/ModalDetalhesAnalise';
+import { rotuloSistemaManejo } from '../constants/sistemaManejo';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -43,11 +44,6 @@ interface AnaliseResumo {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const SISTEMA_LABEL: Record<string, string> = {
-  CONVENCIONAL: 'Convencional',
-  PD_IMPLANTACAO: 'PD Implantação',
-  PD_CONSOLIDADO: 'PD Consolidado',
-};
 
 const SISTEMA_COLOR: Record<string, string> = {
   CONVENCIONAL:  'bg-stone-100 text-stone-600',
@@ -93,7 +89,7 @@ export function HistoricoAnalisesPage() {
       a.cidade?.toLowerCase().includes(termo) ||
       a.uf?.toLowerCase().includes(termo) ||
       (a.identificacao ?? '').toLowerCase().includes(termo) ||
-      (a.sistema_manejo && SISTEMA_LABEL[a.sistema_manejo]?.toLowerCase().includes(termo)) ||
+      (a.sistema_manejo && rotuloSistemaManejo(a.sistema_manejo).toLowerCase().includes(termo)) ||
       (a.cultura ?? '').toLowerCase().includes(termo) ||
       (a.sistema_cultivo ?? '').toLowerCase().includes(termo);
 
@@ -259,7 +255,7 @@ export function HistoricoAnalisesPage() {
                     <td className="px-4 py-3">
                       {a.tipo === 'CALAGEM' && a.sistema_manejo ? (
                         <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${SISTEMA_COLOR[a.sistema_manejo] || 'bg-stone-100'}`}>
-                          {SISTEMA_LABEL[a.sistema_manejo] || a.sistema_manejo}
+                          {rotuloSistemaManejo(a.sistema_manejo)}
                         </span>
                       ) : a.tipo === 'ADUBACAO' ? (
                         <span className="text-stone-700 font-medium text-xs">

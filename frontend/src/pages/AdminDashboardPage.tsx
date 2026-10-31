@@ -25,6 +25,7 @@ import {
   Legend,
 } from 'recharts';
 import { api } from '../services/api';
+import { rotuloSistemaManejo } from '../constants/sistemaManejo';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -77,7 +78,7 @@ export function AdminDashboardPage() {
   if (!stats) return null;
 
   const dataPie = stats.analises.porSistema.map(s => ({
-    name: s.sistema,
+    name: rotuloSistemaManejo(s.sistema),
     value: Number(s.quantidade)
   }));
 
