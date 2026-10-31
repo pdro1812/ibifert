@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
+  Archive,
+  ArchiveRestore,
   ArrowUpDown,
   CheckCircle2,
   ChevronLeft,
@@ -7,10 +10,12 @@ import {
   FlaskConical,
   Loader2,
   MapPin,
+  Pencil,
   Search,
+  Trash2,
   XCircle,
 } from 'lucide-react';
-import { api } from '../services/api';
+import { api, arquivarAnaliseSalva, excluirAnaliseSalva } from '../services/api';
 import { ModalDetalhesAnalise } from '../components/ModalDetalhesAnalise';
 import { rotuloSistemaManejo } from '../constants/sistemaManejo';
 
@@ -40,7 +45,9 @@ interface AnaliseResumo {
   // Adubacao
   cultura?: string;
   sistema_cultivo?: string;
-  recomendacao_json?: any;
+  recomendacao_json?: {
+    recomendacao?: { p2o5?: { dose_total_kg_ha?: number }; k2o?: { dose_total_kg_ha?: number } };
+  };
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -59,14 +66,32 @@ function formatarData(iso: string) {
   });
 }
 
+function ThOrdenavel({ ativo, onClick, children }: { ativo: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <th
+      onClick={onClick}
+      className="cursor-pointer select-none whitespace-nowrap px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-stone-500 hover:text-stone-700"
+    >
+      <span className="flex items-center gap-1">
+        {children}
+        <ArrowUpDown size={11} className={ativo ? 'text-green-600' : 'text-stone-300'} />
+      </span>
+    </th>
+  );
+}
+
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 const POR_PAGINA = 10;
 
 export function HistoricoAnalisesPage() {
-  const [analises, setAnalises] = useState<AnaliseResumo[]>([]);
-  const [loading, setLoading]   = useState(true);
-  const [erro, setErro]         = useState<string | null>(null);
+  const navigate = useNavigate();
+  // ?arquivadas=1 → área de análises arquivadas (mesma tabela, outras ações)
+  const [searchParams, setSearchParams] = useSearchParams();
+  const verArquivadas = searchParams.get('arquivadas') === '1';
+  const [carregado, setCarregado] = useState<{ chave: string; analises: AnaliseResumo[]; erro: string | null } | null>(null);
+  const [aviso, setAviso] = useState<string | null>(null);
+  const [operando, setOperando] = useState<string | null>(null);
   const [busca, setBusca]       = useState('');
   const [filtroTipo, setFiltroTipo] = useState<'TODOS' | 'CALAGEM' | 'ADUBACAO'>('TODOS');
   const [pagina, setPagina]     = useState(1);
@@ -76,12 +101,63 @@ export function HistoricoAnalisesPage() {
   });
   const [selectedAnalise, setSelectedAnalise] = useState<AnaliseResumo | null>(null);
 
+  const chave = verArquivadas ? 'arquivadas' : 'ativas';
   useEffect(() => {
-    api.get('/analises/historico')
-      .then((res) => setAnalises(res.data.dados ?? []))
-      .catch(() => setErro('Não foi possível carregar o histórico.'))
-      .finally(() => setLoading(false));
-  }, []);
+    let ativo = true;
+    api.get('/analises/historico', { params: verArquivadas ? { arquivadas: 'true' } : undefined })
+      .then((res) => { if (ativo) setCarregado({ chave, analises: res.data.dados ?? [], erro: null }); })
+      .catch(() => { if (ativo) setCarregado({ chave, analises: [], erro: 'Não foi possível carregar o histórico.' }); });
+    return () => { ativo = false; };
+  }, [chave, verArquivadas]);
+
+  const loading = carregado?.chave !== chave;
+  const analises = loading ? [] : carregado.analises;
+  const erro = loading ? null : carregado.erro;
+
+  const trocarArea = (arquivadas: boolean) => {
+    setSearchParams(arquivadas ? { arquivadas: '1' } : {});
+    setPagina(1);
+    setAviso(null);
+  };
+
+  // Tira a análise da lista atual (após excluir, arquivar ou restaurar)
+  const removerDaLista = (id: string) => {
+    setCarregado((prev) => (prev ? { ...prev, analises: prev.analises.filter((a) => a.id !== id) } : prev));
+  };
+
+  const editar = (a: AnaliseResumo) => {
+    navigate(`/historico/editar/${a.tipo === 'CALAGEM' ? 'calagem' : 'adubacao'}/${a.id}`);
+  };
+
+  const alternarArquivo = async (a: AnaliseResumo) => {
+    setOperando(a.id);
+    try {
+      await arquivarAnaliseSalva(a.tipo, a.id, !verArquivadas);
+      removerDaLista(a.id);
+      setAviso(verArquivadas ? 'Análise restaurada para o histórico.' : 'Análise arquivada. Ela continua disponível em "Arquivadas".');
+    } catch {
+      setAviso('Não foi possível concluir. Tente novamente.');
+    } finally {
+      setOperando(null);
+    }
+  };
+
+  const excluir = async (a: AnaliseResumo) => {
+    const ok = confirm(
+      'Excluir esta análise definitivamente?\n\nEssa ação não pode ser desfeita. Se quiser só tirar da lista, use "Arquivar".'
+    );
+    if (!ok) return;
+    setOperando(a.id);
+    try {
+      await excluirAnaliseSalva(a.tipo, a.id);
+      removerDaLista(a.id);
+      setAviso('Análise excluída.');
+    } catch {
+      setAviso('Não foi possível excluir. Tente novamente.');
+    } finally {
+      setOperando(null);
+    }
+  };
 
   // ── Filtro + ordenação ───────────────────────────────────────────────────
   const filtradas = analises.filter((a) => {
@@ -120,21 +196,6 @@ export function HistoricoAnalisesPage() {
     setPagina(1);
   }
 
-  function ThOrdenavel({ campo, children }: { campo: keyof AnaliseResumo; children: React.ReactNode }) {
-    const ativo = ordenacao.campo === campo;
-    return (
-      <th
-        onClick={() => alternarOrdem(campo)}
-        className="cursor-pointer select-none whitespace-nowrap px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-stone-500 hover:text-stone-700"
-      >
-        <span className="flex items-center gap-1">
-          {children}
-          <ArrowUpDown size={11} className={ativo ? 'text-green-600' : 'text-stone-300'} />
-        </span>
-      </th>
-    );
-  }
-
   // ── Render ───────────────────────────────────────────────────────────────
 
   return (
@@ -147,7 +208,7 @@ export function HistoricoAnalisesPage() {
             <FlaskConical size={20} className="text-white" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-stone-800">Histórico de Análises</h1>
+            <h1 className="text-xl font-bold text-stone-800">{verArquivadas ? 'Análises Arquivadas' : 'Histórico de Análises'}</h1>
             <p className="text-xs text-stone-400">
               {loading ? 'Carregando...' : `${filtradas.length} registro${filtradas.length !== 1 ? 's' : ''} encontrado${filtradas.length !== 1 ? 's' : ''}`}
             </p>
@@ -155,6 +216,25 @@ export function HistoricoAnalisesPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
+          {/* Ativas × Arquivadas */}
+          <div className="flex rounded-xl border border-stone-200 bg-stone-100 p-1">
+            {[
+              { arquivadas: false, rotulo: 'Ativas' },
+              { arquivadas: true, rotulo: 'Arquivadas' },
+            ].map(({ arquivadas, rotulo }) => (
+              <button
+                key={rotulo}
+                onClick={() => trocarArea(arquivadas)}
+                className={`flex items-center gap-1 rounded-lg px-3 py-1.5 text-[10px] font-bold uppercase transition-all ${
+                  verArquivadas === arquivadas ? 'bg-white text-green-700 shadow-sm' : 'text-stone-400 hover:text-stone-600'
+                }`}
+              >
+                {arquivadas ? <Archive size={11} /> : null}
+                {rotulo}
+              </button>
+            ))}
+          </div>
+
           {/* Filtros Rápidos */}
           <div className="flex bg-stone-100 p-1 rounded-xl border border-stone-200">
             {(['TODOS', 'CALAGEM', 'ADUBACAO'] as const).map(f => (
@@ -186,6 +266,13 @@ export function HistoricoAnalisesPage() {
         </div>
       </div>
 
+      {aviso ? (
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-stone-200 bg-white px-4 py-3 text-sm text-stone-700 shadow-sm">
+          <span>{aviso}</span>
+          <button onClick={() => setAviso(null)} className="text-xs font-bold text-stone-400 hover:text-stone-600">Fechar</button>
+        </div>
+      ) : null}
+
       {/* Tabela */}
       <div className="overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm">
         {loading ? (
@@ -201,21 +288,21 @@ export function HistoricoAnalisesPage() {
         ) : slice.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 py-20 text-stone-300">
             <FlaskConical size={32} />
-            <p className="text-sm">Nenhuma análise encontrada.</p>
+            <p className="text-sm">{verArquivadas ? 'Nenhuma análise arquivada.' : 'Nenhuma análise encontrada.'}</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="border-b border-stone-100 bg-stone-50">
                 <tr>
-                  <ThOrdenavel campo="criado_em">Data</ThOrdenavel>
+                  <ThOrdenavel ativo={ordenacao.campo === 'criado_em'} onClick={() => alternarOrdem('criado_em')}>Data</ThOrdenavel>
                   <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-stone-500">Tipo</th>
-                  <ThOrdenavel campo="cidade">Localização</ThOrdenavel>
+                  <ThOrdenavel ativo={ordenacao.campo === 'cidade'} onClick={() => alternarOrdem('cidade')}>Localização</ThOrdenavel>
                   <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-stone-500">Talhão</th>
                   <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-stone-500">Sistema / Cultura</th>
                   <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-stone-500">pH / SMP</th>
                   <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-stone-500">Recomendação</th>
-                  <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-stone-500">Detalhes</th>
+                  <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-stone-500">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-stone-50">
@@ -295,10 +382,15 @@ export function HistoricoAnalisesPage() {
                     {/* Recomendação */}
                     <td className="px-4 py-3">
                       {a.tipo === 'CALAGEM' ? (
-                        a.NC_ajustada != null ? (
-                          <span className="font-bold text-green-700">
+                        a.aplicar_calcario === false ? (
+                          <span className="flex items-center gap-1 text-xs text-stone-400">
+                            <XCircle size={12} /> Não aplicar
+                          </span>
+                        ) : a.NC_ajustada != null ? (
+                          <span className="flex items-center gap-1 font-bold text-green-700">
+                            <CheckCircle2 size={12} className="text-green-500" />
                             {a.NC_ajustada.toFixed(2)}
-                            <span className="ml-1 text-xs font-normal text-green-500">t/ha</span>
+                            <span className="text-xs font-normal text-green-500">t/ha</span>
                           </span>
                         ) : <span className="text-stone-300">—</span>
                       ) : (
@@ -313,21 +405,34 @@ export function HistoricoAnalisesPage() {
                       )}
                     </td>
 
-                    {/* Detalhes / Resultado (Ex: Aplicar ou método) */}
-                    <td className="px-4 py-3 text-xs text-stone-500">
-                      {a.tipo === 'CALAGEM' ? (
-                        a.aplicar_calcario === true ? (
-                          <span className="flex items-center gap-1 text-green-600">
-                            <CheckCircle2 size={12} /> Aplicar
-                          </span>
-                        ) : a.aplicar_calcario === false ? (
-                          <span className="flex items-center gap-1 text-stone-400">
-                            <XCircle size={12} /> Não aplicar
-                          </span>
-                        ) : '—'
-                      ) : (
-                        <span className="text-[10px] uppercase text-stone-400">{a.sistema_cultivo}</span>
-                      )}
+                    {/* Ações: editar, arquivar/restaurar, excluir (clicar na linha abre os detalhes) */}
+                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => editar(a)}
+                          disabled={operando === a.id}
+                          title="Editar análise"
+                          className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-semibold text-stone-600 transition-colors hover:bg-stone-100 disabled:opacity-40"
+                        >
+                          <Pencil size={13} /> Editar
+                        </button>
+                        <button
+                          onClick={() => alternarArquivo(a)}
+                          disabled={operando === a.id}
+                          title={verArquivadas ? 'Restaurar para o histórico' : 'Arquivar (não apaga nada)'}
+                          className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-semibold text-amber-700 transition-colors hover:bg-amber-50 disabled:opacity-40"
+                        >
+                          {verArquivadas ? <><ArchiveRestore size={13} /> Restaurar</> : <><Archive size={13} /> Arquivar</>}
+                        </button>
+                        <button
+                          onClick={() => excluir(a)}
+                          disabled={operando === a.id}
+                          title="Excluir definitivamente"
+                          className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-semibold text-red-500 transition-colors hover:bg-red-50 disabled:opacity-40"
+                        >
+                          <Trash2 size={13} /> Excluir
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
