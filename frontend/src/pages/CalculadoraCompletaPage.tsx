@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useForm, useWatch } from 'react-hook-form';
-import type { Resolver, SubmitHandler } from 'react-hook-form';
+import { get, useForm, useWatch } from 'react-hook-form';
+import type { Control, FieldValues, Resolver, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
   AlertCircle,
@@ -30,7 +30,7 @@ import {
   AdubacaoSchema,
   type EntradaAdubacaoForm,
 } from '../schemas/adubacaoSchema';
-import { calcularCalagem, calcularAdubacao, salvarAdubacao } from '../services/api';
+import { calcularCalagem, calcularAdubacao, salvarAdubacao, sanitizarPayloadCalagem } from '../services/api';
 import { gerarPDFRelatorio } from '../services/pdfGenerator';
 import { gerarPDFRelatorioAdubacao } from '../services/pdfGeneratorAdubacao';
 import { ibgeService } from '../services/ibge';
@@ -129,7 +129,53 @@ function extrairMensagemErroAdubacao(error: unknown): string {
   return 'Erro ao calcular adubação.';
 }
 
+// ─── Preservação dos dados ao trocar de modo ───────────────────────────────
+//
+// O formulário usa shouldUnregister: true — campo que sai da tela sai também
+// do envio, para que um bloco oculto (ex.: B1/B2/B3 da calagem) nunca mande
+// valor ao motor. Por isso, ao trocar de modo, os valores são guardados e
+// devolvidos só aos campos que voltarem a aparecer na tela (inclusive os de
+// blocos que aparecem um render depois, como o B1 que depende do SMP).
+
+function achatar(valores: unknown, prefixo = ''): Record<string, unknown> {
+  if (valores === null || typeof valores !== 'object' || Array.isArray(valores)) {
+    return prefixo ? { [prefixo]: valores } : {};
+  }
+  return Object.entries(valores as Record<string, unknown>).reduce<Record<string, unknown>>(
+    (acc, [chave, valor]) => ({ ...acc, ...achatar(valor, prefixo ? `${prefixo}.${chave}` : chave) }),
+    {}
+  );
+}
+
+function campoNaTela<T extends FieldValues>(control: Control<T>, nome: string): boolean {
+  const campo = get(control._fields, nome)?._f as { ref?: unknown; refs?: unknown[] } | undefined;
+  if (!campo) return false;
+  const refs = campo.refs ?? [campo.ref];
+  return refs.some((ref) => ref instanceof Element && ref.isConnected);
+}
+
+// Assinatura da entrada de um cálculo — o que de fato vai ao motor. O
+// resultado só é considerado atual enquanto ela não mudar.
+function assinaturaCalagem(valores: unknown, extras: unknown): string {
+  const parse = CalagemSchema.safeParse(valores);
+  return parse.success ? JSON.stringify([sanitizarPayloadCalagem(parse.data), extras]) : 'entrada-invalida';
+}
+
+function assinaturaAdubacao(valores: unknown, extras: unknown): string {
+  const parse = AdubacaoSchema.safeParse(valores);
+  return parse.success ? JSON.stringify([parse.data, extras]) : 'entrada-invalida';
+}
+
 const LOCALIZACAO_PADRAO = { uf: 'RS', cidade: 'Ibirubá' };
+
+function AvisoDesatualizado() {
+  return (
+    <div data-testid="aviso-desatualizado" className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+      <AlertCircle size={13} className="mt-0.5 shrink-0" />
+      <span>Os dados foram alterados depois deste cálculo. Clique em calcular de novo para atualizar o resultado.</span>
+    </div>
+  );
+}
 
 // ─── Seletor de módulo ──────────────────────────────────────────────────────
 
@@ -247,15 +293,31 @@ export function CalculadoraCompletaPage() {
     },
   });
 
+  // Valores guardados na última troca de modo, ainda não devolvidos à tela.
+  const valoresParaRestaurar = useRef<Record<string, unknown>>({});
+
   const handleTrocarModo = (novoModo: ModoCalculo) => {
+    if (novoModo === modo) return;
+    const atuais = Object.fromEntries(
+      Object.entries(achatar(getValues())).filter(([, valor]) => valor !== undefined && valor !== '')
+    );
+    valoresParaRestaurar.current = { ...valoresParaRestaurar.current, ...atuais };
     setModo(novoModo);
-    setResultadoCalagem(null);
-    setErroCalagem(null);
-    setResultadoAdubacao(null);
-    setErroAdubacao(null);
-    setSalvoCalagem(false);
-    setSalvoAdubacao(false);
   };
+
+  // Roda depois de cada render: devolve o valor guardado a cada campo que
+  // voltou para a tela (e que por isso nasceu vazio ou com o valor padrão).
+  // Campo fora da tela nunca recebe valor aqui.
+  useEffect(() => {
+    const pendentes = valoresParaRestaurar.current;
+    for (const [nome, valor] of Object.entries(pendentes)) {
+      if (!campoNaTela(control, nome)) continue;
+      if (getValues(nome as never) !== valor) {
+        setValue(nome as never, valor as never, { shouldDirty: false, shouldValidate: false });
+      }
+      delete pendentes[nome];
+    }
+  });
 
   const calagemAtiva = modo !== 'ADUBACAO';
   const adubacaoAtiva = modo !== 'CALAGEM';
@@ -317,6 +379,23 @@ export function CalculadoraCompletaPage() {
     }
   }, [disableCorrecaoTotal, watchTipoCorrecao, setValue]);
 
+  // ── Resultado desatualizado ──────────────────────────────────────────
+  // O resultado continua na tela ao trocar de modo; se algum dado que entrou
+  // no cálculo mudar depois, avisa que é preciso recalcular.
+  const valoresAtuais = useWatch({ control });
+  const assinaturaCalagemAtual = useMemo(
+    () => assinaturaCalagem(valoresAtuais, [ufSelecionada, cidadeSelecionada, modoAlSatAtual, monitoramentoAtivo]),
+    [valoresAtuais, ufSelecionada, cidadeSelecionada, modoAlSatAtual, monitoramentoAtivo]
+  );
+  const assinaturaAdubacaoAtual = useMemo(
+    () => assinaturaAdubacao(valoresAtuais, [ufSelecionada, cidadeSelecionada]),
+    [valoresAtuais, ufSelecionada, cidadeSelecionada]
+  );
+  const [assinaturaCalculoCalagem, setAssinaturaCalculoCalagem] = useState<string | null>(null);
+  const [assinaturaCalculoAdubacao, setAssinaturaCalculoAdubacao] = useState<string | null>(null);
+  const calagemDesatualizada = assinaturaCalculoCalagem !== null && assinaturaCalculoCalagem !== assinaturaCalagemAtual;
+  const adubacaoDesatualizada = assinaturaCalculoAdubacao !== null && assinaturaCalculoAdubacao !== assinaturaAdubacaoAtual;
+
   // ── Submit ───────────────────────────────────────────────────────────
   const onSubmitValidado: SubmitHandler<FormCompleta> = async (dados) => {
     let temErro = false;
@@ -330,17 +409,14 @@ export function CalculadoraCompletaPage() {
     }
     if (temErro) return;
 
-    setResultadoCalagem(null);
-    setErroCalagem(null);
-    setResultadoAdubacao(null);
-    setErroAdubacao(null);
-    setSalvoCalagem(false);
-    setSalvoAdubacao(false);
-
     const tarefas: Promise<unknown>[] = [];
     const localizacaoUsada = { uf: ufSelecionada, cidade: cidadeSelecionada };
 
     if (calagemAtiva) {
+      setResultadoCalagem(null);
+      setErroCalagem(null);
+      setSalvoCalagem(false);
+      setAssinaturaCalculoCalagem(assinaturaCalagemAtual);
       setLoadingCalagem(true);
       const dadosCalagem = CalagemSchema.parse(dados);
       tarefas.push(
@@ -357,6 +433,10 @@ export function CalculadoraCompletaPage() {
     }
 
     if (adubacaoAtiva) {
+      setResultadoAdubacao(null);
+      setErroAdubacao(null);
+      setSalvoAdubacao(false);
+      setAssinaturaCalculoAdubacao(assinaturaAdubacaoAtual);
       setLoadingAdubacao(true);
       const dadosAdubacao = AdubacaoSchema.parse(dados);
       tarefas.push(
@@ -433,7 +513,8 @@ export function CalculadoraCompletaPage() {
     resultadoCalagem?.aplicar_calcario === false ? 'Aplicação não recomendada' : 'Diagnóstico Concluído';
 
   const nenhumResultadoAinda =
-    !resultadoCalagem && !erroCalagem && !resultadoAdubacao && !erroAdubacao && !loadingCalagem && !loadingAdubacao;
+    !(calagemAtiva && (resultadoCalagem || erroCalagem || loadingCalagem)) &&
+    !(adubacaoAtiva && (resultadoAdubacao || erroAdubacao || loadingAdubacao));
 
   const labelBotaoCalcular =
     modo === 'AMBOS' ? 'Calcular Calagem + Adubação' : modo === 'CALAGEM' ? 'Calcular Calagem' : 'Calcular Adubação';
@@ -1109,6 +1190,7 @@ export function CalculadoraCompletaPage() {
                     <div className="flex items-center gap-2 text-sm font-bold text-stone-800">
                       <CheckCircle2 size={18} className="text-green-500" /> {tituloResultadoCalagem}
                     </div>
+                    {calagemDesatualizada ? <AvisoDesatualizado /> : null}
 
                     {resultadoCalagem.aplicar_calcario ? (
                       <div className="rounded-[1.5rem] bg-white p-6 text-center shadow-xl">
@@ -1213,6 +1295,7 @@ export function CalculadoraCompletaPage() {
                   </div>
                 ) : resultadoAdubacao ? (
                   <div className="space-y-4">
+                    {adubacaoDesatualizada ? <AvisoDesatualizado /> : null}
                     <RecomendacaoAdubacao resultado={resultadoAdubacao} />
 
                     <div className="grid grid-cols-2 gap-3">
