@@ -30,7 +30,17 @@ import {
   AdubacaoSchema,
   type EntradaAdubacaoForm,
 } from '../schemas/adubacaoSchema';
-import { calcularCalagem, calcularAdubacao, salvarAdubacao, sanitizarPayloadCalagem } from '../services/api';
+import {
+  atualizarAdubacao,
+  atualizarCalagem,
+  buscarAnaliseSalva,
+  calcularAdubacao,
+  calcularCalagem,
+  salvarAdubacao,
+  sanitizarPayloadCalagem,
+  type TipoAnalise,
+} from '../services/api';
+import { adubacaoParaFormulario, calagemParaFormulario } from '../services/analiseParaFormulario';
 import { gerarPDFRelatorio } from '../services/pdfGenerator';
 import { gerarPDFRelatorioAdubacao } from '../services/pdfGeneratorAdubacao';
 import { ibgeService } from '../services/ibge';
@@ -202,12 +212,24 @@ const CULTURAS_COM_ANTECEDENTE = [
 
 // ─── Page ─────────────────────────────────────────────────────────────────
 
-export function CalculadoraCompletaPage() {
+// Sem `edicao`: calculadora normal. Com `edicao`: abre uma análise salva do
+// histórico já preenchida; calcular recalcula e atualiza o mesmo registro.
+interface CalculadoraCompletaProps {
+  edicao?: { tipo: TipoAnalise; id: string };
+}
+
+export function CalculadoraCompletaPage({ edicao }: CalculadoraCompletaProps = {}) {
   const navigate = useNavigate();
   const location = useLocation();
   const { isLoggedIn, user } = useAuth();
 
-  const [modo, setModo] = useState<ModoCalculo>('AMBOS');
+  const [modo, setModo] = useState<ModoCalculo>(edicao ? edicao.tipo : 'AMBOS');
+  const emEdicao = edicao !== undefined;
+  const [carregandoEdicao, setCarregandoEdicao] = useState(emEdicao);
+  const [erroEdicao, setErroEdicao] = useState<string | null>(null);
+  const [salvoEdicao, setSalvoEdicao] = useState(false);
+  // AAAA-MM-DD ou vazio (não informada)
+  const [dataAnalise, setDataAnalise] = useState('');
 
   // Recuperação pós-login (ver services/pendencias.ts + LoginPage.tsx) —
   // mesmo padrão das páginas antigas: o resultado recuperado entra direto
@@ -249,7 +271,8 @@ export function CalculadoraCompletaPage() {
   const localizacaoPerfil =
     user?.estado === 'RS' || user?.estado === 'SC' ? { uf: user.estado, cidade: user.cidade ?? '' } : null;
   const { uf: ufSelecionada, cidade: cidadeSelecionada } = localizacaoManual ?? localizacaoPerfil ?? LOCALIZACAO_PADRAO;
-  const [termosAceitos, setTermosAceitos] = useState(false);
+  // Na edição os termos já foram aceitos quando a análise foi criada.
+  const [termosAceitos, setTermosAceitos] = useState(emEdicao);
   const [erroCidade, setErroCidade] = useState(false);
   const [erroTermos, setErroTermos] = useState(false);
   const [modoAlSat, setModoAlSat] = useState<'direto' | 'calculado'>('direto');
@@ -318,6 +341,30 @@ export function CalculadoraCompletaPage() {
       delete pendentes[nome];
     }
   });
+
+  // Edição: carrega a análise salva e entrega os valores ao mesmo mecanismo
+  // de restauração acima (só campos na tela recebem valor).
+  const edicaoTipo = edicao?.tipo;
+  const edicaoId = edicao?.id;
+  useEffect(() => {
+    if (!edicaoTipo || !edicaoId) return;
+    let ativo = true;
+    buscarAnaliseSalva(edicaoTipo, edicaoId)
+      .then((registro) => {
+        if (!ativo) return;
+        const valores = edicaoTipo === 'CALAGEM' ? calagemParaFormulario(registro) : adubacaoParaFormulario(registro);
+        valoresParaRestaurar.current = valores.campos;
+        setLocalizacaoManual({ uf: valores.uf, cidade: valores.cidade });
+        setDataAnalise(valores.data_analise ?? '');
+        setModoAlSat(valores.modo_al_sat);
+        setMonitoramentoAtivo(valores.monitoramento_ativo);
+        setCarregandoEdicao(false);
+      })
+      .catch(() => {
+        if (ativo) setErroEdicao('Não foi possível carregar esta análise.');
+      });
+    return () => { ativo = false; };
+  }, [edicaoTipo, edicaoId]);
 
   const calagemAtiva = modo !== 'ADUBACAO';
   const adubacaoAtiva = modo !== 'CALAGEM';
@@ -411,6 +458,8 @@ export function CalculadoraCompletaPage() {
 
     const tarefas: Promise<unknown>[] = [];
     const localizacaoUsada = { uf: ufSelecionada, cidade: cidadeSelecionada };
+    const dataAnaliseUsada = dataAnalise || null;
+    setSalvoEdicao(false);
 
     if (calagemAtiva) {
       setResultadoCalagem(null);
@@ -419,13 +468,20 @@ export function CalculadoraCompletaPage() {
       setAssinaturaCalculoCalagem(assinaturaCalagemAtual);
       setLoadingCalagem(true);
       const dadosCalagem = CalagemSchema.parse(dados);
+      const extrasCalagem = {
+        uf: ufSelecionada,
+        cidade: cidadeSelecionada,
+        modo_al_sat: modoAlSatAtual,
+        monitoramento_ativo: monitoramentoAtivo,
+      };
       tarefas.push(
-        calcularCalagem(dadosCalagem, {
-          uf: ufSelecionada,
-          cidade: cidadeSelecionada,
-          modo_al_sat: modoAlSatAtual,
-          monitoramento_ativo: monitoramentoAtivo,
-        })
+        (edicao
+          ? atualizarCalagem(edicao.id, dadosCalagem, { ...extrasCalagem, data_analise: dataAnaliseUsada }).then((resposta) => {
+              setSalvoEdicao(true);
+              return resposta;
+            })
+          : calcularCalagem(dadosCalagem, extrasCalagem)
+        )
           .then((resposta) => setResultadoCalagem(resposta))
           .catch((error) => setErroCalagem(extrairMensagemErroCalagem(error)))
           .finally(() => setLoadingCalagem(false))
@@ -440,7 +496,13 @@ export function CalculadoraCompletaPage() {
       setLoadingAdubacao(true);
       const dadosAdubacao = AdubacaoSchema.parse(dados);
       tarefas.push(
-        calcularAdubacao(dadosAdubacao)
+        (edicao
+          ? atualizarAdubacao(edicao.id, { ...dadosAdubacao, ...localizacaoUsada, data_analise: dataAnaliseUsada }).then((resultado) => {
+              setSalvoEdicao(true);
+              return { resultado };
+            })
+          : calcularAdubacao(dadosAdubacao)
+        )
           .then((res) => setResultadoAdubacao({ ...res.resultado, dadosEntrada: dadosAdubacao, localizacao: localizacaoUsada }))
           .catch((error) => setErroAdubacao(extrairMensagemErroAdubacao(error)))
           .finally(() => setLoadingAdubacao(false))
@@ -516,8 +578,9 @@ export function CalculadoraCompletaPage() {
     !(calagemAtiva && (resultadoCalagem || erroCalagem || loadingCalagem)) &&
     !(adubacaoAtiva && (resultadoAdubacao || erroAdubacao || loadingAdubacao));
 
-  const labelBotaoCalcular =
-    modo === 'AMBOS' ? 'Calcular Calagem + Adubação' : modo === 'CALAGEM' ? 'Calcular Calagem' : 'Calcular Adubação';
+  const labelBotaoCalcular = emEdicao
+    ? 'Recalcular e salvar alterações'
+    : modo === 'AMBOS' ? 'Calcular Calagem + Adubação' : modo === 'CALAGEM' ? 'Calcular Calagem' : 'Calcular Adubação';
 
   // ── Render ───────────────────────────────────────────────────────────
 
@@ -554,12 +617,38 @@ export function CalculadoraCompletaPage() {
             <Layers className="text-white" size={24} />
           </div>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-stone-800">Calculadora Completa</h1>
-            <p className="text-sm font-medium text-stone-500">Calagem e adubação em um único lugar</p>
+            <h1 className="text-2xl font-bold tracking-tight text-stone-800">
+              {emEdicao ? `Editar análise de ${modo === 'CALAGEM' ? 'calagem' : 'adubação'}` : 'Calculadora Completa'}
+            </h1>
+            <p className="text-sm font-medium text-stone-500">
+              {emEdicao ? 'Corrija os dados e salve: a mesma análise é atualizada no histórico' : 'Calagem e adubação em um único lugar'}
+            </p>
           </div>
         </div>
 
+        {emEdicao ? (
+          <div className="mb-8 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+            Ao salvar, o resultado é recalculado com as regras atuais do Ibiferti e substitui o anterior nesta
+            análise. A data de inserção no sistema não muda.
+          </div>
+        ) : null}
+
+        {erroEdicao ? (
+          <div className="space-y-3 rounded-2xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">
+            <p>{erroEdicao}</p>
+            <button type="button" onClick={() => navigate('/historico')} className="font-bold underline">
+              Voltar ao histórico
+            </button>
+          </div>
+        ) : carregandoEdicao ? (
+          <div className="flex items-center gap-2 rounded-2xl border border-stone-100 bg-stone-50 p-6 text-sm text-stone-500">
+            <span className="h-4 w-4 animate-spin rounded-full border-2 border-stone-300 border-t-green-600" />
+            Carregando análise...
+          </div>
+        ) : (
+        <>
         {/* ── Seletor de Módulo (destaque) ─────────────────────────────── */}
+        {!emEdicao ? (
         <div className="mb-8 grid grid-cols-1 gap-3 sm:grid-cols-3">
           {OPCOES_MODO.map((opcao) => {
             const Icone = opcao.icone;
@@ -592,6 +681,7 @@ export function CalculadoraCompletaPage() {
             );
           })}
         </div>
+        ) : null}
 
         <form onSubmit={handleSubmit(onSubmitValidado, onErrorNoForm)} noValidate className="space-y-8">
           {calagemAtiva ? (
@@ -1106,7 +1196,8 @@ export function CalculadoraCompletaPage() {
             </div>
           ) : null}
 
-          {/* ── Termos de Uso ─────────────────────────────────────────── */}
+          {/* ── Termos de Uso (já aceitos na edição) ──────────────────── */}
+          {!emEdicao ? (
           <div className={`rounded-2xl border p-5 transition-colors ${erroTermos ? 'border-red-200 bg-red-50' : 'border-stone-200 bg-stone-50'}`}>
             <label className="flex items-start gap-3">
               <input
@@ -1132,6 +1223,7 @@ export function CalculadoraCompletaPage() {
               </div>
             </label>
           </div>
+          ) : null}
 
           {/* ── Botão Calcular ────────────────────────────────────────── */}
           <button
@@ -1149,6 +1241,8 @@ export function CalculadoraCompletaPage() {
             )}
           </button>
         </form>
+        </>
+        )}
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════
@@ -1167,6 +1261,15 @@ export function CalculadoraCompletaPage() {
           </div>
         ) : (
           <>
+            {salvoEdicao ? (
+              <div className="flex items-center justify-between gap-3 rounded-xl border border-green-200 bg-green-50 p-3 text-sm font-semibold text-green-800">
+                <span className="flex items-center gap-2"><CheckCircle2 size={16} /> Alterações salvas no histórico.</span>
+                <button type="button" onClick={() => navigate('/historico')} className="text-xs font-bold underline">
+                  Voltar ao histórico
+                </button>
+              </div>
+            ) : null}
+
             {/* ── Resultado: Calagem ─────────────────────────────────── */}
             {calagemAtiva ? (
               <div className="space-y-4">
@@ -1258,7 +1361,7 @@ export function CalculadoraCompletaPage() {
                       >
                         <FileDown size={16} /> PDF
                       </button>
-                      <button
+                      {emEdicao ? null : <button
                         type="button"
                         onClick={handleTentarSalvarCalagem}
                         className={`flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-semibold shadow-sm transition-all ${
@@ -1266,7 +1369,7 @@ export function CalculadoraCompletaPage() {
                         }`}
                       >
                         {salvoCalagem ? <><Check size={16} /> Salvo!</> : <><Save size={16} /> Salvar</>}
-                      </button>
+                      </button>}
                     </div>
                   </div>
                 ) : null}
@@ -1314,7 +1417,7 @@ export function CalculadoraCompletaPage() {
                       >
                         <FileDown size={16} /> PDF
                       </button>
-                      <button
+                      {emEdicao ? null : <button
                         type="button"
                         onClick={handleTentarSalvarAdubacao}
                         className={`flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-bold shadow-sm transition-all active:scale-95 ${
@@ -1322,7 +1425,7 @@ export function CalculadoraCompletaPage() {
                         }`}
                       >
                         {salvoAdubacao ? <><CheckCircle2 size={16} /> Salvo!</> : <><Save size={16} /> Salvar</>}
-                      </button>
+                      </button>}
                     </div>
                   </div>
                 ) : null}

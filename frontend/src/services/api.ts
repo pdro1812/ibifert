@@ -141,6 +141,43 @@ export async function calcularCalagem(
   return resposta.data.resultado ?? resposta.data;
 }
 
+// ── Gerenciamento de análises salvas (histórico) ──────────────────────────────
+
+export type TipoAnalise = 'CALAGEM' | 'ADUBACAO';
+
+const rotaAnalise = (tipo: TipoAnalise) => (tipo === 'CALAGEM' ? '/analises' : '/adubacao');
+
+export async function buscarAnaliseSalva(tipo: TipoAnalise, id: string): Promise<Record<string, unknown>> {
+  const res = await api.get(`${rotaAnalise(tipo)}/${id}`);
+  return tipo === 'CALAGEM' ? res.data.dados : res.data;
+}
+
+// Edição: o backend recalcula com o motor e atualiza o mesmo registro.
+export async function atualizarCalagem(
+  id: string,
+  dados: EntradaCalagem,
+  extras: { uf: string; cidade: string; modo_al_sat?: 'direto' | 'calculado'; monitoramento_ativo?: boolean; data_analise?: string | null }
+): Promise<CalagemResultado> {
+  const res = await api.put(`/analises/${id}`, { ...sanitizarPayloadCalagem(dados), ...extras });
+  return res.data.resultado;
+}
+
+export async function atualizarAdubacao(
+  id: string,
+  dadosForm: EntradaAdubacao & { uf: string; cidade: string; data_analise?: string | null }
+) {
+  const res = await api.put(`/adubacao/${id}`, { dadosForm });
+  return res.data.resultado;
+}
+
+export async function excluirAnaliseSalva(tipo: TipoAnalise, id: string) {
+  await api.delete(`${rotaAnalise(tipo)}/${id}`);
+}
+
+export async function arquivarAnaliseSalva(tipo: TipoAnalise, id: string, arquivada: boolean) {
+  await api.patch(`${rotaAnalise(tipo)}/${id}/arquivar`, { arquivada });
+}
+
 
 // Adicionar em frontend/src/services/api.ts
 // (junto das outras funções existentes, sem mexer no que já existe)

@@ -14,6 +14,7 @@ import { MinhaContaPage } from './pages/MinhaContaPage';
 import { FazendasPage } from './pages/FazendasPage';
 import { NovaAnalisePage } from './pages/NovaAnalisePage';
 import { HistoricoAnalisesPage } from './pages/HistoricoAnalisesPage';
+import { EditarAnalisePage } from './pages/EditarAnalisePage';
 import { TalhaoDetalhesPage } from './pages/TalhaoDetalhesPage';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
 import { AdminUsersPage } from './pages/AdminUsersPage';
@@ -51,6 +52,7 @@ export default function App() {
               {/* O histórico só é visível para PRODUTORES aqui. Admin usa a tela de Usuários */}
               <Route element={<ProtectedRoute roles={['PRODUTOR']} />}>
                 <Route path="/historico" element={<HistoricoAnalisesPage />} />
+                <Route path="/historico/editar/:tipo/:id" element={<EditarAnalisePage />} />
               </Route>
             </Route>
           </Route>
