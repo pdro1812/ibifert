@@ -1,5 +1,6 @@
 import { EntradaAdubacao } from "../schemas/adubacaoSchema";
 import { classificarS, classificarMicronutriente, classificarCa, classificarMg } from "./tabelasAdubacaoGraos";
+import { RENDIMENTO_MAXIMO_T_HA, formatarLimite } from "../schemas/limitesAgronomicos";
 
 export interface AlertaAdubacao {
   nivel: 'INFO' | 'AVISO' | 'ERRO';
@@ -9,7 +10,18 @@ export interface AlertaAdubacao {
 
 export function gerarAlertasDiagnose(entrada: EntradaAdubacao): AlertaAdubacao[] {
   const alertas: AlertaAdubacao[] = [];
-  
+
+  // Rendimento acima do realista (docs_antigos/adubacao.md §6.2): aceito,
+  // mas as doses sobem junto. Acima do limite o schema já recusou.
+  const { razoavel } = RENDIMENTO_MAXIMO_T_HA[entrada.cultura];
+  if (entrada.rendimento_esperado > razoavel) {
+    alertas.push({
+      nivel: 'AVISO',
+      codigo: 'REND_ACIMA_RAZOAVEL',
+      mensagem: `Rendimento esperado acima do máximo realista para a cultura (${formatarLimite(razoavel)} t/ha). Confirme o valor: as doses de N, P₂O₅ e K₂O aumentam com o rendimento.`,
+    });
+  }
+
   // Enxofre
   if (entrada.S !== undefined) {
     const exigente = ['soja', 'ervilha', 'ervilhaca', 'canola', 'nabo_forrageiro'].includes(entrada.cultura);

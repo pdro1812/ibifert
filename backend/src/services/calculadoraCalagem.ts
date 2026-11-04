@@ -4,12 +4,14 @@ import {
   CalagemSchema,
   CalagemValidationError,
   EntradaCalagem,
+  MENSAGEM_PRNT,
   SistemaManejo,
   precisaAlSatPDConsolidado,
   precisaPolinomial,
   precisaSatBases,
   temAlSatResolvido,
 } from "../schemas/calagemSchema";
+import { LIMITES_CALAGEM } from "../schemas/limitesAgronomicos";
 
 export function validarEntrada(entrada: unknown): EntradaCalagem {
   try {
@@ -58,10 +60,8 @@ export function calcularNCVB(V_atual: number, CTC_pH7: number): number {
 }
 
 export function ajustarDosePorPRNT(NC_final: number, PRNT: number): number {
-  if (PRNT <= 0.0 || PRNT > 100.0) {
-    throw new CalagemValidationError(
-      "PRNT inválido: deve estar entre 1 e 100."
-    );
+  if (!(PRNT >= LIMITES_CALAGEM.PRNT.min && PRNT <= LIMITES_CALAGEM.PRNT.max)) {
+    throw new CalagemValidationError(MENSAGEM_PRNT);
   }
 
   return NC_final * (100.0 / PRNT);

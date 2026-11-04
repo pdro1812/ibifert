@@ -193,3 +193,51 @@ test('Erros de validação dizem qual campo falhou', async (t) => {
     assert.deepEqual(r.corpo.details.map((d: { path: string[] }) => d.path[0]).sort(), ['cultura', 'nome']);
   });
 });
+
+// AUD-05: a API pública aceitava PRNT 0,01 (61.000 t/ha) e rendimento de
+// 1.000 t/ha (14.980 kg N/ha). Agora recusa com 400 e não grava nada.
+test('Entradas fora das faixas agronômicas são recusadas pela API', async (t) => {
+  const totalCalagens = async () => (await requisitar('GET', '/analises/regional-stats')).corpo.medias.total;
+
+  await t.test('POST /analises/calcular com PRNT 0,01', async () => {
+    const antes = await totalCalagens();
+    const r = await requisitar('POST', '/analises/calcular', { corpo: { ...AMOSTRA_CALAGEM, PRNT: 0.01, uf: 'RS', cidade: 'Ibirubá' } });
+    assert.equal(r.status, 400);
+    assert.match(r.corpo.mensagem, /PRNT inválido: deve estar entre 45 e 100/);
+    assert.equal(await totalCalagens(), antes, 'cálculo recusado não pode virar registro anônimo');
+  });
+
+  await t.test('POST /analises/calcular com PRNT 45 continua calculando', async () => {
+    const r = await requisitar('POST', '/analises/calcular', { corpo: { ...AMOSTRA_CALAGEM, PRNT: 45, uf: 'RS', cidade: 'Ibirubá' } });
+    assert.equal(r.status, 200);
+    // SMP 5,5 → 6,1 t/ha (Tabela 5.2, pH 6,0) × 100/45.
+    assert.ok(Math.abs(r.corpo.resultado.NC_ajustada - (6.1 * 100) / 45) < 1e-9);
+  });
+
+  await t.test('POST /adubacao/calcular com rendimento de 1.000 t/ha', async () => {
+    const r = await requisitar('POST', '/adubacao/calcular', { corpo: { ...FORM_ADUBACAO, rendimento_esperado: 1000 } });
+    assert.equal(r.status, 400);
+    const erro = r.corpo.details.find((d: { path: string[] }) => d.path[0] === 'rendimento_esperado');
+    assert.match(erro.message, /<= 40 t\/ha/);
+  });
+
+  await t.test('POST /adubacao/calcular acima do razoável devolve alerta', async () => {
+    const r = await requisitar('POST', '/adubacao/calcular', { corpo: { ...FORM_ADUBACAO, rendimento_esperado: 25 } });
+    assert.equal(r.status, 200);
+    assert.ok(r.corpo.resultado.alertas.some((a: { codigo: string }) => a.codigo === 'REND_ACIMA_RAZOAVEL'));
+  });
+
+  await t.test('POST /adubacao/bulk recusa só a amostra fora da faixa', async () => {
+    const cookie = await cadastrar(requisitar, 'faixas@exemplo.test');
+    const r = await requisitar('POST', '/adubacao/bulk', {
+      cookie,
+      corpo: { amostras: [{ ...FORM_ADUBACAO, identificacao: 'ok' }, { ...FORM_ADUBACAO, identificacao: 'ruim', P: 5000 }] },
+    });
+    assert.equal(r.status, 200);
+    assert.deepEqual(
+      r.corpo.resultados.map((x: { identificacao: string; sucesso: boolean }) => [x.identificacao, x.sucesso]),
+      [['ok', true], ['ruim', false]]
+    );
+    assert.match(r.corpo.resultados[1].erro, /Fósforo deve ser <= 500/);
+  });
+});

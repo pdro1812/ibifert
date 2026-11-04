@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { LIMITES_CALAGEM, formatarLimite } from "./limitesAgronomicos";
 
 export enum SistemaManejo {
   CONVENCIONAL = "CONVENCIONAL",
@@ -75,35 +76,50 @@ const percentualSchema = (campo: string) =>
     .min(0.0, `${campo} inválido: deve estar entre 0 e 100.`)
     .max(100.0, `${campo} inválido: deve estar entre 0 e 100.`);
 
+const L = LIMITES_CALAGEM;
+const faixa = (campo: string, min: number, max: number) =>
+  `${campo} inválido: deve estar entre ${formatarLimite(min)} e ${formatarLimite(max)}.`;
+
 const phSchema = z
   .number()
   .finite()
-  .min(3.5, "pH inválido: deve estar entre 3.5 e 8.0.")
-  .max(8.0, "pH inválido: deve estar entre 3.5 e 8.0.");
+  .min(L.pH_agua.min, faixa("pH", L.pH_agua.min, L.pH_agua.max))
+  .max(L.pH_agua.max, faixa("pH", L.pH_agua.min, L.pH_agua.max));
 
-const smpSchema = z.number().finite();
+// Fora da Tabela 5.2 (≤ 4,4 a 7,1) o motor usa a linha 4,4 ou dose zero;
+// abaixo de 4,0 ou acima de 7,5 o valor não é um SMP possível.
+const smpSchema = (campo = "SMP") =>
+  z
+    .number()
+    .finite()
+    .min(L.SMP.min, faixa(campo, L.SMP.min, L.SMP.max))
+    .max(L.SMP.max, faixa(campo, L.SMP.min, L.SMP.max));
 
 const ctcSchema = z
   .number()
   .finite()
-  .gt(0.0, "CTC_pH7 inválido: deve ser maior que 0.");
+  .gt(0.0, `CTC_pH7 inválido: deve ser maior que 0 e até ${formatarLimite(L.CTC_pH7.max)}.`)
+  .max(L.CTC_pH7.max, `CTC_pH7 inválido: deve ser maior que 0 e até ${formatarLimite(L.CTC_pH7.max)}.`);
 
 const moSchema = z
   .number()
   .finite()
-  .min(0.0, "MO inválida: deve estar entre 0 e 100.")
-  .max(100.0, "MO inválida: deve estar entre 0 e 100.");
+  .min(L.MO.min, `MO inválida: deve estar entre ${formatarLimite(L.MO.min)} e ${formatarLimite(L.MO.max)}.`)
+  .max(L.MO.max, `MO inválida: deve estar entre ${formatarLimite(L.MO.min)} e ${formatarLimite(L.MO.max)}.`);
 
 const alTrocavelSchema = z
   .number()
   .finite()
-  .min(0.0, "Al_trocavel inválido: deve ser >= 0.");
+  .min(L.Al_trocavel.min, faixa("Al_trocavel", L.Al_trocavel.min, L.Al_trocavel.max))
+  .max(L.Al_trocavel.max, faixa("Al_trocavel", L.Al_trocavel.min, L.Al_trocavel.max));
 
+// Manual p. 299: PRNT mínimo de 45% para calcário comercializado.
+export const MENSAGEM_PRNT = faixa("PRNT", L.PRNT.min, L.PRNT.max);
 const prntSchema = z
   .number()
   .finite()
-  .gt(0.0, "PRNT inválido: deve estar entre 1 e 100.")
-  .max(100.0, "PRNT inválido: deve estar entre 1 e 100.");
+  .min(L.PRNT.min, MENSAGEM_PRNT)
+  .max(L.PRNT.max, MENSAGEM_PRNT);
 
 export const Monitoramento10_20Schema = z.object({
   pH_agua_10_20: phSchema,
@@ -123,7 +139,7 @@ export const CalagemSchema = z
     // como reaplicação por padrão (ver docs/diagnostico-primeira-calagem-metodo-smp.md).
     primeira_calagem: z.boolean().default(false),
     pH_agua: phSchema,
-    SMP: smpSchema,
+    SMP: smpSchema(),
     PRNT: prntSchema,
 
     // Seleção explícita do Polinomial como valor complementar ao SMP.
@@ -139,13 +155,26 @@ export const CalagemSchema = z
     MO: moSchema.optional(),
     Al_trocavel: alTrocavelSchema.optional(),
 
-    SMP_0_10: smpSchema.optional(),
-    SMP_10_20: smpSchema.optional(),
+    SMP_0_10: smpSchema("SMP_0_10").optional(),
+    SMP_10_20: smpSchema("SMP_10_20").optional(),
 
     opcao_superficial_campo_natural: z.boolean().optional(),
     monitoramento: Monitoramento10_20Schema.optional(),
   })
   .superRefine((entrada, ctx) => {
+    // O Al trocável faz parte da CTC: maior que ela é erro de digitação.
+    if (
+      entrada.Al_trocavel !== undefined &&
+      entrada.CTC_pH7 !== undefined &&
+      entrada.Al_trocavel > entrada.CTC_pH7
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["Al_trocavel"],
+        message: "Al_trocavel não pode ser maior que a CTC_pH7.",
+      });
+    }
+
     if (precisaPolinomial(entrada)) {
       const motivo = polinomialAutomatico(entrada.SMP)
         ? "SMP > 6.3"
