@@ -45,8 +45,11 @@ async function calcularCalagem(page: Page) {
 test('logado: resultado começa temporário e vai ao histórico só ao salvar', async ({ page }) => {
   const salvamentos = await prepararApis(page, true);
   await page.goto('/');
-  // Localização vem do perfil regional
-  await expect(page.getByRole('combobox').first()).toHaveValue('SC');
+  // Logado: a localização vem da conta e não é perguntada de novo
+  await expect(page.getByText('Concórdia/SC')).toBeVisible();
+  await expect(page.getByText('Estado *')).toHaveCount(0);
+  // A data da análise já vem com o dia de hoje
+  await expect(page.locator('#data-analise')).not.toHaveValue('');
   await calcularCalagem(page);
 
   await expect(page.getByTestId('selo-temporario')).toBeVisible();

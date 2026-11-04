@@ -3,7 +3,7 @@ import { useForm, useWatch } from 'react-hook-form';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { AlertCircle, Check, Circle, Leaf, Loader2 } from 'lucide-react';
+import { AlertCircle, Check, Circle, Leaf, Lightbulb, Loader2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { recuperarAnalisePendente } from '../services/pendencias';
 import { ibgeService } from '../services/ibge';
@@ -198,15 +198,17 @@ export function RegisterPage() {
             ) : null}
           </div>
 
-          <fieldset className="space-y-3 rounded-2xl border border-stone-200 bg-stone-50/60 p-4">
-            <legend className="px-1 text-sm font-bold text-stone-700">Perfil regional</legend>
-            <p className="text-xs text-stone-500">
-              Região onde você costuma fazer suas análises. Usamos para já preencher a localização nos cálculos — dá para trocar a qualquer momento em Minha Conta.
-            </p>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {/* Estado */}
             <div className="space-y-1">
-              <label className="text-sm font-semibold text-stone-700">Estado</label>
+              <div className="group relative flex w-max items-center gap-2">
+                <label className="text-sm font-semibold text-stone-700">Estado</label>
+                <div className="cursor-help text-yellow-500"><Lightbulb size={14} /></div>
+                <div className="pointer-events-none absolute bottom-full left-0 z-50 mb-2 hidden w-72 rounded-xl bg-stone-800 p-4 text-xs font-normal text-stone-200 shadow-xl group-hover:block">
+                  Região onde você costuma fazer suas análises. Usamos para já preencher a localização nos cálculos — dá para trocar a qualquer momento em Minha Conta.
+                  <div className="absolute left-6 top-full -mt-1 border-4 border-transparent border-t-stone-800" />
+                </div>
+              </div>
               <select
                 {...register('estado', { onChange: () => setValue('cidade', '') })}
                 className={`w-full rounded-xl border px-4 py-3 outline-none transition-all disabled:opacity-50 ${
@@ -252,7 +254,6 @@ export function RegisterPage() {
               ) : null}
             </div>
           </div>
-          </fieldset>
 
           {/* Senha */}
           <div className="space-y-1">
