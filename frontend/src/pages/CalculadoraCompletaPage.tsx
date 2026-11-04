@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { get, useForm, useWatch } from 'react-hook-form';
 import type { Control, FieldValues, Resolver, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -243,8 +243,9 @@ export function CalculadoraCompletaPage({ edicao }: CalculadoraCompletaProps = {
   const [carregandoEdicao, setCarregandoEdicao] = useState(emEdicao);
   const [erroEdicao, setErroEdicao] = useState<string | null>(null);
   const [salvoEdicao, setSalvoEdicao] = useState(false);
-  // AAAA-MM-DD ou vazio (não informada)
-  const [dataAnalise, setDataAnalise] = useState('');
+  // AAAA-MM-DD ou vazio (não informada). Vem com o dia de hoje; na edição é
+  // sobrescrita pela data da análise salva.
+  const [dataAnalise, setDataAnalise] = useState(() => (emEdicao ? '' : hojeLocalISO()));
 
   // Recuperação pós-login (ver services/pendencias.ts + LoginPage.tsx) —
   // mesmo padrão das páginas antigas: o resultado recuperado entra direto
@@ -291,6 +292,9 @@ export function CalculadoraCompletaPage({ edicao }: CalculadoraCompletaProps = {
   const localizacaoPerfil =
     user?.estado === 'RS' || user?.estado === 'SC' ? { uf: user.estado, cidade: user.cidade ?? '' } : null;
   const { uf: ufSelecionada, cidade: cidadeSelecionada } = localizacaoManual ?? localizacaoPerfil ?? LOCALIZACAO_PADRAO;
+  // Logado e com localização na conta: não pergunta de novo, usa a da conta.
+  // Na edição a localização é a da análise salva, então os campos continuam.
+  const usaLocalizacaoDaConta = isLoggedIn && !emEdicao && localizacaoPerfil !== null && localizacaoPerfil.cidade !== '';
   // Na edição os termos já foram aceitos quando a análise foi criada.
   const [termosAceitos, setTermosAceitos] = useState(emEdicao);
   const [erroCidade, setErroCidade] = useState(false);
@@ -466,7 +470,7 @@ export function CalculadoraCompletaPage({ edicao }: CalculadoraCompletaProps = {
   // ── Submit ───────────────────────────────────────────────────────────
   const onSubmitValidado: SubmitHandler<FormCompleta> = async (dados) => {
     let temErro = false;
-    if (!cidadeSelecionada || !municipios.some((m) => m.nome === cidadeSelecionada)) {
+    if (!usaLocalizacaoDaConta && (!cidadeSelecionada || !municipios.some((m) => m.nome === cidadeSelecionada))) {
       setErroCidade(true);
       temErro = true;
     }
@@ -537,7 +541,7 @@ export function CalculadoraCompletaPage({ edicao }: CalculadoraCompletaProps = {
   };
 
   const onErrorNoForm = () => {
-    if (!cidadeSelecionada || !municipios.some((m) => m.nome === cidadeSelecionada)) {
+    if (!usaLocalizacaoDaConta && (!cidadeSelecionada || !municipios.some((m) => m.nome === cidadeSelecionada))) {
       setErroCidade(true);
     }
     if (!termosAceitos) setErroTermos(true);
@@ -737,46 +741,53 @@ export function CalculadoraCompletaPage({ edicao }: CalculadoraCompletaProps = {
               Identificação e Localização
             </h3>
 
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                <div className="col-span-1 space-y-1">
-                  <label className="text-xs font-semibold text-stone-600">Estado *</label>
-                  <select
-                    value={ufSelecionada}
-                    onChange={(e) => {
-                      setLocalizacaoManual({ uf: e.target.value, cidade: '' });
-                      setErroCidade(false);
-                    }}
-                    className="w-full rounded-xl border border-stone-200 bg-white px-4 py-3 shadow-sm outline-none focus:border-green-500"
-                  >
-                    {ESTADOS_ATENDIDOS.map((estado) => (
-                      <option key={estado.sigla} value={estado.sigla}>{estado.sigla}</option>
-                    ))}
-                  </select>
-                </div>
+            {usaLocalizacaoDaConta ? (
+              <p className="text-xs text-stone-500">
+                Localização: <strong className="text-stone-700">{cidadeSelecionada}/{ufSelecionada}</strong> (da sua conta).{' '}
+                <Link to="/conta" className="font-semibold text-green-700 hover:underline">Alterar</Link>
+              </p>
+            ) : (
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                  <div className="col-span-1 space-y-1">
+                    <label className="text-xs font-semibold text-stone-600">Estado *</label>
+                    <select
+                      value={ufSelecionada}
+                      onChange={(e) => {
+                        setLocalizacaoManual({ uf: e.target.value, cidade: '' });
+                        setErroCidade(false);
+                      }}
+                      className="w-full rounded-xl border border-stone-200 bg-white px-4 py-3 shadow-sm outline-none focus:border-green-500"
+                    >
+                      {ESTADOS_ATENDIDOS.map((estado) => (
+                        <option key={estado.sigla} value={estado.sigla}>{estado.sigla}</option>
+                      ))}
+                    </select>
+                  </div>
 
-                <div className="col-span-2 space-y-1">
-                  <label className="text-xs font-semibold text-stone-600">Cidade *</label>
-                  <input
-                    list="lista-municipios-completa"
-                    value={cidadeSelecionada}
-                    onChange={(e) => { setLocalizacaoManual({ uf: ufSelecionada, cidade: e.target.value }); setErroCidade(false); }}
-                    disabled={municipios.length === 0}
-                    placeholder={ufSelecionada ? 'Digite para buscar...' : 'Selecione o Estado'}
-                    autoComplete="off"
-                    className={`w-full rounded-xl border px-4 py-3 shadow-sm outline-none transition-all disabled:opacity-50 ${
-                      erroCidade ? 'border-red-400 bg-red-50' : 'border-stone-200 bg-white focus:border-green-500'
-                    }`}
-                  />
-                  <datalist id="lista-municipios-completa">
-                    {municipios.map((m) => <option key={m.id} value={m.nome} />)}
-                  </datalist>
-                  {erroCidade ? (
-                    <span className="flex items-center gap-1 text-xs text-red-500">
-                      <AlertCircle size={11} /> Selecione uma cidade válida
-                    </span>
-                  ) : null}
+                  <div className="col-span-2 space-y-1">
+                    <label className="text-xs font-semibold text-stone-600">Cidade *</label>
+                    <input
+                      list="lista-municipios-completa"
+                      value={cidadeSelecionada}
+                      onChange={(e) => { setLocalizacaoManual({ uf: ufSelecionada, cidade: e.target.value }); setErroCidade(false); }}
+                      disabled={municipios.length === 0}
+                      placeholder={ufSelecionada ? 'Digite para buscar...' : 'Selecione o Estado'}
+                      autoComplete="off"
+                      className={`w-full rounded-xl border px-4 py-3 shadow-sm outline-none transition-all disabled:opacity-50 ${
+                        erroCidade ? 'border-red-400 bg-red-50' : 'border-stone-200 bg-white focus:border-green-500'
+                      }`}
+                    />
+                    <datalist id="lista-municipios-completa">
+                      {municipios.map((m) => <option key={m.id} value={m.nome} />)}
+                    </datalist>
+                    {erroCidade ? (
+                      <span className="flex items-center gap-1 text-xs text-red-500">
+                        <AlertCircle size={11} /> Selecione uma cidade válida
+                      </span>
+                    ) : null}
+                  </div>
                 </div>
-              </div>
+            )}
 
             <div className="space-y-1">
               <label className="flex justify-between text-xs font-semibold text-stone-600">
@@ -788,13 +799,20 @@ export function CalculadoraCompletaPage({ edicao }: CalculadoraCompletaProps = {
                 {...register('identificacao')}
                 className="w-full rounded-xl border border-stone-200 bg-white px-4 py-3 shadow-sm outline-none focus:border-green-500"
               />
-              <p className="text-[11px] text-stone-400">Não inclua dados pessoais (nome, CPF, telefone) — use só um apelido do talhão ou da amostra.</p>
             </div>
 
             <div className="space-y-1 md:w-1/2">
-              <label htmlFor="data-analise" className="flex justify-between text-xs font-semibold text-stone-600">
-                Data da análise <span className="font-normal text-stone-400">Opcional</span>
-              </label>
+              <div className="flex items-center justify-between">
+                <div className="group relative flex w-max items-center gap-2">
+                  <label htmlFor="data-analise" className="text-xs font-semibold text-stone-600">Data da análise</label>
+                  <div className="cursor-help text-yellow-500"><Lightbulb size={14} /></div>
+                  <div className="pointer-events-none absolute bottom-full left-0 z-50 mb-2 hidden w-72 rounded-xl bg-stone-800 p-4 text-xs text-stone-200 shadow-xl group-hover:block">
+                    Dia em que a amostra foi analisada. A data de inserção no sistema é registrada à parte.
+                    <div className="absolute left-6 top-full -mt-1 border-4 border-transparent border-t-stone-800" />
+                  </div>
+                </div>
+                <span className="text-xs font-normal text-stone-400">Opcional</span>
+              </div>
               <input
                 id="data-analise"
                 type="date"
@@ -803,7 +821,6 @@ export function CalculadoraCompletaPage({ edicao }: CalculadoraCompletaProps = {
                 onChange={(e) => setDataAnalise(e.target.value)}
                 className="w-full rounded-xl border border-stone-200 bg-white px-4 py-3 shadow-sm outline-none focus:border-green-500"
               />
-              <p className="text-[11px] text-stone-400">Dia em que a amostra foi analisada. A data de inserção no sistema é registrada à parte.</p>
             </div>
           </div>
 
