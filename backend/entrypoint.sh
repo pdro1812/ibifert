@@ -1,12 +1,11 @@
 #!/bin/sh
+# Start do container de produção (AUD-07).
+# set -e: se a migração falhar, o servidor não sobe com schema velho.
+set -e
 
-# Aguarda o banco de dados estar pronto
-echo "Aguardando o banco de dados..."
-# Usando o comando node para verificar a conexão ou apenas um sleep simples
-# Em produção, o ideal é um script que tente conectar, mas o Drizzle Kit push resolve bem:
-
-echo "Rodando migrações com Drizzle..."
-npx drizzle-kit push
+echo "Aplicando migrações (drizzle/*.sql)..."
+node dist/database/migrar.js
 
 echo "Iniciando o servidor..."
-node dist/server.js
+# exec: o node vira o PID 1 e recebe o SIGTERM do docker stop (tratado em server.ts).
+exec node dist/server.js

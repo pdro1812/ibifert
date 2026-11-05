@@ -1,40 +1,40 @@
-import { readFileSync } from 'node:fs';
-import path from 'node:path';
 import type { AddressInfo } from 'node:net';
 import type { Server } from 'node:http';
 import { PGlite } from '@electric-sql/pglite';
 import { PGLiteSocketServer } from '@electric-sql/pglite-socket';
+import { Pool } from 'pg';
+import { migrarBanco } from '../database/migrar';
 
 // Postgres descartável (PGlite em memória) para os testes de rota: aplica as
-// migrações de drizzle/ na ordem do _journal, como um banco novo receberia,
+// migrações de drizzle/ com o migrador do start (database/migrar.ts),
 // e sobe o app real (src/app.ts) apontando para ele. Nada toca banco real.
 
-const PASTA_DRIZZLE = path.join(__dirname, '../../drizzle');
 const PORTA_BANCO = 54329;
+const urlBanco = () => `postgres://postgres:postgres@127.0.0.1:${PORTA_BANCO}/postgres?sslmode=disable`;
 
 export interface AmbienteDeTeste {
   url: string;
   fechar: () => Promise<void>;
 }
 
+// Banco novo recebe as migrações pelo mesmo migrador do start do container.
 async function subirBanco(): Promise<PGLiteSocketServer> {
   const db = await PGlite.create();
-  const journal = JSON.parse(readFileSync(path.join(PASTA_DRIZZLE, 'meta/_journal.json'), 'utf8'));
-  for (const { tag } of journal.entries as { tag: string }[]) {
-    const sql = readFileSync(path.join(PASTA_DRIZZLE, `${tag}.sql`), 'utf8');
-    for (const comando of sql.split('--> statement-breakpoint')) {
-      if (comando.trim()) await db.exec(comando);
-    }
-  }
   const servidor = new PGLiteSocketServer({ db, port: PORTA_BANCO, host: '127.0.0.1' });
   await servidor.start();
+  const pool = new Pool({ connectionString: urlBanco(), max: 1 });
+  try {
+    await migrarBanco(pool, { log: () => undefined });
+  } finally {
+    await pool.end();
+  }
   return servidor;
 }
 
 export async function subirAmbienteDeTeste(): Promise<AmbienteDeTeste> {
   const banco = await subirBanco();
   // db.ts lê DATABASE_URL ao ser importado: o app só é carregado depois.
-  process.env.DATABASE_URL = `postgres://postgres:postgres@127.0.0.1:${PORTA_BANCO}/postgres?sslmode=disable`;
+  process.env.DATABASE_URL = urlBanco();
   process.env.JWT_SECRET ??= 'segredo-apenas-para-testes';
   const { app } = await import('../app');
   const { db } = await import('../database/db');

@@ -16,7 +16,7 @@ Configuração específica deste repositório para o orquestrador global `/ship`
 - Stack: backend Node/Express + TypeScript + Drizzle (Postgres) em `backend/`; frontend React + Vite + Tailwind em `frontend/`.
 - Base: `main`. Branches: `feat/…`, `fix/…`, `refactor/…`, `docs/…`, `test/…`. Commits convencionais em português, por exemplo `feat(ui): …`.
 - **Push em `main` dispara o CI de build e push de imagens** (`.github/workflows/main.yml`). Nunca fazer push em `main`; usar apenas branch e PR.
-- Migrações: gerar com `npm run db:generate` (em `backend/drizzle/`). Nunca rodar `db:migrate` ou `db:push` contra banco real.
+- Migrações: gerar com `npm run db:generate` (em `backend/drizzle/`). Nunca rodar `db:migrate` ou `db:push` contra banco real. O start do container aplica os SQL com `backend/src/database/migrar.ts`; roteiro do primeiro deploy em `docs/migracoes-banco.md`.
 - Verificação (rodar só o que a mudança tocar):
   - Backend: `cd backend && npm run build && npm test`
   - Frontend: `cd frontend && npm run lint && npm test && npm run build`
