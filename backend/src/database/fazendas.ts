@@ -3,6 +3,7 @@
 import { and, eq, desc } from 'drizzle-orm';
 import { db } from './db';
 import { fazendas, talhoes, analises } from './schema';
+import { ehId } from '../middlewares/erros';
 
 // ── Fazendas ──────────────────────────────────────────────────────────────────
 
@@ -120,6 +121,15 @@ export async function getTalhaoById(id: string, usuarioId: string) {
     .where(and(eq(talhoes.id, id), eq(fazendas.usuario_id, usuarioId)))
     .limit(1);
   return row;
+}
+
+// talhao_id vindo do corpo de uma gravação: vazio ou ausente = sem talhão
+// (null); preenchido, precisa ser um talhão do próprio usuário. undefined =
+// talhão não encontrado (de outra pessoa ou inexistente).
+export async function resolverTalhaoDoUsuario(talhaoId: unknown, usuarioId: string): Promise<string | null | undefined> {
+  if (talhaoId === undefined || talhaoId === null || talhaoId === '') return null;
+  if (!ehId(talhaoId)) return undefined;
+  return (await getTalhaoById(talhaoId, usuarioId))?.id;
 }
 
 export async function deleteTalhao(id: string, usuarioId: string) {

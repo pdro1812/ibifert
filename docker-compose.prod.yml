@@ -16,8 +16,11 @@ services:
       - NODE_ENV=production
       - DATABASE_URL=postgresql://${POSTGRES_USER:?defina POSTGRES_USER no .env}:${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env}@db:5432/${POSTGRES_DB:?defina POSTGRES_DB no .env}
       - JWT_SECRET=${JWT_SECRET:?defina JWT_SECRET no .env}
+    # O entrypoint aplica as migrações antes do servidor (AUD-07): só sobe
+    # depois que o Postgres aceita conexões.
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     
   frontend:
     build:
@@ -45,6 +48,11 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:?defina POSTGRES_DB no .env}
     volumes:
       - pgdata_prod:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 5s
+      timeout: 5s
+      retries: 12
     # Opcional: expor porta se precisar acessar externamente
     # ports:
     #   - "5433:5432"

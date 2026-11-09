@@ -992,12 +992,12 @@ export function CalculadoraCompletaPage({ edicao }: CalculadoraCompletaProps = {
                 <CampoNumerico
                   label="PRNT (%) *"
                   name="PRNT"
-                  min={0.1}
+                  min={45}
                   max={100}
                   placeholder="Ex: 90"
                   register={register}
                   error={errors.PRNT}
-                  dica="PRNT deve estar no intervalo (0, 100]."
+                  dica="PRNT entre 45% (mínimo legal do calcário) e 100%."
                 />
               </div>
 
@@ -1370,7 +1370,7 @@ export function CalculadoraCompletaPage({ edicao }: CalculadoraCompletaProps = {
                       error={errors.densidade_plantas}
                       placeholder="Ex: 70000"
                       step="1000"
-                      dica="Acima de 65.000 plantas/ha, aplica bônus de N a cada 5.000 plantas extras."
+                      dica="Entre 30.000 e 120.000 plantas/ha. A densidade não altera a dose de N."
                     />
                   ) : null}
                 </div>

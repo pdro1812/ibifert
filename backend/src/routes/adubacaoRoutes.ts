@@ -9,12 +9,16 @@ import {
   excluirAnaliseAdubacao,
   arquivarAnaliseAdubacao,
 } from '../database/adubacao';
+import { resolverTalhaoDoUsuario } from '../database/fazendas';
 import { verificarToken, AuthRequest } from '../middlewares/authMiddleware';
+import { exigirIdValido, MENSAGEM_ERRO_INTERNO, responderErroInterno } from '../middlewares/erros';
 import { limitadorCalculoPublico } from '../middlewares/rateLimit';
 import { LocalizacaoSchema } from '../schemas/localizacaoSchema';
 import { ArquivarAnaliseSchema, DataAnaliseSchema } from '../schemas/gestaoAnaliseSchema';
 
 export const adubacaoRoutes = Router();
+
+adubacaoRoutes.param('id', exigirIdValido({ error: 'Análise não encontrada' }));
 
 // Entrada validada + localização + resultado do motor → colunas da tabela.
 // Usado no salvar, no lote e na edição.
@@ -82,17 +86,18 @@ adubacaoRoutes.post('/calcular', limitadorCalculoPublico, async (req: AuthReques
     });
   } catch (error: any) {
     if (error.name === 'ZodError') {
-      res.status(400).json({ error: 'Erro de validação', details: error.errors });
+      res.status(400).json({ error: 'Erro de validação', details: error.issues });
     } else {
-      res.status(500).json({ error: error.message });
+      responderErroInterno(req, res, error, { error: MENSAGEM_ERRO_INTERNO });
     }
   }
 });
 
-// Endpoint exclusivo para salvar o resultado da adubação no banco
+// Endpoint exclusivo para salvar o resultado da adubação no banco. A
+// recomendação gravada é recalculada aqui; um `resultado` no corpo é ignorado.
 adubacaoRoutes.post('/salvar', verificarToken, async (req: AuthRequest, res) => {
   try {
-    const { dadosForm, resultado } = req.body;
+    const { dadosForm } = req.body;
 
     // A localização vem do formulário (mesmo bloco da calagem); antes caía
     // silenciosamente em RS / "Não informada".
@@ -102,11 +107,15 @@ adubacaoRoutes.post('/salvar', verificarToken, async (req: AuthRequest, res) => 
     }
     const entrada = AdubacaoSchema.parse(dadosForm);
     const data_analise = DataAnaliseSchema.parse(dadosForm?.data_analise);
+    const talhaoId = await resolverTalhaoDoUsuario(dadosForm?.talhao_id, req.userId!);
+    if (talhaoId === undefined) {
+      return res.status(404).json({ error: 'Talhão não encontrado.' });
+    }
 
     const analiseSalva = await criarAnaliseAdubacao({
       usuario_id: req.userId,
-      talhao_id: dadosForm.talhao_id || undefined,
-      ...colunasAdubacao(entrada, localizacao.data, resultado, data_analise),
+      talhao_id: talhaoId,
+      ...colunasAdubacao(entrada, localizacao.data, executarMotorAdubacao(entrada), data_analise),
     });
 
     res.status(201).json({
@@ -116,7 +125,7 @@ adubacaoRoutes.post('/salvar', verificarToken, async (req: AuthRequest, res) => 
   } catch (error: any) {
     const erroValidacao = primeiraMensagemZod(error);
     if (erroValidacao) return res.status(400).json({ error: erroValidacao });
-    res.status(500).json({ error: error.message });
+    responderErroInterno(req, res, error, { error: MENSAGEM_ERRO_INTERNO });
   }
 });
 
@@ -133,18 +142,21 @@ adubacaoRoutes.post('/bulk', verificarToken, async (req: AuthRequest, res) => {
     if (!dataAnalise.success) {
       return res.status(400).json({ error: dataAnalise.error.issues[0].message });
     }
+    const talhaoId = await resolverTalhaoDoUsuario(talhao_id, usuario_id!);
+    if (talhaoId === undefined) {
+      return res.status(404).json({ error: 'Talhão não encontrado.' });
+    }
 
     const resultadosProcessados = [];
     
     for (const amostra of amostras) {
       try {
-        const dadosComTalhao = { ...amostra, talhao_id };
-        const entradaValidada = AdubacaoSchema.parse(dadosComTalhao);
+        const entradaValidada = AdubacaoSchema.parse(amostra);
         const resultado = executarMotorAdubacao(entradaValidada);
-        
+
         const analiseSalva = await criarAnaliseAdubacao({
           usuario_id,
-          talhao_id,
+          talhao_id: talhaoId,
           ...colunasAdubacao(
             entradaValidada,
             { uf: amostra.uf || 'RS', cidade: amostra.cidade || 'Não informada' },
@@ -155,7 +167,7 @@ adubacaoRoutes.post('/bulk', verificarToken, async (req: AuthRequest, res) => {
         resultadosProcessados.push({ sucesso: true, id: analiseSalva.id, identificacao: amostra.identificacao });
       } catch (err: any) {
         console.error(`Erro ao processar amostra ${amostra.identificacao}:`, err);
-        resultadosProcessados.push({ sucesso: false, identificacao: amostra.identificacao, erro: err.message });
+        resultadosProcessados.push({ sucesso: false, identificacao: amostra.identificacao, erro: primeiraMensagemZod(err) ?? 'Erro ao processar a amostra.' });
       }
     }
 
@@ -166,7 +178,7 @@ adubacaoRoutes.post('/bulk', verificarToken, async (req: AuthRequest, res) => {
     });
 
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    responderErroInterno(req, res, error, { error: MENSAGEM_ERRO_INTERNO });
   }
 });
 
@@ -179,7 +191,7 @@ adubacaoRoutes.get('/', verificarToken, async (req: AuthRequest, res) => {
     const analises = await listarAnalisesAdubacaoPorUsuario(req.userId);
     res.json(analises);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    responderErroInterno(req, res, error, { error: MENSAGEM_ERRO_INTERNO });
   }
 });
 
@@ -195,7 +207,7 @@ adubacaoRoutes.get('/:id', verificarToken, async (req: AuthRequest, res) => {
     }
     res.json(analise);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    responderErroInterno(req, res, error, { error: MENSAGEM_ERRO_INTERNO });
   }
 });
 
@@ -224,7 +236,7 @@ adubacaoRoutes.put('/:id', verificarToken, async (req: AuthRequest, res) => {
   } catch (error: any) {
     const erroValidacao = primeiraMensagemZod(error);
     if (erroValidacao) return res.status(400).json({ error: erroValidacao });
-    res.status(500).json({ error: error.message });
+    responderErroInterno(req, res, error, { error: MENSAGEM_ERRO_INTERNO });
   }
 });
 
@@ -235,7 +247,7 @@ adubacaoRoutes.delete('/:id', verificarToken, async (req: AuthRequest, res) => {
     if (!analise) return res.status(404).json({ error: 'Análise não encontrada' });
     res.json(analise);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    responderErroInterno(req, res, error, { error: MENSAGEM_ERRO_INTERNO });
   }
 });
 
@@ -249,6 +261,6 @@ adubacaoRoutes.patch('/:id/arquivar', verificarToken, async (req: AuthRequest, r
     if (!analise) return res.status(404).json({ error: 'Análise não encontrada' });
     res.json(analise);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    responderErroInterno(req, res, error, { error: MENSAGEM_ERRO_INTERNO });
   }
 });

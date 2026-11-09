@@ -16,13 +16,16 @@ import {
   arquivarAnalise,
   vincularAnaliseAoUsuario,
 } from '../database/analises';
-import { getTalhaoById } from '../database/fazendas';
+import { getTalhaoById, resolverTalhaoDoUsuario } from '../database/fazendas';
 import { listarAnalisesAdubacaoHistorico } from '../database/adubacao';
 import { ArquivarAnaliseSchema, DataAnaliseSchema, filtroArquivadas } from '../schemas/gestaoAnaliseSchema';
 import { verificarToken, AuthRequest } from '../middlewares/authMiddleware';
+import { exigirIdValido, responderErroInterno } from '../middlewares/erros';
 import { limitadorCalculoPublico } from '../middlewares/rateLimit';
 
 export const analisesRoutes = Router();
+
+analisesRoutes.param('id', exigirIdValido({ sucesso: false, mensagem: 'Análise não encontrada.' }));
 
 analisesRoutes.post('/calcular', limitadorCalculoPublico, async (req: AuthRequest, res) => {
   try {
@@ -68,11 +71,10 @@ analisesRoutes.post('/calcular', limitadorCalculoPublico, async (req: AuthReques
         mensagem: error.message,
       });
     }
-    res.status(500).json({
+    responderErroInterno(req, res, error, {
       sucesso: false,
       codigo_erro: 'E002_ERRO_INTERNO',
       mensagem: 'Erro inesperado no motor de cálculo.',
-      detalhes: error?.message,
     });
   }
 });
@@ -95,6 +97,10 @@ analisesRoutes.post('/bulk', verificarToken, async (req: AuthRequest, res) => {
     if (!dataAnalise.success) {
       return res.status(400).json({ sucesso: false, mensagem: dataAnalise.error.issues[0].message });
     }
+    const talhaoId = await resolverTalhaoDoUsuario(talhao_id, usuario_id!);
+    if (talhaoId === undefined) {
+      return res.status(404).json({ sucesso: false, mensagem: 'Talhão não encontrado.' });
+    }
 
     const registrosParaSalvar = amostras.map((amostra: any) => {
       const entrada = validarEntrada(amostra);
@@ -105,7 +111,7 @@ analisesRoutes.post('/bulk', verificarToken, async (req: AuthRequest, res) => {
         resultado,
         uf,
         cidade,
-        talhao_id,
+        talhao_id: talhaoId,
         modo_al_sat: amostra.modo_al_sat ?? 'direto',
         monitoramento_ativo: !!amostra.monitoramento,
         usuario_id,
@@ -122,11 +128,12 @@ analisesRoutes.post('/bulk', verificarToken, async (req: AuthRequest, res) => {
     });
 
   } catch (error: any) {
-    console.error('[analises] Erro no processamento bulk:', error);
-    res.status(500).json({
+    if (error instanceof CalagemValidationError) {
+      return res.status(400).json({ sucesso: false, codigo_erro: 'E001_FALHA_VALIDACAO_ENTRADA', mensagem: error.message });
+    }
+    responderErroInterno(req, res, error, {
       sucesso: false,
       mensagem: 'Erro ao processar lote de análises.',
-      detalhes: error?.message,
     });
   }
 });
@@ -257,11 +264,10 @@ analisesRoutes.get('/historico', verificarToken, async (req: AuthRequest, res) =
 
     res.status(200).json({ sucesso: true, dados: unified });
   } catch (error: any) {
-    res.status(500).json({
+    responderErroInterno(req, res, error, {
       sucesso: false,
       codigo_erro: 'E003_ERRO_LISTAGEM',
       mensagem: 'Erro ao buscar histórico de análises.',
-      detalhes: error?.message,
     });
   }
 });
@@ -292,7 +298,7 @@ analisesRoutes.post('/:id/salvar', verificarToken, async (req: AuthRequest, res)
     }
     res.status(201).json({ sucesso: true, id: analise.id });
   } catch (error: any) {
-    res.status(500).json({ sucesso: false, mensagem: 'Erro ao salvar análise.', detalhes: error?.message });
+    responderErroInterno(req, res, error, { sucesso: false, mensagem: 'Erro ao salvar análise.' });
   }
 });
 
@@ -303,7 +309,7 @@ analisesRoutes.get('/:id', verificarToken, async (req: AuthRequest, res) => {
     if (!analise) return res.status(404).json({ sucesso: false, mensagem: 'Análise não encontrada.' });
     res.json({ sucesso: true, dados: analise });
   } catch (error: any) {
-    res.status(500).json({ sucesso: false, mensagem: 'Erro ao buscar análise.', detalhes: error?.message });
+    responderErroInterno(req, res, error, { sucesso: false, mensagem: 'Erro ao buscar análise.' });
   }
 });
 
@@ -339,7 +345,7 @@ analisesRoutes.put('/:id', verificarToken, async (req: AuthRequest, res) => {
     if (error instanceof CalagemValidationError) {
       return res.status(400).json({ sucesso: false, codigo_erro: 'E001_FALHA_VALIDACAO_ENTRADA', mensagem: error.message });
     }
-    res.status(500).json({ sucesso: false, codigo_erro: 'E002_ERRO_INTERNO', mensagem: 'Erro ao salvar a análise.', detalhes: error?.message });
+    responderErroInterno(req, res, error, { sucesso: false, codigo_erro: 'E002_ERRO_INTERNO', mensagem: 'Erro ao salvar a análise.' });
   }
 });
 
@@ -350,7 +356,7 @@ analisesRoutes.delete('/:id', verificarToken, async (req: AuthRequest, res) => {
     if (!analise) return res.status(404).json({ sucesso: false, mensagem: 'Análise não encontrada.' });
     res.json({ sucesso: true, id: analise.id });
   } catch (error: any) {
-    res.status(500).json({ sucesso: false, mensagem: 'Erro ao excluir análise.', detalhes: error?.message });
+    responderErroInterno(req, res, error, { sucesso: false, mensagem: 'Erro ao excluir análise.' });
   }
 });
 
@@ -364,6 +370,6 @@ analisesRoutes.patch('/:id/arquivar', verificarToken, async (req: AuthRequest, r
     if (!analise) return res.status(404).json({ sucesso: false, mensagem: 'Análise não encontrada.' });
     res.json({ sucesso: true, ...analise });
   } catch (error: any) {
-    res.status(500).json({ sucesso: false, mensagem: 'Erro ao arquivar análise.', detalhes: error?.message });
+    responderErroInterno(req, res, error, { sucesso: false, mensagem: 'Erro ao arquivar análise.' });
   }
 });

@@ -1,46 +1,18 @@
-import 'dotenv/config';
-import express from 'express';
-import cors from 'cors';
-import { authRoutes }    from './routes/authRoutes';
-import { analisesRoutes } from './routes/analisesRoutes';
-import { adubacaoRoutes } from './routes/adubacaoRoutes';
-import { fazendasRouter } from './routes/fazendasRoutes';
-import { adminRoutes }    from './routes/adminRoutes';
-import { feedbackRouter } from './routes/feedbackRoutes';
-import { limitadorGeralApi } from './middlewares/rateLimit';
+import { app } from './app';
 
-
-const app = express();
-
-// O backend fica atrás do nginx (rede interna do Docker). Confia no
-// X-Forwarded-For só quando a conexão vem de endereço privado/loopback (o
-// próprio nginx); quem acessar a porta 3000 direto não consegue forjar o IP.
-// Sem isso, todos os clientes aparecem com o IP do nginx e o rate limit
-// passa a ser global.
-app.set('trust proxy', process.env.TRUST_PROXY ?? 'loopback, linklocal, uniquelocal');
-
-// CORS_ORIGIN: lista de origens permitidas separadas por vírgula (ex.:
-// "https://app.ibiferti.com,https://ibiferti.com"). Sem essa variável,
-// mantém o comportamento atual (qualquer origem) até o domínio de
-// produção ser definido.
-const origensPermitidas = process.env.CORS_ORIGIN?.split(',').map((o) => o.trim());
-app.use(cors(origensPermitidas ? { origin: origensPermitidas } : undefined));
-
-app.use(express.json());
-app.use('/api', limitadorGeralApi);
-
-app.get('/', (_req, res) => {
-  res.json({ message: 'Ibiferti Backend - Motor Agronômico rodando!' });
-});
-
-app.use('/api/auth',     authRoutes);
-app.use('/api/analises', analisesRoutes);
-app.use('/api/adubacao', adubacaoRoutes);
-app.use('/api/fazendas', fazendasRouter);
-app.use('/api/admin',    adminRoutes);
-app.use('/api/feedback', feedbackRouter);
-
-
-app.listen(3000, () => {
+const servidor = app.listen(3000, () => {
   console.log('🚀 Backend rodando na porta 3000');
 });
+
+// No container o node é o PID 1, e o kernel não aplica a ação padrão de
+// SIGTERM ao PID 1: sem este handler o `docker stop` espera 10 s e mata.
+// Para de aceitar conexões, deixa as requisições em curso terminarem e sai.
+function encerrar(sinal: string): void {
+  console.log(`${sinal} recebido, encerrando...`);
+  servidor.close(() => process.exit(0));
+  servidor.closeIdleConnections();
+  setTimeout(() => process.exit(0), 5000).unref();
+}
+
+process.once('SIGTERM', () => encerrar('SIGTERM'));
+process.once('SIGINT', () => encerrar('SIGINT'));

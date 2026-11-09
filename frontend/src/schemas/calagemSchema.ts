@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { LIMITES_CALAGEM as L, formatarLimite as f } from './limitesAgronomicos';
 
 export const SISTEMAS_MANEJO = [
   'CONVENCIONAL',
@@ -43,27 +44,28 @@ export const CalagemSchema = z
       .min(4.4, 'SMP inválido: deve estar entre 4.4 e 7.1.')
       .max(7.1, 'SMP inválido: deve estar entre 4.4 e 7.1.'),
     PRNT: numeroObrigatorio('Informe o PRNT do calcário.')
-      .gt(0, 'PRNT inválido: deve estar entre 1 e 100.')
-      .max(100, 'PRNT inválido: deve estar entre 1 e 100.'),
+      .min(L.PRNT.min, `PRNT inválido: deve estar entre ${f(L.PRNT.min)} e ${f(L.PRNT.max)}.`)
+      .max(L.PRNT.max, `PRNT inválido: deve estar entre ${f(L.PRNT.min)} e ${f(L.PRNT.max)}.`),
 
     V_atual: numeroOpcional()
       .refine((valor) => valor === undefined || (valor >= 0 && valor <= 100), {
         message: 'V_atual inválido: deve estar entre 0 e 100.',
       }),
-    CTC_pH7: numeroOpcional().refine((valor) => valor === undefined || valor > 0, {
-      message: 'CTC_pH7 inválido: deve ser maior que 0.',
+    CTC_pH7: numeroOpcional().refine((valor) => valor === undefined || (valor > 0 && valor <= L.CTC_pH7.max), {
+      message: `CTC_pH7 inválido: deve ser maior que 0 e até ${f(L.CTC_pH7.max)}.`,
     }),
 
     Al_sat: numeroOpcional()
       .refine((valor) => valor === undefined || (valor >= 0 && valor <= 100), {
         message: 'Al_sat inválido: deve estar entre 0 e 100.',
       }),
-    MO: numeroOpcional().refine((valor) => valor === undefined || (valor >= 0 && valor <= 100), {
-      message: 'MO inválida: deve estar entre 0 e 100.',
+    MO: numeroOpcional().refine((valor) => valor === undefined || (valor >= L.MO.min && valor <= L.MO.max), {
+      message: `MO inválida: deve estar entre ${f(L.MO.min)} e ${f(L.MO.max)}.`,
     }),
-    Al_trocavel: numeroOpcional().refine((valor) => valor === undefined || valor >= 0, {
-      message: 'Al_trocavel inválido: deve ser >= 0.',
-    }),
+    Al_trocavel: numeroOpcional().refine(
+      (valor) => valor === undefined || (valor >= L.Al_trocavel.min && valor <= L.Al_trocavel.max),
+      { message: `Al_trocavel inválido: deve estar entre ${f(L.Al_trocavel.min)} e ${f(L.Al_trocavel.max)}.` }
+    ),
 
     SMP_10_20: numeroOpcional().refine(
       (valor) => valor === undefined || (valor >= 4.4 && valor <= 7.1),
@@ -78,6 +80,18 @@ export const CalagemSchema = z
     identificacao: z.string().trim().max(120, 'Identificação muito longa.').optional(),
   })
   .superRefine((entrada, ctx) => {
+    if (
+      entrada.Al_trocavel !== undefined &&
+      entrada.CTC_pH7 !== undefined &&
+      entrada.Al_trocavel > entrada.CTC_pH7
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['Al_trocavel'],
+        message: 'Al_trocavel não pode ser maior que a CTC_pH7.',
+      });
+    }
+
     const metodo = rotearMetodoCalagem(entrada.SMP);
     const precisaAlSat = precisaAlSatPDConsolidado(entrada.sistema_manejo, entrada.pH_agua);
     const precisaSatBases = !entrada.primeira_calagem && metodo === 'SMP';

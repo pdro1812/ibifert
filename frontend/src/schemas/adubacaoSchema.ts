@@ -1,4 +1,10 @@
 import { z } from 'zod';
+import { LIMITES_ADUBACAO, RENDIMENTO_MAXIMO_T_HA, formatarLimite } from './limitesAgronomicos';
+
+const L = LIMITES_ADUBACAO;
+const MENSAGEM_PH = `pH inválido: deve estar entre ${formatarLimite(L.pH_agua.min)} e ${formatarLimite(L.pH_agua.max)}.`;
+const MENSAGEM_DENSIDADE = `Densidade de plantas deve estar entre ${formatarLimite(L.densidade_plantas.min)} e ${formatarLimite(L.densidade_plantas.max)} plantas/ha`;
+
 
 export const CulturaSchema = z.enum([
   'aveia_branca', 'aveia_preta', 'canola', 'centeio', 'cevada',
@@ -15,31 +21,32 @@ export const FinalidadeCevadaSchema = z.enum(['cervejeira_malte_unico', 'malte_e
 
 export const AdubacaoSchema = z.object({
   identificacao: z.string().optional(),
-  // Grupo A - Solo
-  argila: z.number({ error: "Argila é obrigatória" }).min(0).max(99, "Argila deve ser <= 99%"),
-  MO: z.number({ error: "Matéria Orgânica é obrigatória" }).positive().max(20, "MO deve ser <= 20%"),
-  CTC_pH7: z.number({ error: "CTC é obrigatória" }).positive(),
-  P: z.number({ error: "Fósforo é obrigatório" }).positive(),
+  // Grupo A - Solo (faixas em limitesAgronomicos.ts, AUD-05)
+  argila: z.number({ error: "Argila é obrigatória" }).min(L.argila.min, "Argila deve ser >= 0%").max(L.argila.max, `Argila deve ser <= ${L.argila.max}%`),
+  MO: z.number({ error: "Matéria Orgânica é obrigatória" }).positive("MO deve ser maior que 0").max(L.MO.max, `MO deve ser <= ${L.MO.max}%`),
+  CTC_pH7: z.number({ error: "CTC é obrigatória" }).positive("CTC deve ser maior que 0").max(L.CTC_pH7.max, `CTC deve ser <= ${L.CTC_pH7.max} cmolc/dm³`),
+  P: z.number({ error: "Fósforo é obrigatório" }).positive("Fósforo deve ser maior que 0").max(L.P.max, `Fósforo deve ser <= ${L.P.max} mg/dm³`),
   metodo_P: MetodoExtratorSchema,
-  K: z.number({ error: "Potássio é obrigatório" }).positive(),
+  K: z.number({ error: "Potássio é obrigatório" }).positive("Potássio deve ser maior que 0").max(L.K.max, `Potássio deve ser <= ${formatarLimite(L.K.max)} mg/dm³`),
   metodo_K: MetodoExtratorSchema,
-  Ca: z.number({ error: "Cálcio é obrigatório" }).positive(),
-  Mg: z.number({ error: "Magnésio é obrigatório" }).positive(),
+  Ca: z.number({ error: "Cálcio é obrigatório" }).positive("Cálcio deve ser maior que 0").max(L.Ca.max, `Cálcio deve ser <= ${L.Ca.max} cmolc/dm³`),
+  Mg: z.number({ error: "Magnésio é obrigatório" }).positive("Magnésio deve ser maior que 0").max(L.Mg.max, `Magnésio deve ser <= ${L.Mg.max} cmolc/dm³`),
   S: z.number().positive().optional(),
   Cu: z.number().min(0).optional(),
   Zn: z.number().min(0).optional(),
   B: z.number().min(0).optional(),
   Mn: z.number().min(0).optional(),
-  pH_agua: z.number().positive().optional(),
+  pH_agua: z.number().min(L.pH_agua.min, MENSAGEM_PH).max(L.pH_agua.max, MENSAGEM_PH).optional(),
 
   // Grupo B - Cultura e Manejo
   cultura: CulturaSchema,
   num_cultivo: NumCultivoSchema,
-  rendimento_esperado: z.number({ error: "Rendimento esperado é obrigatório" }).positive(),
+  // O teto depende da cultura (refine abaixo).
+  rendimento_esperado: z.number({ error: "Rendimento esperado é obrigatório" }).positive("Rendimento esperado deve ser maior que 0"),
   cultura_antecedente: CulturaAntecedenteSchema.optional(),
   sistema_cultivo: SistemaCultivoSchema,
   tipo_correcao: TipoCorrecaoSchema.default('Gradual'),
-  densidade_plantas: z.number().positive().optional(),
+  densidade_plantas: z.number().min(L.densidade_plantas.min, MENSAGEM_DENSIDADE).max(L.densidade_plantas.max, MENSAGEM_DENSIDADE).optional(),
   finalidade_cevada: FinalidadeCevadaSchema.optional(),
 }).refine(data => {
   // Enxofre é obrigatório para soja, ervilha, ervilhaca, canola, nabo_forrageiro
@@ -81,6 +88,17 @@ export const AdubacaoSchema = z.object({
 }, {
   message: "Finalidade é obrigatória para a cevada.",
   path: ['finalidade_cevada']
+}).superRefine((data, ctx) => {
+  // Acima do limite as doses de N, P e K (lineares no rendimento) perdem o
+  // sentido. Entre o razoável e o limite o motor só alerta.
+  const { limite } = RENDIMENTO_MAXIMO_T_HA[data.cultura];
+  if (data.rendimento_esperado > limite) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['rendimento_esperado'],
+      message: `Rendimento esperado deve ser <= ${formatarLimite(limite)} t/ha para esta cultura.`,
+    });
+  }
 });
 
 export type EntradaAdubacao = z.infer<typeof AdubacaoSchema>;
