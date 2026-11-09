@@ -215,6 +215,75 @@ const OPCOES_MODO: Array<{
   { valor: 'AMBOS', titulo: 'Calagem + Adubação', descricao: 'Os dois cálculos de uma vez.', icone: Layers },
 ];
 
+// ─── Exemplos para validação ──────────────────────────────────────────────
+//
+// Análises fictícias que preenchem o formulário com um clique, para testar
+// os fluxos sem digitar tudo. Entram pelo mesmo mecanismo da edição
+// (valoresParaRestaurar), então cada campo só recebe valor quando aparece.
+
+interface ExemploAnalise {
+  rotulo: string;
+  modo: ModoCalculo;
+  campos: Record<string, unknown>;
+}
+
+const EXEMPLOS: ExemploAnalise[] = [
+  {
+    rotulo: 'Adubação 1 — Soja',
+    modo: 'ADUBACAO',
+    campos: {
+      identificacao: 'Exemplo — Soja PD', argila: 45, MO: 3.2, CTC_pH7: 14, P: 8, metodo_P: 'Mehlich-1',
+      K: 120, metodo_K: 'Mehlich-1', Ca: 5.5, Mg: 2, S: 6, pH_agua: 5.6, cultura: 'soja',
+      rendimento_esperado: 4, num_cultivo: '1', sistema_cultivo: 'Plantio Direto', tipo_correcao: 'Gradual',
+    },
+  },
+  {
+    rotulo: 'Adubação 2 — Milho',
+    modo: 'ADUBACAO',
+    campos: {
+      identificacao: 'Exemplo — Milho convencional', argila: 30, MO: 2.5, CTC_pH7: 9, P: 5, metodo_P: 'Mehlich-1',
+      K: 80, metodo_K: 'Mehlich-1', Ca: 4, Mg: 1.5, pH_agua: 5.4, cultura: 'milho', rendimento_esperado: 10,
+      num_cultivo: '1', cultura_antecedente: 'Leguminosa', sistema_cultivo: 'Convencional', tipo_correcao: 'Gradual',
+    },
+  },
+  {
+    rotulo: 'Calagem 1 — Convencional (SMP)',
+    modo: 'CALAGEM',
+    campos: {
+      identificacao: 'Exemplo — Calagem convencional', sistema_manejo: 'CONVENCIONAL', PRNT: 80, pH_agua: 5,
+      SMP: 5.6, MO: 3, CTC_pH7: 12.5, V_atual: 45,
+    },
+  },
+  {
+    rotulo: 'Calagem 2 — PD Consolidado (Polinomial)',
+    modo: 'CALAGEM',
+    campos: {
+      identificacao: 'Exemplo — Calagem PD consolidado', sistema_manejo: 'PD_CONSOLIDADO', PRNT: 90, pH_agua: 5.2,
+      SMP: 6.5, MO: 2.8, Al_trocavel: 0.6, V_atual: 55, Al_sat: 12,
+    },
+  },
+  {
+    rotulo: 'Calagem e Adubação 1 — Trigo',
+    modo: 'AMBOS',
+    campos: {
+      identificacao: 'Exemplo — Trigo PD implantação', sistema_manejo: 'PD_IMPLANTACAO', PRNT: 85, pH_agua: 5.3,
+      SMP: 5.8, MO: 3, CTC_pH7: 11, V_atual: 50, argila: 40, P: 6, metodo_P: 'Mehlich-1', K: 90,
+      metodo_K: 'Mehlich-1', Ca: 4.5, Mg: 1.8, cultura: 'trigo', rendimento_esperado: 3, num_cultivo: '1',
+      cultura_antecedente: 'Leguminosa', tipo_correcao: 'Gradual',
+    },
+  },
+  {
+    rotulo: 'Calagem e Adubação 2 — Feijão',
+    modo: 'AMBOS',
+    campos: {
+      identificacao: 'Exemplo — Feijão convencional', sistema_manejo: 'CONVENCIONAL', PRNT: 75, pH_agua: 4.9,
+      SMP: 5.4, MO: 3.5, CTC_pH7: 13, V_atual: 38, argila: 55, P: 4, metodo_P: 'Mehlich-1', K: 70,
+      metodo_K: 'Mehlich-1', Ca: 3.8, Mg: 1.2, cultura: 'feijao', rendimento_esperado: 2.5, num_cultivo: '1',
+      tipo_correcao: 'Gradual',
+    },
+  },
+];
+
 const METODOS_EXTRACAO = [
   { value: 'Mehlich-1', label: 'Mehlich-1' },
   { value: 'Mehlich-3', label: 'Mehlich-3' },
@@ -324,6 +393,7 @@ export function CalculadoraCompletaPage({ edicao }: CalculadoraCompletaProps = {
     handleSubmit,
     getValues,
     setValue,
+    reset,
     formState: { errors },
   } = useForm<FormCompleta>({
     resolver: criarResolverCompleto(modo),
@@ -350,6 +420,19 @@ export function CalculadoraCompletaPage({ edicao }: CalculadoraCompletaProps = {
     );
     valoresParaRestaurar.current = { ...valoresParaRestaurar.current, ...atuais };
     setModo(novoModo);
+  };
+
+  // Limpa o formulário e entrega os valores do exemplo ao mecanismo de
+  // restauração abaixo. O contador só garante um novo render quando o modo
+  // não muda (é o efeito pós-render que preenche os campos).
+  const [, setExemploAplicado] = useState(0);
+  const aplicarExemplo = (exemplo: ExemploAnalise) => {
+    reset();
+    valoresParaRestaurar.current = { ...exemplo.campos };
+    setModoAlSat('direto');
+    setMonitoramentoAtivo(false);
+    setModo(exemplo.modo);
+    setExemploAplicado((n) => n + 1);
   };
 
   // Roda depois de cada render: devolve o valor guardado a cada campo que
@@ -637,14 +720,34 @@ export function CalculadoraCompletaPage({ edicao }: CalculadoraCompletaProps = {
       <Modal isOpen={modalTermosOpen} onClose={() => setModalTermosOpen(false)} titulo="Termos de Uso do Ibiferti">
         <div className="space-y-4 text-sm leading-relaxed text-stone-600">
           <p>
-            O <strong>Ibiferti</strong> é uma ferramenta de apoio à tomada de decisão baseada nos
-            manuais regionais oficiais.
+            O <strong>Ibiferti</strong> é uma ferramenta web gratuita que gera recomendações de calagem e
+            adubação conforme os critérios do{' '}
+            <strong>Manual de Calagem e Adubação para os Estados do Rio Grande do Sul e de Santa Catarina</strong>,
+            da Comissão de Química e Fertilidade do Solo — RS/SC, <strong>11ª edição, de 2016</strong>.
           </p>
+          <p>Ao utilizar a ferramenta, declaro estar ciente de que:</p>
           <ul className="list-disc space-y-2 pl-5">
-            <li>As recomendações são puramente matemáticas baseadas nos dados informados.</li>
-            <li>Não substitui a avaliação de um Engenheiro Agrônomo qualificado.</li>
-            <li>A precisão depende da qualidade da coleta de solo e da análise laboratorial.</li>
+            <li>Os resultados seguem os critérios, as tabelas e os procedimentos do manual de referência.</li>
+            <li>
+              As recomendações correspondem aos dados da análise de solo e às informações de cultivo e
+              manejo fornecidas.
+            </li>
+            <li>
+              Cabe ao usuário conferir os dados inseridos e utilizar os resultados nas condições
+              consideradas no cálculo.
+            </li>
+            <li>
+              A orientação de um Engenheiro Agrônomo qualificado pode contribuir para interpretar os
+              resultados e integrar as recomendações ao planejamento e ao manejo da área.
+            </li>
           </ul>
+          <p className="font-semibold text-stone-700">Li e concordo com estes termos de uso.</p>
+          <p>
+            Identificou alguma possível falha?{' '}
+            <Link to="/feedback" className="font-bold text-green-600 underline hover:text-green-700">
+              Informar um problema
+            </Link>
+          </p>
           <button
             onClick={() => setModalTermosOpen(false)}
             className="mt-4 w-full rounded-xl bg-stone-900 py-3 font-bold text-white transition-colors hover:bg-stone-800"
@@ -694,6 +797,27 @@ export function CalculadoraCompletaPage({ edicao }: CalculadoraCompletaProps = {
           </div>
         ) : (
         <>
+        {/* ── Exemplos para validação ──────────────────────────────────── */}
+        {!emEdicao ? (
+          <div data-testid="exemplos-validacao" className="mb-6 space-y-2 rounded-2xl border border-dashed border-stone-300 bg-white p-4">
+            <p className="text-xs font-semibold uppercase tracking-wider text-stone-500">
+              Exemplos para teste — clique para preencher
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {EXEMPLOS.map((exemplo) => (
+                <button
+                  key={exemplo.rotulo}
+                  type="button"
+                  onClick={() => aplicarExemplo(exemplo)}
+                  className="rounded-lg border border-stone-200 bg-stone-50 px-3 py-1.5 text-xs font-semibold text-stone-700 transition-colors hover:border-green-400 hover:bg-green-50 hover:text-green-800"
+                >
+                  {exemplo.rotulo}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
         {/* ── Seletor de Módulo (destaque) ─────────────────────────────── */}
         {!emEdicao ? (
         <div className="mb-8 grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -747,8 +871,8 @@ export function CalculadoraCompletaPage({ edicao }: CalculadoraCompletaProps = {
                 <Link to="/conta" className="font-semibold text-green-700 hover:underline">Alterar</Link>
               </p>
             ) : (
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                  <div className="col-span-1 space-y-1">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="space-y-1">
                     <label className="text-xs font-semibold text-stone-600">Estado *</label>
                     <select
                       value={ufSelecionada}
@@ -759,12 +883,12 @@ export function CalculadoraCompletaPage({ edicao }: CalculadoraCompletaProps = {
                       className="w-full rounded-xl border border-stone-200 bg-white px-4 py-3 shadow-sm outline-none focus:border-green-500"
                     >
                       {ESTADOS_ATENDIDOS.map((estado) => (
-                        <option key={estado.sigla} value={estado.sigla}>{estado.sigla}</option>
+                        <option key={estado.sigla} value={estado.sigla}>{estado.sigla} — {estado.nome}</option>
                       ))}
                     </select>
                   </div>
 
-                  <div className="col-span-2 space-y-1">
+                  <div className="space-y-1">
                     <label className="text-xs font-semibold text-stone-600">Cidade *</label>
                     <input
                       list="lista-municipios-completa"
