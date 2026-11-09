@@ -4,6 +4,7 @@ import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { AlertCircle, Check, Circle, Leaf, Lightbulb, Loader2 } from 'lucide-react';
+import { CampoSenha } from '../components/CampoSenha';
 import { useAuth } from '../contexts/AuthContext';
 import { recuperarAnalisePendente } from '../services/pendencias';
 import { ibgeService } from '../services/ibge';
@@ -258,8 +259,7 @@ export function RegisterPage() {
           {/* Senha */}
           <div className="space-y-1">
             <label className="text-sm font-semibold text-stone-700">Senha</label>
-            <input
-              type="password"
+            <CampoSenha
               autoComplete="new-password"
               aria-describedby="requisitos-senha"
               {...register('senha')}
@@ -294,8 +294,7 @@ export function RegisterPage() {
           {/* Confirmar senha */}
           <div className="space-y-1">
             <label className="text-sm font-semibold text-stone-700">Confirme sua senha</label>
-            <input
-              type="password"
+            <CampoSenha
               autoComplete="new-password"
               {...register('confirmarSenha')}
               className={`w-full rounded-xl border px-4 py-3 outline-none transition-all ${
